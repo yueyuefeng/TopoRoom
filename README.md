@@ -1,81 +1,87 @@
-# 拓间 TopoRoom — P0 software core
+# 拓间 TopoRoom
 
-Low-cost Type-C depth + phone host + Bluetooth **laser** anchors → editable floor-plan semantics (**SceneIR**) → professional export. This repository currently contains the **testable TypeScript core** (no Android APK).
+Low-cost Type-C depth + phone host + Bluetooth **laser** anchors → editable
+floor-plan semantics (**SceneIR**) → professional export (DXF / PDF / glTF).
 
-Specs (source of truth):
+**The product core is C++.** Native **iOS** and **Android** apps will share the
+same library. There is no TypeScript / web runtime in this repository.
 
-- [docs/architecture/FINAL-readme.md](./docs/architecture/FINAL-readme.md) — hard decisions
-- [docs/architecture/FINAL-toporoom-hw-sw-requirements.md](./docs/architecture/FINAL-toporoom-hw-sw-requirements.md) — FR/NFR, P0 In/Out
-- [docs/architecture/FINAL-toporoom-software-architecture.md](./docs/architecture/FINAL-toporoom-software-architecture.md) — packages, ports, BC map
+Specs:
 
-## Quick start
+- [docs/architecture/FINAL-readme.md](./docs/architecture/FINAL-readme.md)
+- [docs/architecture/FINAL-toporoom-hw-sw-requirements.md](./docs/architecture/FINAL-toporoom-hw-sw-requirements.md)
+- [docs/architecture/FINAL-toporoom-software-architecture.md](./docs/architecture/FINAL-toporoom-software-architecture.md)
+
+## Quick start (Linux CI)
 
 ```bash
-pnpm install
-pnpm test
-pnpm lint
-pnpm typecheck
+cmake -S . -B build -DTOPOROOM_BUILD_TESTS=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-Requires Node.js ≥ 20 and pnpm 10.
+Requires CMake ≥ 3.20, a C++20 compiler, and network on first configure
+(GoogleTest + nlohmann/json via FetchContent).
+
+## Layout
+
+```text
+core/                 C++ domain, ports, app services, fakes, SceneIR JSON, C API
+  include/toporoom/
+  src/
+  tests/              GoogleTest (ctest)
+  fixtures/           SceneIR 0.1 gold JSON
+mobile/android/       JNI/NDK skeleton linking toporoom_core
+mobile/ios/           Objective-C++ / Swift skeleton linking the C API
+docs/architecture/    FINAL specs
+```
+
+## How mobile hosts consume the core
+
+```
+        Swift UI (iOS)                 Kotlin/Java UI (Android)
+                │                                │
+                ▼                                ▼
+        TopoRoomCore.mm                    NativeCore JNI
+                │                                │
+                └──────────► C API (toporoom.h) ◄┘
+                                   │
+                                   ▼
+                         toporoom_core (C++)
+                         FloorPlanDocument = SceneIR
+```
+
+- SceneIR / `FloorPlanDocument` is the only editable truth (I1).
+- Godot, if used at all, is a **read-only** glTF consumer. It does not write
+  dimensions back.
+- iOS is a first-class host for the **software** core; P0 hardware capture
+  (Type-C depth whitelist) remains Android-first per the FINAL hardware spec.
 
 ## Invariants (I1–I10)
 
 | # | Rule |
 |---|------|
-| **I1** | SceneIR / `FloorPlanDocument` is the only editable source of truth. Mesh, point cloud, 3DGS, Godot nodes are derivatives. |
-| **I2** | `manifold` exists only behind the GeometryKernel ACL. Aggregates, events, and `DocumentStore` never hold `Manifold` / `CrossSection` / `MeshGL`. |
-| **I3** | gotbot contributes Application patterns only (`ToolRegistry`, `ParamGatheringFSM`, `SessionIsolate`). It is not a CAD kernel. |
-| **I4** | Writes are **serial per `documentId`**. Rebuild may pre-empt via `rebuildGeneration`. |
-| **I5** | Capture emits Command/Event into the same `FloorPlanDocument`. No second truth document. |
-| **I6** | Structural-solid export requires Status == OK. Faults are visible; never silently ship a bad mesh. |
-| **I7** | Godot is a read-only glTF host. Editing stays in TopoRoom. |
+| **I1** | SceneIR / `FloorPlanDocument` is the only editable source of truth. |
+| **I2** | `manifold` exists only behind GeometryPort adapters. Domain never holds Manifold/MeshGL. |
+| **I3** | Interaction shell is Application: `ToolRegistry`, `ParamGatheringFSM`, `SessionIsolate`. |
+| **I4** | Writes are serial per `documentId`. |
+| **I5** | Capture emits commands into the same `FloorPlanDocument`. |
+| **I6** | Structural-solid export requires Status == OK. Faults reject export. |
+| **I7** | Godot is a read-only glTF host. |
 | **I8** | VisualizationDerivative must not write dimensions back. |
-| **I9** | Laser lengths are written through Command into semantics **with `source`**. Evidence-only is not a measurement. |
-| **I10** | Dependencies: UI → Application → Domain ← Adapters. Ports inside, adapters outside. |
+| **I9** | Laser lengths go through Command into semantics with `source`. |
+| **I10** | UI → Application → Domain ← Adapters. |
 
-Hard product decisions: slim P0 (no MEP / furnishing / cloud / quote), laser in P0, no GS write-back, Android whitelist later, RF BLE ranging is **never** a dimension source.
-
-## Packages
-
-```text
-packages/
-  domain-floorplan/          # LengthMm, Wall/Storey/Opening, FloorPlanDocument, SceneIR 0.1
-  ports/                     # GeometryPort, LaserRangefinderPort, DepthStreamPort,
-                             # DocumentStorePort, NotifyPort (+ fakes)
-  app-interaction-shell/     # SessionIsolate, ParamGatheringFSM, ToolRegistry, WallDrawTool
-  app-floorplan/             # AddWall / AddOpening / SetMeasurement + RebuildPolicy
-  app-deliverables/          # StatusGate + ExportAppService
-  adapter-export-gltf/       # Scene-graph JSON + minimal glTF 2.0 JSON (mm→m)
-  fixtures-sceneir/          # SceneIR 0.1 rectangular-room gold fixture
-  adapter-manifold-wasm/     # TODO — real CrossSection→Extrude→Boolean
-  adapter-depth-vendorsdk/   # stub
-  adapter-depth-uvc/         # stub
-  adapter-laser-bt/          # stub
-  adapter-imu-phone/         # stub
-  adapter-store-indexeddb/   # stub
-  adapter-export-dxf/        # stub
-```
-
-CI also enforces **NFR-015**: `domain-*` must not import `manifold` / `three` / `godot` (ESLint + a source scan test).
-
-## Hardware adapters (later)
-
-Depth, laser, and IMU talk to the core **only** through ports. This milestone ships `FakeGeometryPort` and in-memory document store. Real drivers, Android USB/BT, and Godot are out of scope here.
+CI scans `core/**/domain/**` so it cannot include manifold / three / godot /
+nlohmann JSON (JSON stays in adapters).
 
 ## Next TDD slices
 
-1. `domain-capture` / `app-capture` — `CaptureSession` AR, guided FSM (calibrate → outer wall → height → openings), draft save / resume.
-2. `adapter-manifold-wasm` — real GeometryPort; Fault mapping; cache key = hash(SceneIR slice + compile options).
-3. Typed + Bluetooth `LaserRangefinderPort` adapters; never RF-BLE as a ruler.
-4. `DepthStreamPort` VendorSdk (primary) + UVC (transport) with replay fixtures (NFR-006).
-5. `adapter-export-dxf` / PDF; Q3: whether semantic DXF mid-line layers may export on Fault.
-6. IndexedDB `DocumentStorePort`; EvidencePack weak refs (deletable).
-7. Android host: whitelist hex tuple, USB/BT permissions, experimental-mode watermark.
-8. Godot 4 read-only `.glb` roam; no SceneIR write-back.
+1. Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).
+2. Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).
+3. Real `DepthStreamPort` (Vendor SDK primary, UVC transport).
+4. JNI/NDK + Swift UI: guided capture, whitelist, USB/BT permissions.
+5. DXF/PDF exporters; Godot read-only `.glb` roam.
 
-## Measurement sources (SceneIR 0.1)
-
-`measurements[].source ∈ { laser, typed, depth_fit }`
-
-`depth_fit` must not silently overwrite `laser` or `typed`.
+`measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
+silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.
