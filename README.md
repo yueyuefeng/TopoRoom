@@ -1,10 +1,11 @@
 # 拓间 TopoRoom
 
+**C++ only.** No TypeScript, no JavaScript, no pnpm/npm workspace. The
+editable product core is a CMake static library consumed by native **iOS**
+and **Android** hosts through a C API (`core/include/toporoom/c_api/toporoom.h`).
+
 Low-cost Type-C depth + phone host + Bluetooth **laser** anchors → editable
 floor-plan semantics (**SceneIR**) → professional export (DXF / PDF / glTF).
-
-**The product core is C++.** Native **iOS** and **Android** apps will share the
-same library. There is no TypeScript / web runtime in this repository.
 
 Specs:
 
@@ -15,8 +16,8 @@ Specs:
 ## Quick start (Linux CI)
 
 ```bash
-cmake -S . -B build -DTOPOROOM_BUILD_TESTS=ON
-cmake --build build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTOPOROOM_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER=g++
+cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
