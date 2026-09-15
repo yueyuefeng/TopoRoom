@@ -1,0 +1,16 @@
+{
+  "name": "@toporoom/ports",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fakes": "./src/fakes/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --config ../../vitest.config.ts"
+  },
+  "dependencies": {
+    "@toporoom/domain-floorplan": "workspace:*"
+  }
+}
