@@ -1,0 +1,8 @@
+packages:
+  - "packages/domain-floorplan"
+  - "packages/ports"
+  - "packages/app-interaction-shell"
+  - "packages/app-floorplan"
+  - "packages/app-deliverables"
+  - "packages/adapter-export-gltf"
+  - "packages/fixtures-sceneir"
