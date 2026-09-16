@@ -28,6 +28,7 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/in_memory_document_store.cpp
   src/adapters/export_scene_graph.cpp
   src/adapters/scene_ir_json.cpp
+  src/c_api/toporoom_c_api.cpp
 )
 
 add_library(toporoom_core STATIC ${TOPOROOM_CORE_SOURCES})
@@ -79,6 +80,8 @@ if(TOPOROOM_BUILD_TESTS)
     tests/handlers_test.cpp
     tests/fake_geometry_port_test.cpp
     tests/status_gate_test.cpp
+    tests/export_scene_graph_test.cpp
+    tests/c_api_test.cpp
   )
 
   add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
