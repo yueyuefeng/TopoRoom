@@ -26,18 +26,31 @@ struct DepthStreamOptions {
   int fps = 30;
 };
 
-struct DepthFrameDTO {
-  int width = 0;
-  int height = 0;
-  long long timestamp = 0;
-  std::vector<float> depths_mm;
-};
-
 struct ColorFrameDTO {
   int width = 0;
   int height = 0;
   long long timestamp = 0;
   std::vector<std::uint8_t> rgba;
+};
+
+struct FramePose {
+  bool valid = false;
+  double tx_mm = 0;
+  double ty_mm = 0;
+  double tz_mm = 0;
+  double qw = 1;
+  double qx = 0;
+  double qy = 0;
+  double qz = 0;
+};
+
+struct DepthFrameDTO {
+  int width = 0;
+  int height = 0;
+  long long timestamp = 0;
+  std::vector<float> depths_mm;
+  FramePose pose;
+  std::optional<ColorFrameDTO> color;
 };
 
 struct CameraIntrinsics {

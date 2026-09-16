@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "platform": "android",
+  "iosExternalDepth": "out_of_p0",
+  "note": "iOS external Type-C depth is out of P0. Bluetooth is transport only.",
+  "requiredPermissions": [
+    "BLUETOOTH_SCAN",
+    "BLUETOOTH_CONNECT",
+    "USB_HOST",
+    "USB_DEVICE"
+  ],
+  "entries": [
+    {
+      "phoneModel": "Pixel 8",
+      "androidApi": 34,
+      "moduleSku": "orbbec_gemini_e",
+      "firmware": "1.2.0",
+      "hubSku": "powered_hub_a",
+      "appVersion": "0.1.0",
+      "usbHost": true,
+      "otg": true,
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "USB_HOST", "USB_DEVICE"]
+    },
+    {
+      "phoneModel": "Pixel 8",
+      "androidApi": 34,
+      "moduleSku": "orbbec_gemini_e",
+      "firmware": "1.2.0",
+      "hubSku": "none",
+      "appVersion": "0.1.0",
+      "usbHost": true,
+      "otg": true,
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "USB_HOST", "USB_DEVICE"]
+    },
+    {
+      "phoneModel": "SM-S911B",
+      "androidApi": 33,
+      "moduleSku": "orbbec_gemini_e",
+      "firmware": "1.2.0",
+      "hubSku": "powered_hub_a",
+      "appVersion": "0.1.0",
+      "usbHost": true,
+      "otg": true,
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "USB_HOST", "USB_DEVICE"]
+    },
+    {
+      "phoneModel": "2201123G",
+      "androidApi": 33,
+      "moduleSku": "orbbec_gemini_e",
+      "firmware": "1.2.0",
+      "hubSku": "powered_hub_a",
+      "appVersion": "0.1.0",
+      "usbHost": true,
+      "otg": true,
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "USB_HOST", "USB_DEVICE"]
+    }
+  ]
+}

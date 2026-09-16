@@ -31,6 +31,12 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/export_dxf.cpp
   src/adapters/export_pdf.cpp
   src/adapters/scene_ir_json.cpp
+  src/adapters/laser_adapters.cpp
+  src/adapters/depth_adapters.cpp
+  src/adapters/android_whitelist.cpp
+  src/adapters/imu_adapters.cpp
+  src/app/laser_capture_service.cpp
+  src/app/depth_capture_service.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -116,6 +122,10 @@ if(TOPOROOM_BUILD_TESTS)
     tests/export_deliverables_test.cpp
     tests/sceneir_fixture_test.cpp
     tests/c_api_test.cpp
+    tests/laser_port_test.cpp
+    tests/depth_port_test.cpp
+    tests/android_whitelist_test.cpp
+    tests/imu_port_test.cpp
   )
 
   target_link_libraries(toporoom_tests
