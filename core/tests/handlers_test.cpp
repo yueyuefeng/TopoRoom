@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
-#include <optional>
-#include <string>
 
+#include "toporoom/adapters/fake_geometry_port.hpp"
 #include "toporoom/adapters/in_memory_document_store.hpp"
 #include "toporoom/app/add_opening_handler.hpp"
 #include "toporoom/app/add_wall_handler.hpp"
@@ -11,6 +10,7 @@
 #include "toporoom/domain/floor_plan_document.hpp"
 #include "toporoom/ports/geometry_port.hpp"
 
+using toporoom::adapters::FakeGeometryPort;
 using toporoom::adapters::InMemoryDocumentStore;
 using toporoom::app::AddOpeningCommand;
 using toporoom::app::AddOpeningHandler;
@@ -25,40 +25,13 @@ using toporoom::domain::FloorPlanDocument;
 using toporoom::domain::MeasurementSource;
 using toporoom::domain::OpeningKind;
 using toporoom::domain::WallKind;
+using toporoom::ports::FaultCode;
 
 namespace {
 
-class StubGeometryPort : public toporoom::ports::GeometryPort {
- public:
-  toporoom::ports::RebuildResult rebuild(
-      const toporoom::ports::BuildRequest& request) override {
-    last_ = request;
-    toporoom::ports::RebuildResult result;
-    result.ok = true;
-    return result;
-  }
-  toporoom::ports::RebuildResult ensure_built(
-      int, std::optional<std::string>, std::optional<std::string>) override {
-    toporoom::ports::RebuildResult result;
-    result.ok = true;
-    return result;
-  }
-  toporoom::ports::GeometryStatus status(std::optional<std::string>,
-                                         std::optional<std::string>) override {
-    return toporoom::ports::GeometryStatus::NoError;
-  }
-  void clear_cache() override {}
-  const toporoom::ports::BuildRequest* last_build_request() const {
-    return last_ ? &*last_ : nullptr;
-  }
-
- private:
-  std::optional<toporoom::ports::BuildRequest> last_;
-};
-
 struct Ctx {
   InMemoryDocumentStore store;
-  StubGeometryPort geometry;
+  FakeGeometryPort geometry;
   GeometryRebuildPolicy rebuild;
   AddWallHandler add_wall;
   AddOpeningHandler add_opening;
@@ -152,4 +125,12 @@ TEST(Handlers, SetMeasurementWritesLaserAndResizes) {
   EXPECT_EQ(saved->measurements[0].source, MeasurementSource::Laser);
   EXPECT_EQ(saved->measurements[0].value_mm, 900);
   EXPECT_EQ(saved->storeys[0].walls[0].openings[0].width_mm, 900);
+}
+
+TEST(Handlers, RebuildPolicyReceivesFault) {
+  Ctx ctx;
+  ctx.geometry.fail_with({FaultCode::NotClosed, "room not closed", {ctx.storey_id}});
+  const auto result = ctx.add_wall.execute(south_wall(ctx.storey_id));
+  EXPECT_FALSE(result.rebuild.ok);
+  EXPECT_EQ(result.rebuild.fault.code, FaultCode::NotClosed);
 }

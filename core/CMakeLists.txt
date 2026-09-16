@@ -22,6 +22,8 @@ set(TOPOROOM_CORE_SOURCES
   src/app/add_opening_handler.cpp
   src/app/set_measurement_handler.cpp
   src/app/rebuild_policy.cpp
+  src/app/status_gate.cpp
+  src/adapters/fake_geometry_port.cpp
   src/adapters/in_memory_document_store.cpp
   src/adapters/scene_ir_json.cpp
 )
@@ -72,6 +74,9 @@ if(TOPOROOM_BUILD_TESTS)
     tests/session_isolate_test.cpp
     tests/param_gathering_fsm_test.cpp
     tests/tool_registry_test.cpp
+    tests/handlers_test.cpp
+    tests/fake_geometry_port_test.cpp
+    tests/status_gate_test.cpp
   )
 
   add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
