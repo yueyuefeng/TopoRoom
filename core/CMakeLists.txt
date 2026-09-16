@@ -24,6 +24,7 @@ set(TOPOROOM_CORE_SOURCES
   src/app/status_gate.cpp
   src/app/export_app_service.cpp
   src/adapters/fake_geometry_port.cpp
+  src/adapters/manifold_geometry_port.cpp
   src/adapters/in_memory_document_store.cpp
   src/adapters/export_scene_graph.cpp
   src/adapters/scene_ir_json.cpp
@@ -62,6 +63,26 @@ FetchContent_MakeAvailable(nlohmann_json)
 # must not include nlohmann/json.hpp.
 target_link_libraries(toporoom_core PRIVATE nlohmann_json::nlohmann_json)
 
+# Manifold is the GeometryKernel ACL only (I2 / NFR-015). Never PUBLIC.
+set(MANIFOLD_TEST OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_CBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PYBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_JSBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PAR OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_CROSS_SECTION ON CACHE BOOL "" FORCE)
+set(MANIFOLD_USE_BUILTIN_CLIPPER2 ON CACHE BOOL "" FORCE)
+set(MANIFOLD_DOWNLOADS ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF)
+
+FetchContent_Declare(
+  manifold
+  GIT_REPOSITORY https://github.com/elalish/manifold.git
+  GIT_TAG v3.5.3
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(manifold)
+target_link_libraries(toporoom_core PRIVATE manifold)
+
 if(TOPOROOM_BUILD_TESTS)
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   FetchContent_Declare(
@@ -82,6 +103,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/import_ban_test.cpp
     tests/ports_test.cpp
     tests/fake_geometry_port_test.cpp
+    tests/manifold_geometry_port_test.cpp
     tests/session_isolate_test.cpp
     tests/param_gathering_fsm_test.cpp
     tests/tool_registry_test.cpp
@@ -97,6 +119,7 @@ if(TOPOROOM_BUILD_TESTS)
       toporoom::core
       GTest::gtest_main
       nlohmann_json::nlohmann_json
+      manifold
   )
   target_compile_definitions(toporoom_tests
     PRIVATE
