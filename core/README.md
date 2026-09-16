@@ -4,7 +4,7 @@ C++20 static library: SceneIR domain, ports, application services, C API.
 
 Production geometry is `ManifoldGeometryPort` (CrossSection → Extrude →
 Boolean). Deliverables: binary `.glb` (mm→m once), ASCII DXF, and a simple
-PDF floor plan — all gated by StatusGate. Domain sources must not `#include`
-manifold — see `core/adapters/STUBS.md` and NFR-015.
-
-Hardware adapters (depth / laser / IMU) are not in this milestone.
+PDF floor plan — all gated by StatusGate. Capture adapters: Bluetooth laser
+(fake/replay in CI), VendorSdk + UVC depth (replay fixture), Android
+whitelist v1, IMU degrade stubs. Domain sources must not `#include`
+manifold or vendor SDKs — see `core/adapters/STUBS.md` and NFR-015.

@@ -82,10 +82,11 @@ nlohmann JSON (JSON stays in adapters).
 
 1. ~~Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).~~ **Done**
 2. ~~DXF / PDF / `.glb` exporters and Godot read-only roam.~~ **Done**
-   (`export_glb` / `export_dxf` / `export_pdf`; sample `godot/`).
-3. Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).
-4. Real `DepthStreamPort` (Vendor SDK primary, UVC transport).
-5. JNI/NDK + Swift UI: guided capture, whitelist, USB/BT permissions.
+3. ~~Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).~~ **Done**
+   (CI uses `FakeBleLaserTransport` / `ReplayLaserPort`; no real radio.)
+4. ~~`DepthStreamPort` VendorSdk + UVC + replay fixture; Android whitelist.~~ **Done**
+   (`core/fixtures/android-whitelist.v1.json`; iOS external depth stays out of P0.)
+5. JNI/NDK + Swift UI: guided capture, runtime permission prompts, USB/BT UX.
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.

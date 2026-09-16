@@ -13,4 +13,8 @@ mobile/android/
 Gradle (later) should point `externalNativeBuild.cmake.path` at this
 `CMakeLists.txt` and pass `-DTOPOROOM_BUILD_TESTS=OFF`.
 
-Whitelist / USB Host / BT permissions belong in the real app module, not here.
+Whitelist / USB Host / BT **permission flags** live in
+`core/fixtures/android-whitelist.v1.json` (versioned C++-loaded table).
+This JNI skeleton does not prompt; the real app module must request
+`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, and USB host/device permission.
+**iOS external depth is out of P0.**
