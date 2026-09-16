@@ -1,8 +1,6 @@
 #!/bin/sh
-# Gradle start up script for POSIX generated for TopoRoom Android.
-##############################################################################
-# This is a trimmed POSIX wrapper. Android Studio can regenerate it.
-##############################################################################
+# Gradle start up script for POSIX (TopoRoom Android).
+# Android Studio can regenerate a full wrapper; this one is enough to bootstrap.
 
 app_path=$0
 while [ -h "$app_path" ]; do
@@ -15,8 +13,6 @@ while [ -h "$app_path" ]; do
 done
 APP_HOME=$(cd "$(dirname "$app_path")" && pwd) || exit
 APP_BASE_NAME=${0##*/}
-
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 
 if [ -n "$JAVA_HOME" ]; then
   JAVACMD=$JAVA_HOME/bin/java
@@ -35,7 +31,6 @@ if [ ! -f "$CLASSPATH" ]; then
   exit 1
 fi
 
-# shellcheck disable=SC2086
-exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS \
+exec "$JAVACMD" -Xmx64m -Xms64m $JAVA_OPTS $GRADLE_OPTS \
   -Dorg.gradle.appname="$APP_BASE_NAME" -classpath "$CLASSPATH" \
   org.gradle.wrapper.GradleWrapperMain "$@"
