@@ -5,8 +5,12 @@ find_package(Threads REQUIRED)
 
 set(TOPOROOM_CORE_SOURCES
   src/domain/error.cpp
+  src/domain/kinds.cpp
   src/domain/length_mm.cpp
   src/domain/point_mm.cpp
+  src/domain/opening.cpp
+  src/domain/wall.cpp
+  src/domain/storey.cpp
 )
 
 add_library(toporoom_core STATIC ${TOPOROOM_CORE_SOURCES})
@@ -37,6 +41,8 @@ if(TOPOROOM_BUILD_TESTS)
   add_executable(toporoom_tests
     tests/length_mm_test.cpp
     tests/point_mm_test.cpp
+    tests/wall_test.cpp
+    tests/opening_test.cpp
   )
   target_link_libraries(toporoom_tests PRIVATE toporoom::core GTest::gtest_main)
   target_compile_definitions(toporoom_tests PRIVATE
