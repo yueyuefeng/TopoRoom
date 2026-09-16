@@ -12,6 +12,6 @@ adapter libraries that implement ports in `core/include/toporoom/ports`.
 | Bluetooth laser | LaserRangefinderPort | BT is transport; `source=laser` |
 | typed laser | LaserRangefinderPort | Keyboard fallback; `source=typed` |
 | phone IMU | ImuPort | Degradation flag required |
-| DXF / PDF / .glb export | Deliverables | Next slice; reads SceneIR (+ derived mesh). mm→m only at this edge |
+| DXF / PDF / .glb export | Deliverables | **P0 done** — `export_dxf` / `export_pdf` / `export_glb`; mm→m only in glb; StatusGate rejects Fault. Godot 4 sample in `godot/` is read-only |
 
 RF BLE ranging is never a dimension source.

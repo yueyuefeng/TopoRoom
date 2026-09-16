@@ -33,6 +33,7 @@ core/                 C++ domain, ports, app services, fakes, SceneIR JSON, C AP
   src/
   tests/              GoogleTest (ctest)
   fixtures/           SceneIR 0.1 gold JSON
+godot/                Godot 4 read-only .glb roam (no SceneIR write-back)
 mobile/android/       JNI/NDK skeleton linking toporoom_core
 mobile/ios/           Objective-C++ / Swift skeleton linking the C API
 docs/architecture/    FINAL specs
@@ -80,8 +81,8 @@ nlohmann JSON (JSON stays in adapters).
 ## Next TDD slices
 
 1. ~~Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).~~ **Done**
-   (`core/src/adapters/manifold_geometry_port.cpp`, FetchContent `elalish/manifold` **v3.5.3**).
-2. DXF / PDF exporters and Godot read-only `.glb` roam (mm→m only at the export edge).
+2. ~~DXF / PDF / `.glb` exporters and Godot read-only roam.~~ **Done**
+   (`export_glb` / `export_dxf` / `export_pdf`; sample `godot/`).
 3. Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).
 4. Real `DepthStreamPort` (Vendor SDK primary, UVC transport).
 5. JNI/NDK + Swift UI: guided capture, whitelist, USB/BT permissions.
