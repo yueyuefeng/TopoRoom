@@ -75,9 +75,13 @@ ports::MeshSolid mesh_from_manifold(const Manifold& solid,
   out.vertices_mm.reserve(static_cast<size_t>(mesh.NumVert()) * 3);
   for (size_t i = 0; i < mesh.NumVert(); ++i) {
     const size_t offset = i * static_cast<size_t>(mesh.numProp);
-    out.vertices_mm.push_back(mesh.vertProperties[offset]);
-    out.vertices_mm.push_back(mesh.vertProperties[offset + 1]);
-    out.vertices_mm.push_back(mesh.vertProperties[offset + 2]);
+    const float x = mesh.vertProperties[offset];
+    const float y_plan = mesh.vertProperties[offset + 1];
+    const float z_height = mesh.vertProperties[offset + 2];
+    // Extrude is +Z. Rotate X −90° so glTF/Godot Y-up is (x, height, −plan_y).
+    out.vertices_mm.push_back(x);
+    out.vertices_mm.push_back(z_height);
+    out.vertices_mm.push_back(-y_plan);
   }
   out.indices.reserve(mesh.triVerts.size());
   for (auto index : mesh.triVerts) {

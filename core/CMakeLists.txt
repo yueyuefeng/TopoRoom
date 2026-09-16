@@ -27,6 +27,9 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/manifold_geometry_port.cpp
   src/adapters/in_memory_document_store.cpp
   src/adapters/export_scene_graph.cpp
+  src/adapters/export_glb.cpp
+  src/adapters/export_dxf.cpp
+  src/adapters/export_pdf.cpp
   src/adapters/scene_ir_json.cpp
   src/c_api/toporoom_c_api.cpp
 )
@@ -110,6 +113,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/handlers_test.cpp
     tests/status_gate_test.cpp
     tests/export_scene_graph_test.cpp
+    tests/export_deliverables_test.cpp
     tests/sceneir_fixture_test.cpp
     tests/c_api_test.cpp
   )
@@ -125,7 +129,15 @@ if(TOPOROOM_BUILD_TESTS)
     PRIVATE
       TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
       TOPOROOM_CORE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+      TOPOROOM_REPO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/.."
   )
+
+  add_executable(toporoom_write_godot_fixture tools/write_godot_fixture.cpp)
+  target_link_libraries(toporoom_write_godot_fixture PRIVATE toporoom::core manifold)
+  target_compile_definitions(toporoom_write_godot_fixture PRIVATE
+    TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+  )
+  target_compile_features(toporoom_write_godot_fixture PRIVATE cxx_std_20)
   if(NOT MSVC)
     target_compile_options(toporoom_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endif()
