@@ -135,6 +135,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/evidence_pack_test.cpp
     tests/release_train_test.cpp
     tests/p1_stubs_test.cpp
+    tests/domain_model_v02_test.cpp
   )
 
   target_link_libraries(toporoom_tests

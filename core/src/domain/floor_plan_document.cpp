@@ -29,9 +29,16 @@ void assert_measurement_may_replace(const Measurement& existing,
 
 FloorPlanDocument::FloorPlanDocument(std::string id, int revision,
                                      std::vector<Storey> storeys,
-                                     std::vector<Measurement> measurements)
-    : id_(std::move(id)),
+                                     std::vector<Measurement> measurements,
+                                     std::optional<FaceDatum> face_datum,
+                                     std::optional<std::string> scheme_label)
+    : format_(kSceneIrFormat),
+      version_(kSceneIrVersion),
+      units_(kSceneIrUnits),
+      id_(std::move(id)),
       revision_(revision),
+      face_datum_(face_datum),
+      scheme_label_(std::move(scheme_label)),
       storeys_(std::move(storeys)),
       measurements_(std::move(measurements)) {}
 
@@ -41,14 +48,14 @@ FloorPlanDocument FloorPlanDocument::create(CreateFloorPlanProps props) {
   storey.elevation = props.storey_elevation.value_or(LengthMm::zero());
   storey.height = props.storey_height.value_or(LengthMm::of(kDefaultStoreyHeightMm));
   return FloorPlanDocument(std::move(props.id), 0, {Storey::create(std::move(storey))},
-                           {});
+                           {}, props.face_datum, props.scheme_label);
 }
 
 FloorPlanDocument FloorPlanDocument::from_scene_ir(const SceneIR& scene) {
   if (scene.format != kSceneIrFormat) {
     throw DomainError("Unsupported SceneIR format: " + scene.format, "INVALID_SCENEIR");
   }
-  if (scene.version != kSceneIrVersion) {
+  if (!is_scene_ir_version_supported(scene.version)) {
     throw DomainError("Unsupported SceneIR version: " + scene.version,
                       "INVALID_SCENEIR");
   }
@@ -84,12 +91,22 @@ FloorPlanDocument FloorPlanDocument::from_scene_ir(const SceneIR& scene) {
       storey_props.walls.push_back(Wall::create(std::move(wall_props)));
     }
     for (const auto& room_ir : storey_ir.rooms) {
-      storey_props.rooms.emplace_back(room_ir.id, room_ir.wall_ids);
+      std::optional<LengthMm> clear;
+      if (room_ir.clear_height_mm) {
+        clear = LengthMm::of(*room_ir.clear_height_mm);
+      }
+      storey_props.rooms.emplace_back(room_ir.id, room_ir.wall_ids, room_ir.name,
+                                      room_ir.space_type, clear);
+    }
+    for (const auto& hosted : storey_ir.hosted_components) {
+      storey_props.hosted_components.push_back(
+          HostedComponent{hosted.id, hosted.kind, hosted.z_bottom_mm, hosted.depth_mm});
     }
     storeys.push_back(Storey::create(std::move(storey_props)));
   }
   return FloorPlanDocument(scene.id, scene.revision, std::move(storeys),
-                           scene.measurements);
+                           scene.measurements, scene.meta.face_datum,
+                           scene.meta.scheme_label);
 }
 
 Wall FloorPlanDocument::add_wall(AddWallProps props) {
@@ -119,16 +136,61 @@ Opening FloorPlanDocument::add_opening(AddOpeningProps props) {
   opening_props.sill_height = props.sill_height;
   Opening opening = Opening::create(std::move(opening_props));
   replace_storey(storey.host_opening(props.wall_id, opening));
-  record(OpeningAdded{id_, props.storey_id, props.wall_id, opening.id()});
+  record(OpeningAdded{id_, props.storey_id, props.wall_id, opening.id(), opening.kind()});
   bump_semantics();
   return opening;
 }
 
 void FloorPlanDocument::close_room(CloseRoomProps props) {
   Storey storey = require_storey(props.storey_id);
-  replace_storey(storey.close_room(props.id, props.wall_ids));
+  Room room(props.id, props.wall_ids, props.name, props.space_type, props.clear_height);
+  replace_storey(storey.close_room(room));
   record(RoomClosed{id_, props.storey_id, props.id, props.wall_ids});
   bump_semantics();
+}
+
+void FloorPlanDocument::set_room_clear_height(const std::string& storey_id,
+                                              const std::string& room_id,
+                                              LengthMm clear_height_mm) {
+  Storey storey = require_storey(storey_id);
+  bool found = false;
+  for (const auto& room : storey.rooms()) {
+    if (room.id() != room_id) continue;
+    replace_storey(storey.replace_room(room.with_clear_height(clear_height_mm)));
+    record(RoomAttributesChanged{id_, storey_id, room_id});
+    bump_semantics();
+    found = true;
+    break;
+  }
+  if (!found) {
+    throw DomainError("Room " + room_id + " not found", "ROOM_NOT_FOUND");
+  }
+}
+
+void FloorPlanDocument::set_storey_height(const std::string& storey_id, LengthMm height_mm,
+                                          bool follow_matching_walls) {
+  apply_storey_height(storey_id, height_mm, follow_matching_walls);
+  bump_semantics();
+}
+
+void FloorPlanDocument::apply_storey_height(const std::string& storey_id, LengthMm height_mm,
+                                            bool follow_matching_walls) {
+  Storey storey = require_storey(storey_id);
+  replace_storey(storey.with_height(height_mm, follow_matching_walls));
+  record(StoreyHeightChanged{id_, storey_id, height_mm.value()});
+}
+
+HostedComponent FloorPlanDocument::place_hosted_component(PlaceHostedComponentProps props) {
+  Storey storey = require_storey(props.storey_id);
+  HostedComponent component;
+  component.id = props.id.value_or(next_id("hc"));
+  component.kind = props.kind;
+  component.z_bottom_mm = props.z_bottom_mm;
+  component.depth_mm = props.depth_mm;
+  replace_storey(storey.place_hosted_component(component));
+  record(HostedComponentPlaced{id_, props.storey_id, component.id, component.kind});
+  bump_semantics();
+  return component;
 }
 
 Measurement FloorPlanDocument::set_measurement(SetMeasurementProps props) {
@@ -161,10 +223,12 @@ Measurement FloorPlanDocument::set_measurement(SetMeasurementProps props) {
 SceneIR FloorPlanDocument::to_scene_ir() const {
   SceneIR scene;
   scene.format = format_;
-  scene.version = version_;
+  scene.version = kSceneIrVersion;
   scene.id = id_;
   scene.units = units_;
   scene.revision = revision_;
+  scene.meta.face_datum = face_datum_;
+  scene.meta.scheme_label = scheme_label_;
   for (const auto& storey : storeys_) {
     SceneIRStorey storey_ir;
     storey_ir.id = storey.id();
@@ -191,7 +255,20 @@ SceneIR FloorPlanDocument::to_scene_ir() const {
       storey_ir.walls.push_back(std::move(wall_ir));
     }
     for (const auto& room : storey.rooms()) {
-      storey_ir.rooms.push_back(SceneIRRoom{room.id(), room.wall_ids()});
+      SceneIRRoom room_ir;
+      room_ir.id = room.id();
+      room_ir.wall_ids = room.wall_ids();
+      room_ir.name = room.name();
+      room_ir.space_type = room.space_type();
+      if (room.clear_height()) {
+        room_ir.clear_height_mm = room.clear_height()->value();
+      }
+      storey_ir.rooms.push_back(std::move(room_ir));
+    }
+    for (const auto& hosted : storey.hosted_components()) {
+      storey_ir.hosted_components.push_back(
+          SceneIRHostedComponent{hosted.id, hosted.kind, hosted.z_bottom_mm,
+                                 hosted.depth_mm});
     }
     scene.storeys.push_back(std::move(storey_ir));
   }
@@ -208,14 +285,14 @@ std::vector<DomainEvent> FloorPlanDocument::pull_domain_events() {
 void FloorPlanDocument::apply_measurement_target(const Measurement& measurement) {
   if (!measurement.target) return;
   const auto& target = *measurement.target;
-  if (target.entity_type == "opening" && target.field == "width") {
+  if ((target.entity_type == "opening" && target.field == "width") ||
+      target.entity_type == "openingWidth") {
     resize_opening(target.entity_id, LengthMm::of(measurement.value_mm));
     return;
   }
-  if (target.entity_type == "storey" && target.field == "height") {
-    Storey storey = require_storey(target.entity_id);
-    replace_storey(storey.with_height(LengthMm::of(measurement.value_mm)));
-    record(StoreyHeightChanged{id_, storey.id(), measurement.value_mm});
+  if ((target.entity_type == "storey" && target.field == "height") ||
+      target.entity_type == "storeyHeight") {
+    apply_storey_height(target.entity_id, LengthMm::of(measurement.value_mm), true);
   }
 }
 

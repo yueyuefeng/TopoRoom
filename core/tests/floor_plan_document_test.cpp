@@ -42,7 +42,7 @@ AddWallProps rect_wall(const char* id, double x0, double y0, double x1, double y
 TEST(FloorPlanDocument, CreatesSceneIr01InMillimetres) {
   const auto doc = FloorPlanDocument::create(CreateFloorPlanProps{"doc_1"});
   EXPECT_STREQ(doc.format().c_str(), "toporoom.sceneir");
-  EXPECT_STREQ(doc.version().c_str(), "0.1");
+  EXPECT_STREQ(doc.version().c_str(), "0.2");
   EXPECT_STREQ(doc.units().c_str(), "mm");
   EXPECT_EQ(doc.storeys().size(), 1u);
 }
@@ -154,6 +154,6 @@ TEST(FloorPlanDocument, RoundTripsSceneIr) {
   EXPECT_EQ(restored.to_scene_ir().id, snapshot.id);
   EXPECT_EQ(restored.to_scene_ir().storeys[0].walls.size(), 4u);
   EXPECT_EQ(snapshot.format, "toporoom.sceneir");
-  EXPECT_EQ(snapshot.version, "0.1");
+  EXPECT_EQ(snapshot.version, "0.2");
   EXPECT_EQ(snapshot.units, "mm");
 }

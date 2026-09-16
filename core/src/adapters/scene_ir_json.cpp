@@ -28,9 +28,24 @@ domain::Measurement parse_measurement(const nlohmann::json& j) {
   }
   if (j.contains("target")) {
     domain::MeasurementTarget target;
-    target.entity_type = j["target"].at("entityType").get<std::string>();
-    target.entity_id = j["target"].at("entityId").get<std::string>();
-    target.field = j["target"].at("field").get<std::string>();
+    if (j["target"].is_string()) {
+      const auto kind = j["target"].get<std::string>();
+      target.entity_type = kind;
+      if (kind == "openingWidth") {
+        target.entity_id = j.value("openingId", "");
+        target.field = "width";
+      } else if (kind == "storeyHeight") {
+        target.entity_id = j.value("storeyId", "");
+        target.field = "height";
+      } else if (kind == "edge") {
+        target.entity_id = j.value("edgeId", "");
+        target.field = "length";
+      }
+    } else {
+      target.entity_type = j["target"].at("entityType").get<std::string>();
+      target.entity_id = j["target"].at("entityId").get<std::string>();
+      target.field = j["target"].at("field").get<std::string>();
+    }
     m.target = target;
   }
   return m;
@@ -39,8 +54,15 @@ domain::Measurement parse_measurement(const nlohmann::json& j) {
 domain::SceneIROpening parse_opening(const nlohmann::json& j) {
   domain::SceneIROpening o;
   o.id = j.at("id").get<std::string>();
-  const auto kind = domain::opening_kind_from_string(j.at("kind").get<std::string>());
-  if (!kind) throw domain::DomainError("Unknown opening kind", "INVALID_OPENING");
+  std::string kind_text;
+  if (j.contains("kind") && j["kind"].is_string()) {
+    kind_text = j["kind"].get<std::string>();
+  } else if (j.contains("type") && j["type"].is_string()) {
+    kind_text = j["type"].get<std::string>();  // 0.2 example alias; write uses kind (O3)
+  }
+  const auto kind = domain::opening_kind_from_string(kind_text);
+  if (!kind) throw domain::DomainError("Opening kind is required (door|window|archway)",
+                                      "INVALID_OPENING");
   o.kind = *kind;
   o.width_mm = j.at("widthMm").get<double>();
   o.height_mm = j.at("heightMm").get<double>();
@@ -81,8 +103,8 @@ std::vector<std::string> validate_scene_ir_json(const std::string& json_text) {
   if (j.value("format", "") != domain::kSceneIrFormat) {
     issues.emplace_back(std::string("format must be ") + domain::kSceneIrFormat);
   }
-  if (j.value("version", "") != domain::kSceneIrVersion) {
-    issues.emplace_back(std::string("version must be ") + domain::kSceneIrVersion);
+  if (!domain::is_scene_ir_version_supported(j.value("version", ""))) {
+    issues.emplace_back("version must be 0.1 or 0.2");
   }
   if (j.value("units", "") != domain::kSceneIrUnits) {
     issues.emplace_back("units must be mm");
@@ -128,6 +150,18 @@ domain::SceneIR load_scene_ir_json(const std::string& json_text) {
   scene.id = j.at("id").get<std::string>();
   scene.units = j.at("units").get<std::string>();
   scene.revision = j.value("revision", 0);
+  if (j.contains("meta") && j["meta"].is_object()) {
+    if (j["meta"].contains("faceDatum")) {
+      scene.meta.face_datum =
+          domain::face_datum_from_string(j["meta"].at("faceDatum").get<std::string>());
+    }
+    if (j["meta"].contains("schemeLabel")) {
+      scene.meta.scheme_label = j["meta"].at("schemeLabel").get<std::string>();
+    }
+    if (j["meta"].contains("documentLabel") && !scene.meta.scheme_label) {
+      scene.meta.scheme_label = j["meta"].at("documentLabel").get<std::string>();
+    }
+  }
   for (const auto& storey_j : j.at("storeys")) {
     domain::SceneIRStorey storey;
     storey.id = storey_j.at("id").get<std::string>();
@@ -141,7 +175,35 @@ domain::SceneIR load_scene_ir_json(const std::string& json_text) {
         domain::SceneIRRoom room;
         room.id = room_j.at("id").get<std::string>();
         room.wall_ids = room_j.at("wallIds").get<std::vector<std::string>>();
+        if (room_j.contains("label")) room.name = room_j.at("label").get<std::string>();
+        if (room_j.contains("name")) room.name = room_j.at("name").get<std::string>();
+        if (room_j.contains("spaceType")) {
+          const auto st = domain::space_type_from_string(room_j.at("spaceType").get<std::string>());
+          if (st) room.space_type = *st;
+        }
+        if (room_j.contains("clearHeightMm") && !room_j["clearHeightMm"].is_null()) {
+          room.clear_height_mm = room_j.at("clearHeightMm").get<double>();
+        }
         storey.rooms.push_back(std::move(room));
+      }
+    }
+    if (storey_j.contains("hostedComponents")) {
+      for (const auto& hc_j : storey_j.at("hostedComponents")) {
+        domain::SceneIRHostedComponent hc;
+        hc.id = hc_j.at("id").get<std::string>();
+        const auto kind = domain::hosted_kind_from_string(hc_j.at("kind").get<std::string>());
+        if (!kind) {
+          throw domain::DomainError("Unknown hosted component kind", "INVALID_HOSTED");
+        }
+        hc.kind = *kind;
+        if (hc_j.contains("params")) {
+          hc.z_bottom_mm = hc_j["params"].value("zBottomMm", 0.0);
+          hc.depth_mm = hc_j["params"].value("depthMm", 0.0);
+        } else {
+          hc.z_bottom_mm = hc_j.value("zBottomMm", 0.0);
+          hc.depth_mm = hc_j.value("depthMm", 0.0);
+        }
+        storey.hosted_components.push_back(std::move(hc));
       }
     }
     scene.storeys.push_back(std::move(storey));
@@ -188,13 +250,26 @@ std::string scene_ir_to_json(const domain::SceneIR& scene) {
     }
     nlohmann::json rooms = nlohmann::json::array();
     for (const auto& room : storey.rooms) {
-      rooms.push_back({{"id", room.id}, {"wallIds", room.wall_ids}});
+      nlohmann::json rj = {{"id", room.id},
+                           {"wallIds", room.wall_ids},
+                           {"spaceType", domain::to_string(room.space_type)}};
+      if (!room.name.empty()) rj["label"] = room.name;
+      if (room.clear_height_mm) rj["clearHeightMm"] = *room.clear_height_mm;
+      rooms.push_back(std::move(rj));
     }
-    storeys.push_back({{"id", storey.id},
-                       {"elevationMm", storey.elevation_mm},
-                       {"heightMm", storey.height_mm},
-                       {"walls", walls},
-                       {"rooms", rooms}});
+    nlohmann::json hosted = nlohmann::json::array();
+    for (const auto& hc : storey.hosted_components) {
+      hosted.push_back({{"id", hc.id},
+                        {"kind", domain::to_string(hc.kind)},
+                        {"params", {{"zBottomMm", hc.z_bottom_mm}, {"depthMm", hc.depth_mm}}}});
+    }
+    nlohmann::json storey_j = {{"id", storey.id},
+                               {"elevationMm", storey.elevation_mm},
+                               {"heightMm", storey.height_mm},
+                               {"walls", walls},
+                               {"rooms", rooms}};
+    if (!hosted.empty()) storey_j["hostedComponents"] = hosted;
+    storeys.push_back(std::move(storey_j));
   }
   nlohmann::json measurements = nlohmann::json::array();
   for (const auto& m : scene.measurements) {
@@ -218,6 +293,12 @@ std::string scene_ir_to_json(const domain::SceneIR& scene) {
                          {"revision", scene.revision},
                          {"storeys", storeys},
                          {"measurements", measurements}};
+  nlohmann::json meta = nlohmann::json::object();
+  if (scene.meta.face_datum) {
+    meta["faceDatum"] = domain::to_string(*scene.meta.face_datum);
+  }
+  if (scene.meta.scheme_label) meta["schemeLabel"] = *scene.meta.scheme_label;
+  if (!meta.empty()) root["meta"] = meta;
   return root.dump(2);
 }
 

@@ -79,6 +79,8 @@ TEST(ExportAppService, RefusesStructuralExportOnFault) {
   const auto outcome = service.export_scene_graph(rectangular_scene());
   EXPECT_FALSE(outcome.ok);
   EXPECT_EQ(outcome.fault.code, FaultCode::NotManifold);
+  EXPECT_TRUE(outcome.glb.empty());
+  EXPECT_NE(outcome.dxf.find("WALLS"), std::string::npos);
 }
 
 TEST(ExportAppService, ExportsNamedSceneGraphWhenOk) {

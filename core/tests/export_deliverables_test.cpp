@@ -186,7 +186,7 @@ TEST(ExportPdf, NonEmptyWithPlanMarkers) {
   EXPECT_TRUE(bytes_contain(pdf, "900"));
 }
 
-TEST(ExportAppService, FaultRejectsGlbAndDeliverables) {
+TEST(ExportAppService, FaultRejectsGlbAllowsSemanticDxf) {
   FakeGeometryPort geometry;
   geometry.fail_with({FaultCode::NotManifold, "broken boolean", {"wall_s"}});
   ExportAppService service(geometry);
@@ -194,8 +194,8 @@ TEST(ExportAppService, FaultRejectsGlbAndDeliverables) {
   EXPECT_FALSE(outcome.ok);
   EXPECT_EQ(outcome.fault.code, FaultCode::NotManifold);
   EXPECT_TRUE(outcome.glb.empty());
-  EXPECT_TRUE(outcome.dxf.empty());
-  EXPECT_TRUE(outcome.pdf.empty());
+  EXPECT_NE(outcome.dxf.find("WALLS"), std::string::npos);
+  EXPECT_FALSE(outcome.pdf.empty());
 }
 
 TEST(ExportAppService, OkPathProducesGlbDxfPdf) {

@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
+#include <type_traits>
 
 #include "toporoom/app/guided_room_session.hpp"
 #include "toporoom/domain/kinds.hpp"
 
+using toporoom::app::CaptureSession;
 using toporoom::app::GuidePhase;
 using toporoom::app::GuidedRoomSession;
 using toporoom::domain::MeasurementSource;
@@ -19,6 +21,7 @@ void complete_geometry(GuidedRoomSession& guide) {
 }  // namespace
 
 TEST(GuidedRoom, StartsAtHostCheck) {
+  static_assert(std::is_same_v<CaptureSession, GuidedRoomSession>);
   GuidedRoomSession guide;
   EXPECT_EQ(guide.phase(), GuidePhase::HostCheck);
   EXPECT_FALSE(guide.can_export());

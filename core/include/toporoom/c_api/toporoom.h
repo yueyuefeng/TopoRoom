@@ -24,7 +24,7 @@ int toporoom_document_add_wall(TopoRoomDocument* doc, const char* storey_id,
                                double y1, double thickness_mm, double height_mm,
                                char* errbuf, int errbuf_len);
 
-/* kind: "door" | "window". */
+/* kind: "door" | "window" | "archway" (门洞/窗洞/垭口). */
 int toporoom_document_add_opening(TopoRoomDocument* doc, const char* storey_id,
                                   const char* wall_id, const char* opening_id,
                                   const char* kind, double width_mm, double height_mm,
@@ -60,7 +60,7 @@ void toporoom_string_free(char* s);
 int toporoom_debug_fake_one_room(TopoRoomDocument* doc, TopoRoomGuide* guide,
                                  const char* out_dir, char* errbuf, int errbuf_len);
 
-/* --- GuidedRoomSession --- */
+/* --- GuidedRoomSession (量房会话 / CaptureSession) --- */
 
 TopoRoomGuide* toporoom_guide_create(void);
 void toporoom_guide_destroy(TopoRoomGuide* guide);

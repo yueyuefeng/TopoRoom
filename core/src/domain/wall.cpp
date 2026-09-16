@@ -79,6 +79,18 @@ Wall Wall::replace_opening(const Opening& opening) const {
   return Wall(std::move(props), std::move(next));
 }
 
+Wall Wall::with_height(LengthMm height) const {
+  WallProps props;
+  props.id = id_;
+  props.start = start_;
+  props.end = end_;
+  props.thickness = thickness_;
+  props.height = height;
+  props.kind = kind_;
+  props.openings = openings_;
+  return Wall::create(std::move(props));
+}
+
 void Wall::assert_opening_fits(const Opening& opening) const {
   if (opening.offset_along_wall().value() < 0) {
     throw DomainError("Opening offset must not be negative", "OPENING_OUT_OF_BOUNDS");

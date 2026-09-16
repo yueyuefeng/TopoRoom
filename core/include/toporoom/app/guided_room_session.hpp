@@ -33,7 +33,8 @@ inline const char* to_string(GuidePhase phase) {
   return "host_check";
 }
 
-// One-room guided capture. Export is allowed when:
+// Guided one-room 量房会话 (CaptureSession). No independent Survey AR (D6).
+// Export is allowed when:
 //   host OK, ≥4 walls, ≥1 opening, rebuild OK, and
 //   ≥2 laser key edges OR (typed explicit AND ≥2 typed key edges).
 class GuidedRoomSession {
@@ -69,5 +70,7 @@ class GuidedRoomSession {
   bool typed_explicit_ = false;
   bool rebuild_ok_ = false;
 };
+
+using CaptureSession = GuidedRoomSession;
 
 }  // namespace toporoom::app

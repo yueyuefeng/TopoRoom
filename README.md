@@ -5,13 +5,14 @@ editable product core is a CMake static library consumed by native **iOS**
 and **Android** hosts through a C API (`core/include/toporoom/c_api/toporoom.h`).
 
 Low-cost Type-C depth + phone host + Bluetooth **laser** anchors → editable
-floor-plan semantics (**SceneIR**) → professional export (DXF / PDF / glTF).
+floor-plan semantics (**SceneIR 0.2**, 方案/户型文档) → 户型图 export (DXF / PDF / glTF).
 
 Specs:
 
 - [docs/architecture/FINAL-readme.md](./docs/architecture/FINAL-readme.md)
 - [docs/architecture/FINAL-toporoom-hw-sw-requirements.md](./docs/architecture/FINAL-toporoom-hw-sw-requirements.md)
 - [docs/architecture/FINAL-toporoom-software-architecture.md](./docs/architecture/FINAL-toporoom-software-architecture.md)
+- [docs/architecture/FINAL-toporoom-domain-model.md](./docs/architecture/FINAL-toporoom-domain-model.md)
 
 ## Quick start (Linux CI)
 
@@ -113,6 +114,9 @@ nlohmann JSON (JSON stays in adapters).
    whitelist file version.)
 6. ~~P1+ reserved ports (MEP / soft furnishing / cloud sync / auto quote).~~ **Stubs only**
    (**FR-013**: not P0 Done gates). See [P1+ reserved ports](#p1-reserved-ports-fr-013).
+7. ~~Industry Domain model (OpeningKind 门窗垭口, 层高≠净高, SceneIR 0.2).~~ **Done**
+   `GuidedRoomSession` = 量房会话 (`CaptureSession`). P0 drawing = 户型图.
+   Fault still emits semantic DXF; glb structural solid is rejected.
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.

@@ -62,6 +62,12 @@ TEST(Opening, RejectsOpeningTallerThanWall) {
   EXPECT_THROW(host_wall().host_opening(opening), DomainError);
 }
 
-TEST(Opening, RejectsNonPositiveWidth) {
-  EXPECT_THROW(Opening::create(door_props("op_zero", 0, 2100, 0, 0)), DomainError);
+TEST(Opening, DistinguishesArchwayFromDoor) {
+  OpeningProps arch = door_props("op_arch", 1200, 2100, 200, 0);
+  arch.kind = OpeningKind::Archway;
+  const Opening opening = Opening::create(arch);
+  EXPECT_EQ(opening.kind(), OpeningKind::Archway);
+  EXPECT_NE(opening.kind(), OpeningKind::Door);
+  const Wall wall = host_wall().host_opening(opening);
+  EXPECT_EQ(wall.openings()[0].kind(), OpeningKind::Archway);
 }

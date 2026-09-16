@@ -8,6 +8,8 @@
 
 namespace toporoom::domain {
 
+// Opening = 洞口. kind is required: door=门洞, window=窗洞, archway=垭口 (I3 / I12).
+// width is 净宽意图 (D5). sill is 窗台高.
 struct OpeningProps {
   std::string id;
   OpeningKind kind = OpeningKind::Door;
