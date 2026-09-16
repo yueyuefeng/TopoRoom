@@ -111,6 +111,25 @@ nlohmann JSON (JSON stays in adapters).
    key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be
    empty. `release-train.v1.json` maps software tag ↔ module SKU / firmware /
    whitelist file version.)
+6. ~~P1+ reserved ports (MEP / soft furnishing / cloud sync / auto quote).~~ **Stubs only**
+   (**FR-013**: not P0 Done gates). See [P1+ reserved ports](#p1-reserved-ports-fr-013).
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.
+
+## P1+ reserved ports (FR-013)
+
+P0 software scope must **not** treat MEP, a soft-furnishing library, cloud
+sync, or auto quoting as acceptance blockers. Ports are reserved so P1 BCs
+can plug in later; they are not registered on the P0 guide/export path.
+
+| Port | Adapter | Call result |
+|------|---------|-------------|
+| `MepPort` (points / polylines) | `NotImplementedMepAdapter` | `NotInP0` |
+| `FurnishingLibraryPort` | `NotImplementedFurnishingAdapter` | `NotInP0` |
+| `CloudSyncPort` (push/pull document) | `NotImplementedCloudSyncAdapter` | `NotInP0` |
+| `TakeoffQuotePort` | `NotImplementedQuoteAdapter` | `NotInP0` |
+
+GoogleTest suite `OutOfScopeP1` proves a fake one-room guide+export succeeds
+with none of these ports wired, and that invoking a stub returns `NotInP0`.
+No MEP/soft/cloud/quote business logic is implemented.
