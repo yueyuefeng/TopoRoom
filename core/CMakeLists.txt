@@ -12,6 +12,7 @@ set(TOPOROOM_CORE_SOURCES
   src/domain/wall.cpp
   src/domain/storey.cpp
   src/domain/floor_plan_document.cpp
+  src/ports/semantics.cpp
   src/adapters/scene_ir_json.cpp
 )
 
@@ -48,7 +49,7 @@ if(TOPOROOM_BUILD_TESTS)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(toporoom_tests
+  set(TOPOROOM_TEST_SOURCES
     tests/length_mm_test.cpp
     tests/point_mm_test.cpp
     tests/wall_test.cpp
@@ -57,7 +58,10 @@ if(TOPOROOM_BUILD_TESTS)
     tests/measurement_test.cpp
     tests/import_ban_test.cpp
     tests/sceneir_fixture_test.cpp
+    tests/ports_test.cpp
   )
+
+  add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
   target_link_libraries(toporoom_tests PRIVATE toporoom::core GTest::gtest_main)
   target_compile_definitions(toporoom_tests PRIVATE
     TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
