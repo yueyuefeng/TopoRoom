@@ -23,8 +23,10 @@ set(TOPOROOM_CORE_SOURCES
   src/app/set_measurement_handler.cpp
   src/app/rebuild_policy.cpp
   src/app/status_gate.cpp
+  src/app/export_app_service.cpp
   src/adapters/fake_geometry_port.cpp
   src/adapters/in_memory_document_store.cpp
+  src/adapters/export_scene_graph.cpp
   src/adapters/scene_ir_json.cpp
 )
 

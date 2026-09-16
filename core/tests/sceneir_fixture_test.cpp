@@ -4,18 +4,25 @@
 
 #include <gtest/gtest.h>
 
+#include "toporoom/adapters/export_scene_graph.hpp"
+#include "toporoom/adapters/fake_geometry_port.hpp"
 #include "toporoom/adapters/scene_ir_json.hpp"
 #include "toporoom/domain/floor_plan_document.hpp"
 #include "toporoom/domain/kinds.hpp"
+#include "toporoom/ports/geometry_port.hpp"
 
 #ifndef TOPOROOM_FIXTURE_DIR
 #error TOPOROOM_FIXTURE_DIR is required
 #endif
 
+using toporoom::adapters::export_scene_graph;
+using toporoom::adapters::FakeGeometryPort;
 using toporoom::adapters::load_scene_ir_file;
 using toporoom::adapters::validate_scene_ir_json;
 using toporoom::domain::FloorPlanDocument;
 using toporoom::domain::MeasurementSource;
+using toporoom::ports::BuildRequest;
+using toporoom::ports::semantics_from_scene_ir;
 
 namespace {
 
@@ -49,6 +56,24 @@ TEST(SceneIrFixture, ReconstitutesDocument) {
   EXPECT_EQ(document.storeys()[0].rooms()[0].id(), "room_living");
   EXPECT_EQ(document.measurements()[0].source, MeasurementSource::Laser);
   EXPECT_EQ(document.to_scene_ir().storeys[0].walls.size(), 4u);
+}
+
+TEST(SceneIrFixture, ExportsNodeNames) {
+  const auto scene = load_scene_ir_file(fixture_path());
+  FakeGeometryPort geometry;
+  BuildRequest request;
+  request.semantics = semantics_from_scene_ir(scene);
+  const auto rebuilt = geometry.rebuild(request);
+  ASSERT_TRUE(rebuilt.ok);
+  const auto graph = export_scene_graph(scene, rebuilt.meshes);
+  std::string joined;
+  for (const auto& node : graph.nodes) {
+    joined += node.name + ";";
+  }
+  EXPECT_NE(joined.find("Storey_storey_1"), std::string::npos);
+  EXPECT_NE(joined.find("Wall_wall_s"), std::string::npos);
+  EXPECT_NE(joined.find("Room_room_living"), std::string::npos);
+  EXPECT_NE(joined.find("Opening_op_door"), std::string::npos);
 }
 
 TEST(SceneIrFixture, RejectsForbiddenSource) {
