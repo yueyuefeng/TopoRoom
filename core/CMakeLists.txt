@@ -37,6 +37,9 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/imu_adapters.cpp
   src/app/laser_capture_service.cpp
   src/app/depth_capture_service.cpp
+  src/app/guided_room_session.cpp
+  src/app/evidence_pack.cpp
+  src/adapters/release_train.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -126,6 +129,10 @@ if(TOPOROOM_BUILD_TESTS)
     tests/depth_port_test.cpp
     tests/android_whitelist_test.cpp
     tests/imu_port_test.cpp
+    tests/guided_room_test.cpp
+    tests/guided_capture_loop_test.cpp
+    tests/evidence_pack_test.cpp
+    tests/release_train_test.cpp
   )
 
   target_link_libraries(toporoom_tests
