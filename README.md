@@ -22,7 +22,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 Requires CMake ≥ 3.20, a C++20 compiler, and network on first configure
-(GoogleTest + nlohmann/json via FetchContent).
+(GoogleTest + nlohmann/json + [elalish/manifold](https://github.com/elalish/manifold)
+v3.5.3 via FetchContent).
 
 ## Layout
 
@@ -78,11 +79,12 @@ nlohmann JSON (JSON stays in adapters).
 
 ## Next TDD slices
 
-1. Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).
-2. Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).
-3. Real `DepthStreamPort` (Vendor SDK primary, UVC transport).
-4. JNI/NDK + Swift UI: guided capture, whitelist, USB/BT permissions.
-5. DXF/PDF exporters; Godot read-only `.glb` roam.
+1. ~~Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).~~ **Done**
+   (`core/src/adapters/manifold_geometry_port.cpp`, FetchContent `elalish/manifold` **v3.5.3**).
+2. DXF / PDF exporters and Godot read-only `.glb` roam (mm→m only at the export edge).
+3. Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).
+4. Real `DepthStreamPort` (Vendor SDK primary, UVC transport).
+5. JNI/NDK + Swift UI: guided capture, whitelist, USB/BT permissions.
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.

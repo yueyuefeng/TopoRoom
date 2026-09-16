@@ -1,4 +1,9 @@
-# Adapter stubs
+# TopoRoom core
 
-Real depth / laser / manifold adapters are not in this milestone.
-See `core/adapters/STUBS.md`.
+C++20 static library: SceneIR domain, ports, application services, C API.
+
+Production geometry is `ManifoldGeometryPort` (CrossSection → Extrude →
+Boolean). Domain sources must not `#include` manifold — see
+`core/adapters/STUBS.md` and NFR-015.
+
+Hardware adapters (depth / laser / IMU) are not in this milestone.
