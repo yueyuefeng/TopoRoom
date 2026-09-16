@@ -17,6 +17,12 @@ set(TOPOROOM_CORE_SOURCES
   src/app/param_gathering_fsm.cpp
   src/app/wall_draw_tool.cpp
   src/app/tool_registry.cpp
+  src/app/document_io.cpp
+  src/app/add_wall_handler.cpp
+  src/app/add_opening_handler.cpp
+  src/app/set_measurement_handler.cpp
+  src/app/rebuild_policy.cpp
+  src/adapters/in_memory_document_store.cpp
   src/adapters/scene_ir_json.cpp
 )
 
@@ -64,6 +70,8 @@ if(TOPOROOM_BUILD_TESTS)
     tests/sceneir_fixture_test.cpp
     tests/ports_test.cpp
     tests/session_isolate_test.cpp
+    tests/param_gathering_fsm_test.cpp
+    tests/tool_registry_test.cpp
   )
 
   add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
