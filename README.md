@@ -32,10 +32,10 @@ core/                 C++ domain, ports, app services, fakes, SceneIR JSON, C AP
   include/toporoom/
   src/
   tests/              GoogleTest (ctest)
-  fixtures/           SceneIR 0.1 gold JSON
+  fixtures/           SceneIR 0.1 gold JSON, whitelist, release-train
 godot/                Godot 4 read-only .glb roam (no SceneIR write-back)
-mobile/android/       JNI/NDK skeleton linking toporoom_core
-mobile/ios/           Objective-C++ / Swift skeleton linking the C API
+mobile/android/       Gradle app + JNI (Fake/Replay in debug)
+mobile/ios/           Xcode SwiftUI shell + ObjC++ (software host)
 docs/architecture/    FINAL specs
 ```
 
@@ -60,6 +60,26 @@ docs/architecture/    FINAL specs
 - iOS is a first-class host for the **software** core; P0 hardware capture
   (Type-C depth whitelist) remains Android-first per the FINAL hardware spec.
 
+### Android Studio (P0 primary host)
+
+Open `mobile/android/` as a Gradle project (SDK 34 + NDK + CMake 3.22). Debug
+builds load `android-whitelist.v1.json` then **bypass** an unlisted emulator
+with Fake/Replay. Tap **Run Fake one-room loop** to draw walls, apply two
+laser keys, place a door, rebuild, and write `room.glb` / `room.dxf` /
+`room.pdf` under app storage. See [mobile/android/README.md](./mobile/android/README.md).
+
+`./gradlew assembleDebug` needs a local Android SDK/NDK. Linux CMake CI does
+not assemble the APK; it runs GoogleTest only. JVM `GuideViewModel` tests:
+`./gradlew test` (also needs the Android Gradle plugin / SDK).
+
+### Xcode (software host)
+
+Open `mobile/ios/TopoRoom.xcodeproj`, scheme **TopoRoom**. Link
+`libtoporoom_core.a` from a CMake build (`build/core`). UI copy:
+**P0: depth capture Android-first**. Same Fake one-room C API, or typed
+millimetres. See [mobile/ios/README.md](./mobile/ios/README.md). No Mac pool
+in this CI — sources + scheme only.
+
 ## Invariants (I1–I10)
 
 | # | Rule |
@@ -78,7 +98,7 @@ docs/architecture/    FINAL specs
 CI scans `core/**/domain/**` so it cannot include manifold / three / godot /
 nlohmann JSON (JSON stays in adapters).
 
-## Next TDD slices
+## TDD slices
 
 1. ~~Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).~~ **Done**
 2. ~~DXF / PDF / `.glb` exporters and Godot read-only roam.~~ **Done**
@@ -86,7 +106,11 @@ nlohmann JSON (JSON stays in adapters).
    (CI uses `FakeBleLaserTransport` / `ReplayLaserPort`; no real radio.)
 4. ~~`DepthStreamPort` VendorSdk + UVC + replay fixture; Android whitelist.~~ **Done**
    (`core/fixtures/android-whitelist.v1.json`; iOS external depth stays out of P0.)
-5. JNI/NDK + Swift UI: guided capture, runtime permission prompts, USB/BT UX.
+5. ~~JNI/NDK + Swift UI: guided capture, runtime permission prompts, USB/BT UX.~~ **Done**
+   (`GuidedRoomSession`: host OK, ≥4 walls, ≥1 opening, rebuild OK, and ≥2 laser
+   key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be
+   empty. `release-train.v1.json` maps software tag ↔ module SKU / firmware /
+   whitelist file version.)
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.

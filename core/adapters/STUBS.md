@@ -12,5 +12,9 @@ adapter libraries that implement ports in `core/include/toporoom/ports`.
 | UVC depth | DepthStreamPort | **P0 stub + replay** — `UvcDepthAdapter`; principle=`uvc_transport` (UVC ≠ depth principle) |
 | phone IMU | ImuPort | **P0 stub** — `ModuleImuAdapter` / `PhoneImuAdapter` (degraded) / `MissingImuAdapter` (annotate-only) |
 | DXF / PDF / .glb export | Deliverables | **P0 done** — `export_dxf` / `export_pdf` / `export_glb`; mm→m only in glb; StatusGate rejects Fault. Godot 4 sample in `godot/` is read-only |
+| EvidencePack | Sidecar | **P0 stub** — attach/detach metadata; may be empty; never SceneIR (I1 / I5) |
+| ReleaseTrain | Mapping | **P0 stub** — `core/fixtures/release-train.v1.json` software tag ↔ module SKU / firmware / whitelist file version |
+| Android app | Host | **P0 shell** — Gradle + JNI; Fake/Replay in debug; USB/BT permission scaffolding |
+| iOS app | Host | **P0 shell** — SwiftUI + ObjC++; typed / Fake loop; no external depth |
 
 RF BLE ranging is never a dimension source.
