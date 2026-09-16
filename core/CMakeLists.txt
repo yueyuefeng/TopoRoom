@@ -40,6 +40,7 @@ set(TOPOROOM_CORE_SOURCES
   src/app/guided_room_session.cpp
   src/app/evidence_pack.cpp
   src/adapters/release_train.cpp
+  src/adapters/p1_stubs.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -133,6 +134,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/guided_capture_loop_test.cpp
     tests/evidence_pack_test.cpp
     tests/release_train_test.cpp
+    tests/p1_stubs_test.cpp
   )
 
   target_link_libraries(toporoom_tests
