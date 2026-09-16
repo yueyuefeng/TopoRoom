@@ -74,6 +74,7 @@ if(TOPOROOM_BUILD_TESTS)
 
   add_executable(toporoom_tests
     tests/length_mm_test.cpp
+    tests/point_mm_test.cpp
     tests/wall_test.cpp
     tests/opening_test.cpp
     tests/floor_plan_document_test.cpp
