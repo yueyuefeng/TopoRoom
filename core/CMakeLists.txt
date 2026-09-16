@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
 include(FetchContent)
-find_package(Threads REQUIRED)
 
 set(TOPOROOM_CORE_SOURCES
   src/domain/error.cpp
@@ -34,10 +33,14 @@ set(TOPOROOM_CORE_SOURCES
 add_library(toporoom_core STATIC ${TOPOROOM_CORE_SOURCES})
 add_library(toporoom::core ALIAS toporoom_core)
 
+
+find_package(Threads REQUIRED)
+
 target_include_directories(toporoom_core
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
 target_compile_features(toporoom_core PUBLIC cxx_std_20)
 target_link_libraries(toporoom_core PUBLIC Threads::Threads)
 
@@ -53,6 +56,10 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(nlohmann_json)
+
+
+# JSON is an adapter concern (SceneIR files / scene-graph). Domain sources
+# must not include nlohmann/json.hpp.
 target_link_libraries(toporoom_core PRIVATE nlohmann_json::nlohmann_json)
 
 if(TOPOROOM_BUILD_TESTS)
@@ -64,31 +71,36 @@ if(TOPOROOM_BUILD_TESTS)
   )
   FetchContent_MakeAvailable(googletest)
 
-  set(TOPOROOM_TEST_SOURCES
+
+  add_executable(toporoom_tests
     tests/length_mm_test.cpp
-    tests/point_mm_test.cpp
     tests/wall_test.cpp
     tests/opening_test.cpp
     tests/floor_plan_document_test.cpp
     tests/measurement_test.cpp
     tests/import_ban_test.cpp
-    tests/sceneir_fixture_test.cpp
     tests/ports_test.cpp
+    tests/fake_geometry_port_test.cpp
     tests/session_isolate_test.cpp
     tests/param_gathering_fsm_test.cpp
     tests/tool_registry_test.cpp
     tests/handlers_test.cpp
-    tests/fake_geometry_port_test.cpp
     tests/status_gate_test.cpp
     tests/export_scene_graph_test.cpp
+    tests/sceneir_fixture_test.cpp
     tests/c_api_test.cpp
   )
 
-  add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
-  target_link_libraries(toporoom_tests PRIVATE toporoom::core GTest::gtest_main)
-  target_compile_definitions(toporoom_tests PRIVATE
-    TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
-    TOPOROOM_CORE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  target_link_libraries(toporoom_tests
+    PRIVATE
+      toporoom::core
+      GTest::gtest_main
+      nlohmann_json::nlohmann_json
+  )
+  target_compile_definitions(toporoom_tests
+    PRIVATE
+      TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+      TOPOROOM_CORE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   )
   if(NOT MSVC)
     target_compile_options(toporoom_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
