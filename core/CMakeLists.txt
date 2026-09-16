@@ -14,6 +14,9 @@ set(TOPOROOM_CORE_SOURCES
   src/domain/floor_plan_document.cpp
   src/ports/semantics.cpp
   src/app/session_isolate.cpp
+  src/app/param_gathering_fsm.cpp
+  src/app/wall_draw_tool.cpp
+  src/app/tool_registry.cpp
   src/adapters/scene_ir_json.cpp
 )
 
@@ -60,6 +63,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/import_ban_test.cpp
     tests/sceneir_fixture_test.cpp
     tests/ports_test.cpp
+    tests/session_isolate_test.cpp
   )
 
   add_executable(toporoom_tests ${TOPOROOM_TEST_SOURCES})
