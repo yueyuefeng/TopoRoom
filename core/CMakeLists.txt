@@ -13,6 +13,7 @@ set(TOPOROOM_CORE_SOURCES
   src/domain/storey.cpp
   src/domain/floor_plan_document.cpp
   src/ports/semantics.cpp
+  src/app/session_isolate.cpp
   src/adapters/scene_ir_json.cpp
 )
 
