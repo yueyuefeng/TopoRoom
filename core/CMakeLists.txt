@@ -33,6 +33,7 @@ set(TOPOROOM_CORE_SOURCES
 add_library(toporoom_core STATIC ${TOPOROOM_CORE_SOURCES})
 add_library(toporoom::core ALIAS toporoom_core)
 
+
 find_package(Threads REQUIRED)
 
 target_include_directories(toporoom_core
@@ -56,6 +57,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+
 # JSON is an adapter concern (SceneIR files / scene-graph). Domain sources
 # must not include nlohmann/json.hpp.
 target_link_libraries(toporoom_core PRIVATE nlohmann_json::nlohmann_json)
@@ -69,8 +71,10 @@ if(TOPOROOM_BUILD_TESTS)
   )
   FetchContent_MakeAvailable(googletest)
 
+
   add_executable(toporoom_tests
     tests/length_mm_test.cpp
+    tests/point_mm_test.cpp
     tests/wall_test.cpp
     tests/opening_test.cpp
     tests/floor_plan_document_test.cpp
