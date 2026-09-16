@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "softwareTag": "0.1.0",
+  "moduleSku": "orbbec_gemini_e",
+  "firmware": "1.2.0",
+  "whitelistFile": "android-whitelist.v1.json",
+  "whitelistVersion": 1
+}

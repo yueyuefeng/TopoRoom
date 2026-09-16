@@ -1,0 +1,36 @@
+#!/bin/sh
+# Gradle start up script for POSIX (TopoRoom Android).
+# Android Studio can regenerate a full wrapper; this one is enough to bootstrap.
+
+app_path=$0
+while [ -h "$app_path" ]; do
+  ls=$(ls -ld "$app_path")
+  link=${ls#*' -> '}
+  case $link in
+    /*) app_path=$link ;;
+    *) app_path=$(dirname "$app_path")/$link ;;
+  esac
+done
+APP_HOME=$(cd "$(dirname "$app_path")" && pwd) || exit
+APP_BASE_NAME=${0##*/}
+
+if [ -n "$JAVA_HOME" ]; then
+  JAVACMD=$JAVA_HOME/bin/java
+else
+  JAVACMD=java
+fi
+
+if [ ! -x "$JAVACMD" ] && ! command -v "$JAVACMD" >/dev/null 2>&1; then
+  echo "ERROR: JAVA_HOME is not set and no 'java' command could be found." >&2
+  exit 1
+fi
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+if [ ! -f "$CLASSPATH" ]; then
+  echo "ERROR: missing $CLASSPATH (open the project in Android Studio to generate the wrapper)." >&2
+  exit 1
+fi
+
+exec "$JAVACMD" -Xmx64m -Xms64m $JAVA_OPTS $GRADLE_OPTS \
+  -Dorg.gradle.appname="$APP_BASE_NAME" -classpath "$CLASSPATH" \
+  org.gradle.wrapper.GradleWrapperMain "$@"

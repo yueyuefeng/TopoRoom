@@ -50,8 +50,10 @@ struct MeshSolid {
   std::string kind;
   std::string entity_id;
   std::string node_hint;
+  // Positions stay in millimetres until an exporter converts (I1 / mm→m at the edge).
   std::vector<double> vertices_mm;
   std::vector<int> indices;
+  double volume_mm3 = 0;
 };
 
 struct MeshProjection {

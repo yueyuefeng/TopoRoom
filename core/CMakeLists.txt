@@ -24,9 +24,23 @@ set(TOPOROOM_CORE_SOURCES
   src/app/status_gate.cpp
   src/app/export_app_service.cpp
   src/adapters/fake_geometry_port.cpp
+  src/adapters/manifold_geometry_port.cpp
   src/adapters/in_memory_document_store.cpp
   src/adapters/export_scene_graph.cpp
+  src/adapters/export_glb.cpp
+  src/adapters/export_dxf.cpp
+  src/adapters/export_pdf.cpp
   src/adapters/scene_ir_json.cpp
+  src/adapters/laser_adapters.cpp
+  src/adapters/depth_adapters.cpp
+  src/adapters/android_whitelist.cpp
+  src/adapters/imu_adapters.cpp
+  src/app/laser_capture_service.cpp
+  src/app/depth_capture_service.cpp
+  src/app/guided_room_session.cpp
+  src/app/evidence_pack.cpp
+  src/adapters/release_train.cpp
+  src/adapters/p1_stubs.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -62,6 +76,26 @@ FetchContent_MakeAvailable(nlohmann_json)
 # must not include nlohmann/json.hpp.
 target_link_libraries(toporoom_core PRIVATE nlohmann_json::nlohmann_json)
 
+# Manifold is the GeometryKernel ACL only (I2 / NFR-015). Never PUBLIC.
+set(MANIFOLD_TEST OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_CBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PYBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_JSBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PAR OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_CROSS_SECTION ON CACHE BOOL "" FORCE)
+set(MANIFOLD_USE_BUILTIN_CLIPPER2 ON CACHE BOOL "" FORCE)
+set(MANIFOLD_DOWNLOADS ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF)
+
+FetchContent_Declare(
+  manifold
+  GIT_REPOSITORY https://github.com/elalish/manifold.git
+  GIT_TAG v3.5.3
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(manifold)
+target_link_libraries(toporoom_core PRIVATE manifold)
+
 if(TOPOROOM_BUILD_TESTS)
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   FetchContent_Declare(
@@ -82,14 +116,25 @@ if(TOPOROOM_BUILD_TESTS)
     tests/import_ban_test.cpp
     tests/ports_test.cpp
     tests/fake_geometry_port_test.cpp
+    tests/manifold_geometry_port_test.cpp
     tests/session_isolate_test.cpp
     tests/param_gathering_fsm_test.cpp
     tests/tool_registry_test.cpp
     tests/handlers_test.cpp
     tests/status_gate_test.cpp
     tests/export_scene_graph_test.cpp
+    tests/export_deliverables_test.cpp
     tests/sceneir_fixture_test.cpp
     tests/c_api_test.cpp
+    tests/laser_port_test.cpp
+    tests/depth_port_test.cpp
+    tests/android_whitelist_test.cpp
+    tests/imu_port_test.cpp
+    tests/guided_room_test.cpp
+    tests/guided_capture_loop_test.cpp
+    tests/evidence_pack_test.cpp
+    tests/release_train_test.cpp
+    tests/p1_stubs_test.cpp
   )
 
   target_link_libraries(toporoom_tests
@@ -97,12 +142,21 @@ if(TOPOROOM_BUILD_TESTS)
       toporoom::core
       GTest::gtest_main
       nlohmann_json::nlohmann_json
+      manifold
   )
   target_compile_definitions(toporoom_tests
     PRIVATE
       TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
       TOPOROOM_CORE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+      TOPOROOM_REPO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/.."
   )
+
+  add_executable(toporoom_write_godot_fixture tools/write_godot_fixture.cpp)
+  target_link_libraries(toporoom_write_godot_fixture PRIVATE toporoom::core manifold)
+  target_compile_definitions(toporoom_write_godot_fixture PRIVATE
+    TOPOROOM_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+  )
+  target_compile_features(toporoom_write_godot_fixture PRIVATE cxx_std_20)
   if(NOT MSVC)
     target_compile_options(toporoom_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endif()
