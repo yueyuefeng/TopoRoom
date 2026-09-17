@@ -20,4 +20,12 @@ local.properties
 .pioenvs/
 .piolibdeps/
 .cxx/
+.godot/
+godot/android/
+godot/export_credentials.cfg
+*.apk
+*.aab
+artifacts/
+build-gdext*/
+
 

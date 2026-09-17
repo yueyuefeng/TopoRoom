@@ -702,7 +702,7 @@ func _update_hud() -> void:
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
 		var kind := str(op.get("kind", _selected.get("kind", "")))
-		var label: String = Tokens.opening_label(kind)
+		var label: String = str({"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind))
 		sel = "选中 %s %s  偏移 %dmm  宽 %dmm  高 %dmm" % [
 			label,
 			str(_selected.get("opening_id", "")),

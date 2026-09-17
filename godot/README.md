@@ -90,28 +90,51 @@ No extra JNI `.so` is required at export time.
 
 ## Export a Debug APK
 
-CI / this Cloud VM typically **cannot** finish an APK: Godot export templates
-and a local Android SDK/NDK/JDK are missing. Deliverable here is the project
-+ scripts; run the last mile on a machine with the editor.
+**Sideload (arm64 phone):** Android **7.0+ (API 24)**, **arm64-v8a** only.
+Package `com.toporoom.godot`, debug-signed (`androiddebugkey`). Not for Play Store.
 
-1. Godot 4.3+ **Editor Settings → Export → Android**
-   - JDK 17
-   - Android SDK (API 34)
-   - NDK (side-by-side; same one used to compile the `.so`)
-   - Debug keystore (editor can generate)
-2. **Install Android Build Template** (Editor → Manage Export Templates)
-   matching the Godot version (4.3.x).
-3. Build the Android `.so` files above into `godot/bin/`.
-4. Open `godot/`, confirm the Android preset in `export_presets.cfg`
-   (`com.toporoom.godot`, arm64-v8a + x86_64, Gradle build).
-5. **Project → Export → Android → Export Debug APK**, or:
+```bash
+adb install -r build/toporoom-android-debug.apk
+```
 
-   ```bash
-   GODOT=/path/to/Godot_v4.3-stable_linux.x86_64 \
-     ./godot/scripts/export_android_debug.sh
-   ```
+On device: allow install from this source if prompted. Bluetooth permission is
+declared for later laser capture; the P0 UI runs without hardware.
 
-`export_credentials.cfg` is local (keystore passwords) — do not commit it.
+### One-command local recipe (Linux)
+
+Needs Godot **4.3.stable** editor binary, matching **export templates**
+(`android_debug.apk` + `android_source.zip` under
+`~/.local/share/godot/export_templates/4.3.stable/`), **OpenJDK 17**, and
+Android SDK (`platforms;android-34`, `build-tools;34.0.0`,
+`ndk;23.2.8568313` as Godot 4.3 documents):
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME=$HOME/android-sdk
+export ANDROID_NDK=$ANDROID_HOME/ndk/23.2.8568313
+export GODOT=/path/to/Godot_v4.3-stable_linux.x86_64
+
+./godot/scripts/build_extension.sh android arm64-v8a
+# optional emulator ABI:
+# ./godot/scripts/build_extension.sh android x86_64
+
+GODOT=$GODOT \
+  GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$ANDROID_HOME/debug.keystore \
+  ./godot/scripts/export_android_debug.sh build/toporoom-android-debug.apk
+```
+
+`export_android_debug.sh` runs `--install-android-build-template` with
+`--export-debug`. Editor Settings must have Java SDK + Android SDK paths
+(or generate `~/.config/godot/editor_settings-4.3.tres` once). Debug
+keystore: `keytool -genkeypair` alias `androiddebugkey` / password `android`.
+
+Preset `export_presets.cfg`: `com.toporoom.godot`, **arm64-v8a**, Gradle,
+minSdk 24 / target 34. Enable `architectures/x86_64` only after building
+that `.so`. `export_credentials.cfg` is local — do not commit it.
+
+Android `.so` is linked with `c++_static` so the APK does not depend on a
+separate app copy of `libc++_shared` for TopoRoomHost (Godot’s own
+`libgodot_android.so` still ships `libc++_shared.so`).
 
 ## 3D 编辑 + light presets
 
