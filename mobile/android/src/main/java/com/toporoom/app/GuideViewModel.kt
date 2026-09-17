@@ -1,5 +1,7 @@
 package com.toporoom.app
 
+enum class AppScreen { HOME, GUIDE }
+
 data class GuideUiState(
     val phase: String = "host_check",
     val canExport: Boolean = false,
@@ -9,170 +11,14 @@ data class GuideUiState(
     val whitelistOk: Boolean = false,
     val log: String = "",
     val lastExportDir: String = "",
+    val lastExportFiles: List<String> = emptyList(),
+    val glbExported: Boolean = false,
     val evidenceEmpty: Boolean = true,
+    val screen: AppScreen = AppScreen.HOME,
+    val plan: PlanSnapshot = PlanSnapshot(),
+    val schemes: List<String> = emptyList(),
+    val documentId: String = "doc_android",
 )
-
-data class WhitelistQuery(
-    val phoneModel: String,
-    val androidApi: Int,
-    val moduleSku: String = "orbbec_gemini_e",
-    val firmware: String = "1.2.0",
-    val hubSku: String = "none",
-    val appVersion: String = "0.1.0",
-)
-
-interface TopoRoomBridge {
-    fun version(): String
-    fun createDocument(id: String): Long
-    fun destroyDocument(handle: Long)
-    fun firstStoreyId(handle: Long): String
-    fun addWall(
-        handle: Long,
-        storeyId: String,
-        wallId: String,
-        x0: Double,
-        y0: Double,
-        x1: Double,
-        y1: Double,
-        thicknessMm: Double,
-        heightMm: Double,
-    ): String
-    fun addOpening(
-        handle: Long,
-        storeyId: String,
-        wallId: String,
-        openingId: String,
-        kind: String,
-        widthMm: Double,
-        heightMm: Double,
-        offsetMm: Double,
-        sillMm: Double,
-    ): String
-    fun setMeasurement(
-        handle: Long,
-        measurementId: String,
-        valueMm: Double,
-        source: String,
-        instrumentId: String?,
-        betweenCsv: String?,
-    ): String
-    fun closeRoom(handle: Long, storeyId: String, roomId: String, wallIdsCsv: String): String
-    fun export(handle: Long, format: String, path: String): String
-    fun debugFakeOneRoom(doc: Long, guide: Long, outDir: String): String
-    fun guideCreate(): Long
-    fun guideDestroy(handle: Long)
-    fun guideMarkHostOk(handle: Long, ok: Boolean)
-    fun guideNoteWall(handle: Long)
-    fun guideNoteOpening(handle: Long)
-    fun guideNoteKey(handle: Long, source: String, typedExplicit: Boolean)
-    fun guideNoteRebuild(handle: Long, ok: Boolean)
-    fun guidePhase(handle: Long): String
-    fun guideCanExport(handle: Long): Boolean
-    fun guideBlockingReason(handle: Long): String
-    fun evidenceCreate(documentId: String): Long
-    fun evidenceDestroy(handle: Long)
-    fun evidenceEmpty(handle: Long): Boolean
-    fun evidenceAttach(handle: Long, id: String, kind: String, uri: String): Int
-    fun whitelistAllows(json: String, query: WhitelistQuery): Boolean
-    fun releaseTrainMatches(
-        json: String,
-        softwareTag: String,
-        moduleSku: String,
-        firmware: String,
-        whitelistVersion: Int,
-    ): Boolean
-}
-
-class JniTopoRoomBridge : TopoRoomBridge {
-    override fun version() = com.toporoom.core.NativeCore.nativeVersion()
-    override fun createDocument(id: String) = com.toporoom.core.NativeCore.nativeCreateDocument(id)
-    override fun destroyDocument(handle: Long) =
-        com.toporoom.core.NativeCore.nativeDestroyDocument(handle)
-    override fun firstStoreyId(handle: Long) =
-        com.toporoom.core.NativeCore.nativeFirstStoreyId(handle)
-    override fun addWall(
-        handle: Long,
-        storeyId: String,
-        wallId: String,
-        x0: Double,
-        y0: Double,
-        x1: Double,
-        y1: Double,
-        thicknessMm: Double,
-        heightMm: Double,
-    ) = com.toporoom.core.NativeCore.nativeAddWall(
-        handle, storeyId, wallId, x0, y0, x1, y1, thicknessMm, heightMm,
-    )
-    override fun addOpening(
-        handle: Long,
-        storeyId: String,
-        wallId: String,
-        openingId: String,
-        kind: String,
-        widthMm: Double,
-        heightMm: Double,
-        offsetMm: Double,
-        sillMm: Double,
-    ) = com.toporoom.core.NativeCore.nativeAddOpening(
-        handle, storeyId, wallId, openingId, kind, widthMm, heightMm, offsetMm, sillMm,
-    )
-    override fun setMeasurement(
-        handle: Long,
-        measurementId: String,
-        valueMm: Double,
-        source: String,
-        instrumentId: String?,
-        betweenCsv: String?,
-    ) = com.toporoom.core.NativeCore.nativeSetMeasurement(
-        handle, measurementId, valueMm, source, instrumentId, betweenCsv, null, null, null,
-    )
-    override fun closeRoom(handle: Long, storeyId: String, roomId: String, wallIdsCsv: String) =
-        com.toporoom.core.NativeCore.nativeCloseRoom(handle, storeyId, roomId, wallIdsCsv)
-    override fun export(handle: Long, format: String, path: String) =
-        com.toporoom.core.NativeCore.nativeExport(handle, format, path)
-    override fun debugFakeOneRoom(doc: Long, guide: Long, outDir: String) =
-        com.toporoom.core.NativeCore.nativeDebugFakeOneRoom(doc, guide, outDir)
-    override fun guideCreate() = com.toporoom.core.NativeCore.nativeGuideCreate()
-    override fun guideDestroy(handle: Long) =
-        com.toporoom.core.NativeCore.nativeGuideDestroy(handle)
-    override fun guideMarkHostOk(handle: Long, ok: Boolean) =
-        com.toporoom.core.NativeCore.nativeGuideMarkHostOk(handle, ok)
-    override fun guideNoteWall(handle: Long) =
-        com.toporoom.core.NativeCore.nativeGuideNoteWall(handle)
-    override fun guideNoteOpening(handle: Long) =
-        com.toporoom.core.NativeCore.nativeGuideNoteOpening(handle)
-    override fun guideNoteKey(handle: Long, source: String, typedExplicit: Boolean) =
-        com.toporoom.core.NativeCore.nativeGuideNoteKey(handle, source, typedExplicit)
-    override fun guideNoteRebuild(handle: Long, ok: Boolean) =
-        com.toporoom.core.NativeCore.nativeGuideNoteRebuild(handle, ok)
-    override fun guidePhase(handle: Long) = com.toporoom.core.NativeCore.nativeGuidePhase(handle)
-    override fun guideCanExport(handle: Long) =
-        com.toporoom.core.NativeCore.nativeGuideCanExport(handle)
-    override fun guideBlockingReason(handle: Long) =
-        com.toporoom.core.NativeCore.nativeGuideBlockingReason(handle)
-    override fun evidenceCreate(documentId: String) =
-        com.toporoom.core.NativeCore.nativeEvidenceCreate(documentId)
-    override fun evidenceDestroy(handle: Long) =
-        com.toporoom.core.NativeCore.nativeEvidenceDestroy(handle)
-    override fun evidenceEmpty(handle: Long) =
-        com.toporoom.core.NativeCore.nativeEvidenceEmpty(handle)
-    override fun evidenceAttach(handle: Long, id: String, kind: String, uri: String) =
-        com.toporoom.core.NativeCore.nativeEvidenceAttach(handle, id, kind, uri)
-    override fun whitelistAllows(json: String, query: WhitelistQuery) =
-        com.toporoom.core.NativeCore.nativeWhitelistAllows(
-            json, query.phoneModel, query.androidApi, query.moduleSku, query.firmware,
-            query.hubSku, query.appVersion,
-        )
-    override fun releaseTrainMatches(
-        json: String,
-        softwareTag: String,
-        moduleSku: String,
-        firmware: String,
-        whitelistVersion: Int,
-    ) = com.toporoom.core.NativeCore.nativeReleaseTrainMatches(
-        json, softwareTag, moduleSku, firmware, whitelistVersion,
-    )
-}
 
 class GuideViewModel(
     private val bridge: TopoRoomBridge,
@@ -191,16 +37,22 @@ class GuideViewModel(
     internal var evidenceHandle: Long = 0
     private var wallCount: Int = 0
     private var keyCount: Int = 0
+    private var openingCount: Int = 0
+    private var hostedCount: Int = 0
+    private var roomClosed: Boolean = false
     private val fakeLaserMm = ArrayDeque(listOf(4000.0, 3000.0))
+    private var schemesDir: String = ""
 
     fun start(
         documentId: String,
         whitelistJson: String,
         query: WhitelistQuery,
         releaseTrainJson: String,
+        schemesDir: String = "",
     ) {
         dispose()
         this.documentId = documentId
+        this.schemesDir = schemesDir
         docHandle = bridge.createDocument(documentId)
         guideHandle = bridge.guideCreate()
         evidenceHandle = bridge.evidenceCreate(documentId)
@@ -219,20 +71,39 @@ class GuideViewModel(
         )
     }
 
+    fun showHome() {
+        refresh("首页", screen = AppScreen.HOME)
+    }
+
+    fun showGuide() {
+        refresh("引导量房", screen = AppScreen.GUIDE)
+    }
+
+    fun newScheme(id: String = "doc_android"): String {
+        documentId = id
+        resetDocument()
+        bridge.guideMarkHostOk(guideHandle, state.hostOk)
+        autoSave()
+        refresh("新建方案 $id", screen = AppScreen.GUIDE)
+        return ""
+    }
+
     fun addRectangleWalls(): String {
-        val walls = listOf(
-            Triple("wall_n", doubleArrayOf(0.0, 3000.0, 4000.0, 3000.0)),
-            Triple("wall_e", doubleArrayOf(4000.0, 3000.0, 4000.0, 0.0)),
-            Triple("wall_s", doubleArrayOf(4000.0, 0.0, 0.0, 0.0)),
-            Triple("wall_w", doubleArrayOf(0.0, 0.0, 0.0, 3000.0)),
+        val rect = listOf(
+            Pair("wall_n", doubleArrayOf(0.0, 3000.0, 4000.0, 3000.0)),
+            Pair("wall_e", doubleArrayOf(4000.0, 3000.0, 4000.0, 0.0)),
+            Pair("wall_s", doubleArrayOf(4000.0, 0.0, 0.0, 0.0)),
+            Pair("wall_w", doubleArrayOf(0.0, 0.0, 0.0, 3000.0)),
         )
-        for ((id, xy) in walls) {
+        for ((id, xy) in rect) {
             val err = bridge.addWall(docHandle, storeyId, id, xy[0], xy[1], xy[2], xy[3], 200.0, 2800.0)
             if (err.isNotEmpty()) return err
             bridge.guideNoteWall(guideHandle)
             wallCount += 1
         }
-        refresh("drew 4 walls")
+        syncGuide(rebuildOk = false)
+        autoSave()
+        refresh("画墙：矩形一室 4000×3000")
         return ""
     }
 
@@ -243,7 +114,9 @@ class GuideViewModel(
         if (err.isNotEmpty()) return err
         bridge.guideNoteKey(guideHandle, "laser", false)
         keyCount += 1
-        refresh("laser fake ${mm}mm")
+        syncGuide(rebuildOk = false)
+        autoSave()
+        refresh("关键尺寸 Fake激光 ${mm}mm")
         return ""
     }
 
@@ -253,22 +126,93 @@ class GuideViewModel(
         if (err.isNotEmpty()) return err
         bridge.guideNoteKey(guideHandle, "typed", explicit)
         keyCount += 1
-        refresh("typed ${valueMm}mm explicit=$explicit")
+        syncGuide(rebuildOk = false)
+        autoSave()
+        refresh("关键尺寸 手输 ${valueMm}mm 确认=$explicit")
         return ""
     }
 
-    fun addDoor(): String {
+    fun addDoor(): String = addOpening("door")
+
+    fun addOpening(kind: String): String {
+        val wallId = "wall_s"
+        openingCount += 1
+        val id = "op_${kind}_$openingCount"
+        val width = when (kind) {
+            "window" -> 1200.0
+            "archway" -> 1200.0
+            else -> 900.0
+        }
+        val height = when (kind) {
+            "window" -> 1400.0
+            else -> 2100.0
+        }
+        val sill = if (kind == "window") 900.0 else 0.0
         val err = bridge.addOpening(
-            docHandle, storeyId, "wall_s", "op_door", "door", 900.0, 2100.0, 800.0, 0.0,
+            docHandle, storeyId, wallId, id, kind, width, height, 800.0, sill,
+        )
+        if (err.isNotEmpty()) {
+            openingCount -= 1
+            return err
+        }
+        bridge.guideNoteOpening(guideHandle)
+        syncGuide(rebuildOk = false)
+        autoSave()
+        refresh("放置${openingKindZh(kind)} $id")
+        return ""
+    }
+
+    fun setStoreyHeight(heightMm: Double, followWalls: Boolean = true): String {
+        val err = bridge.setStoreyHeight(docHandle, storeyId, heightMm, followWalls)
+        if (err.isNotEmpty()) return err
+        autoSave()
+        refresh("层高 ${heightMm}mm followWalls=$followWalls")
+        return ""
+    }
+
+    fun setClearHeight(clearHeightMm: Double, roomId: String = "room_1"): String {
+        val closeErr = ensureRoomClosed(roomId)
+        if (closeErr.isNotEmpty()) return closeErr
+        val err = bridge.setRoomAttributes(
+            docHandle, storeyId, roomId, "客厅", "interior", true, clearHeightMm,
         )
         if (err.isNotEmpty()) return err
-        bridge.guideNoteOpening(guideHandle)
-        refresh("placed door")
+        autoSave()
+        refresh("净高 ${clearHeightMm}mm")
+        return ""
+    }
+
+    fun placeHosted(kind: String, zBottomMm: Double, depthMm: Double): String {
+        hostedCount += 1
+        val id = "hc_${kind}_$hostedCount"
+        val err = bridge.placeHosted(
+            docHandle, storeyId, id, kind, zBottomMm, depthMm, "wall_n",
+        )
+        if (err.isNotEmpty()) {
+            hostedCount -= 1
+            return err
+        }
+        autoSave()
+        refresh("放置${hostedKindZh(kind)} $id")
+        return ""
+    }
+
+    fun rebuild(): String {
+        val closeErr = ensureRoomClosed("room_1")
+        if (closeErr.isNotEmpty()) return closeErr
+        val attrs = bridge.setRoomAttributes(
+            docHandle, storeyId, "room_1", "客厅", "interior", true, 2650.0,
+        )
+        if (attrs.isNotEmpty()) return attrs
+        bridge.guideNoteRebuild(guideHandle, true)
+        syncGuide(rebuildOk = true)
+        autoSave()
+        refresh("重建完成")
         return ""
     }
 
     fun closeRebuildExport(outDir: String): String {
-        val closeErr = bridge.closeRoom(docHandle, storeyId, "room_1", "wall_n,wall_e,wall_s,wall_w")
+        val closeErr = ensureRoomClosed("room_1")
         if (closeErr.isNotEmpty()) return closeErr
         val exports = listOf("glb", "dxf", "pdf")
         for (fmt in exports) {
@@ -280,32 +224,99 @@ class GuideViewModel(
             }
         }
         bridge.guideNoteRebuild(guideHandle, true)
-        refresh("exported glb/dxf/pdf", exportDir = outDir)
+        syncGuide(rebuildOk = true)
+        refresh("exported glb/dxf/pdf", exportDir = outDir, files = exports, glbOk = true)
+        return ""
+    }
+
+    fun exportDeliverables(outDir: String): String {
+        val written = mutableListOf<String>()
+        var glbOk = false
+        for (fmt in listOf("dxf", "pdf", "glb")) {
+            val err = bridge.export(docHandle, fmt, "$outDir/room.$fmt")
+            if (err.isNotEmpty()) {
+                if (fmt == "glb") {
+                    refresh("glb 未写出（几何未 OK）: $err")
+                    continue
+                }
+                return err
+            }
+            written += fmt
+            if (fmt == "glb") glbOk = true
+        }
+        bridge.guideNoteRebuild(guideHandle, true)
+        syncGuide(rebuildOk = true)
+        autoSave()
+        refresh(
+            "导出 ${written.joinToString("/")}",
+            exportDir = outDir,
+            files = written,
+            glbOk = glbOk,
+        )
         return ""
     }
 
     fun runFakeOneRoom(outDir: String): String {
         resetDocument()
+        bridge.guideMarkHostOk(guideHandle, true)
         val err = bridge.debugFakeOneRoom(docHandle, guideHandle, outDir)
         if (err.isNotEmpty()) return err
         wallCount = 4
         keyCount = 2
-        refresh("fake one-room loop", exportDir = outDir, fake = true, hostOk = true)
+        openingCount = 1
+        roomClosed = true
+        autoSave()
+        refresh(
+            "Fake 一室回路",
+            exportDir = outDir,
+            fake = true,
+            hostOk = true,
+            files = listOf("glb", "dxf", "pdf"),
+            glbOk = true,
+            screen = AppScreen.GUIDE,
+        )
         return ""
     }
 
-    private fun resetDocument() {
-        if (evidenceHandle != 0L) bridge.evidenceDestroy(evidenceHandle)
-        if (guideHandle != 0L) bridge.guideDestroy(guideHandle)
-        if (docHandle != 0L) bridge.destroyDocument(docHandle)
-        docHandle = bridge.createDocument(documentId)
-        guideHandle = bridge.guideCreate()
-        evidenceHandle = bridge.evidenceCreate(documentId)
-        storeyId = bridge.firstStoreyId(docHandle)
-        wallCount = 0
-        keyCount = 0
-        fakeLaserMm.clear()
-        fakeLaserMm.addAll(listOf(4000.0, 3000.0))
+    fun runGuidedEdit(): String {
+        resetDocument()
+        bridge.guideMarkHostOk(guideHandle, state.hostOk || debugBuild)
+        val err = bridge.runGuidedEdit(docHandle, guideHandle)
+        if (err.isNotEmpty()) return err
+        wallCount = 4
+        keyCount = 2
+        openingCount = 1
+        roomClosed = true
+        autoSave()
+        refresh("引导编辑（墙+垭口+激光关键尺寸）", screen = AppScreen.GUIDE)
+        return ""
+    }
+
+    fun saveScheme(path: String): String {
+        val err = bridge.saveToFile(docHandle, path)
+        if (err.isNotEmpty()) return err
+        refresh("已保存方案 $path")
+        return ""
+    }
+
+    fun loadScheme(path: String): String {
+        val result = bridge.loadFromFile(path)
+        if (result.error.isNotEmpty() || result.handle == 0L) {
+            return result.error.ifEmpty { "无法加载方案" }
+        }
+        adoptDocument(result.handle)
+        refresh("已加载方案 $path", screen = AppScreen.GUIDE)
+        return ""
+    }
+
+    fun loadSchemeJson(json: String): String {
+        val result = bridge.loadFromJson(json)
+        if (result.error.isNotEmpty() || result.handle == 0L) {
+            return result.error.ifEmpty { "无法加载方案" }
+        }
+        adoptDocument(result.handle)
+        refresh("已加载 SceneIR JSON", screen = AppScreen.GUIDE)
+        return ""
     }
 
     fun attachEmptyEvidenceNote(): String {
@@ -329,8 +340,79 @@ class GuideViewModel(
         }
         wallCount = 0
         keyCount = 0
+        openingCount = 0
+        hostedCount = 0
+        roomClosed = false
         fakeLaserMm.clear()
         fakeLaserMm.addAll(listOf(4000.0, 3000.0))
+    }
+
+    private fun ensureRoomClosed(roomId: String): String {
+        if (roomClosed) return ""
+        val closeErr = bridge.closeRoom(docHandle, storeyId, roomId, "wall_n,wall_e,wall_s,wall_w")
+        if (closeErr.isNotEmpty()) return closeErr
+        roomClosed = true
+        return ""
+    }
+
+    private fun adoptDocument(handle: Long) {
+        val hostOk = state.hostOk
+        if (evidenceHandle != 0L) bridge.evidenceDestroy(evidenceHandle)
+        if (guideHandle != 0L) bridge.guideDestroy(guideHandle)
+        if (docHandle != 0L) bridge.destroyDocument(docHandle)
+        docHandle = handle
+        guideHandle = bridge.guideCreate()
+        documentId = SceneIrPlanParser.parse(bridge.sceneIrJson(docHandle)).documentId.ifEmpty { documentId }
+        evidenceHandle = bridge.evidenceCreate(documentId)
+        storeyId = bridge.firstStoreyId(docHandle)
+        wallCount = 0
+        keyCount = 0
+        openingCount = 0
+        hostedCount = 0
+        roomClosed = SceneIrPlanParser.parse(bridge.sceneIrJson(docHandle)).rooms.isNotEmpty()
+        fakeLaserMm.clear()
+        fakeLaserMm.addAll(listOf(4000.0, 3000.0))
+        bridge.guideMarkHostOk(guideHandle, hostOk)
+        syncGuide(rebuildOk = roomClosed)
+    }
+
+    private fun resetDocument() {
+        if (evidenceHandle != 0L) bridge.evidenceDestroy(evidenceHandle)
+        if (guideHandle != 0L) bridge.guideDestroy(guideHandle)
+        if (docHandle != 0L) bridge.destroyDocument(docHandle)
+        docHandle = bridge.createDocument(documentId)
+        guideHandle = bridge.guideCreate()
+        evidenceHandle = bridge.evidenceCreate(documentId)
+        storeyId = bridge.firstStoreyId(docHandle)
+        wallCount = 0
+        keyCount = 0
+        openingCount = 0
+        hostedCount = 0
+        roomClosed = false
+        fakeLaserMm.clear()
+        fakeLaserMm.addAll(listOf(4000.0, 3000.0))
+    }
+
+    private fun syncGuide(rebuildOk: Boolean) {
+        if (guideHandle != 0L && docHandle != 0L) {
+            bridge.guideSyncFromDocument(guideHandle, docHandle, rebuildOk)
+        }
+    }
+
+    private fun autoSave() {
+        if (schemesDir.isEmpty() || docHandle == 0L) return
+        val path = "$schemesDir/$documentId.sceneir.json"
+        bridge.saveToFile(docHandle, path)
+    }
+
+    private fun listedSchemes(): List<String> {
+        if (schemesDir.isEmpty()) return emptyList()
+        val dir = java.io.File(schemesDir)
+        if (!dir.isDirectory) return emptyList()
+        return dir.listFiles { f -> f.isFile && f.name.endsWith(".sceneir.json") }
+            ?.map { it.name.removeSuffix(".sceneir.json") }
+            ?.sorted()
+            ?: emptyList()
     }
 
     private fun refresh(
@@ -339,11 +421,15 @@ class GuideViewModel(
         whitelistOk: Boolean = state.whitelistOk,
         fake: Boolean = state.usingFakeCapture,
         exportDir: String = state.lastExportDir,
+        files: List<String> = state.lastExportFiles,
+        glbOk: Boolean = state.glbExported,
+        screen: AppScreen = state.screen,
     ) {
         val phase = if (guideHandle != 0L) bridge.guidePhase(guideHandle) else "host_check"
         val can = guideHandle != 0L && bridge.guideCanExport(guideHandle)
         val reason = if (guideHandle != 0L) bridge.guideBlockingReason(guideHandle) else ""
         val empty = evidenceHandle == 0L || bridge.evidenceEmpty(evidenceHandle)
+        val json = if (docHandle != 0L) bridge.sceneIrJson(docHandle) else "{}"
         val log = if (state.log.isEmpty()) line else state.log + "\n" + line
         state = GuideUiState(
             phase = phase,
@@ -354,7 +440,13 @@ class GuideViewModel(
             whitelistOk = whitelistOk,
             log = log,
             lastExportDir = exportDir,
+            lastExportFiles = files,
+            glbExported = glbOk,
             evidenceEmpty = empty,
+            screen = screen,
+            plan = SceneIrPlanParser.parse(json),
+            schemes = listedSchemes(),
+            documentId = documentId,
         )
     }
 }

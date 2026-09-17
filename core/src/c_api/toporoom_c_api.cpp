@@ -79,15 +79,20 @@ int export_document(toporoom::domain::FloorPlanDocument& impl, const char* forma
     toporoom::adapters::ManifoldGeometryPort geometry;
     toporoom::app::ExportAppService exporter(geometry);
     const auto outcome = exporter.export_scene_graph(impl.to_scene_ir());
-    if (!outcome.ok) {
-      return write_error(errbuf, errbuf_len, outcome.fault.message.c_str());
-    }
     int rc = 1;
     if (std::strcmp(format, "glb") == 0) {
+      // Structural solid / glb requires Status OK. Semantic DXF/PDF still emit on fault.
+      if (!outcome.ok || outcome.glb.empty()) {
+        const char* msg = outcome.fault.message.empty() ? "glb export rejected"
+                                                        : outcome.fault.message.c_str();
+        return write_error(errbuf, errbuf_len, msg);
+      }
       rc = write_bytes(path, outcome.glb.data(), outcome.glb.size());
     } else if (std::strcmp(format, "dxf") == 0) {
+      if (outcome.dxf.empty()) return write_error(errbuf, errbuf_len, "dxf export failed");
       rc = write_text(path, outcome.dxf);
     } else if (std::strcmp(format, "pdf") == 0) {
+      if (outcome.pdf.empty()) return write_error(errbuf, errbuf_len, "pdf export failed");
       rc = write_bytes(path, outcome.pdf.data(), outcome.pdf.size());
     } else {
       return write_error(errbuf, errbuf_len, "format must be glb, dxf, or pdf");
@@ -400,6 +405,53 @@ char* toporoom_document_to_sceneir_json(TopoRoomDocument* doc) {
 }
 
 void toporoom_string_free(char* s) { std::free(s); }
+
+TopoRoomDocument* toporoom_document_from_sceneir_json(const char* json, char* errbuf,
+                                                      int errbuf_len) {
+  if (!json) {
+    write_error(errbuf, errbuf_len, "json required");
+    return nullptr;
+  }
+  try {
+    const auto scene = toporoom::adapters::load_scene_ir_json(json);
+    return new TopoRoomDocument{toporoom::domain::FloorPlanDocument::from_scene_ir(scene)};
+  } catch (const std::exception& ex) {
+    write_error(errbuf, errbuf_len, ex.what());
+    return nullptr;
+  }
+}
+
+TopoRoomDocument* toporoom_document_load(const char* path, char* errbuf, int errbuf_len) {
+  if (!path) {
+    write_error(errbuf, errbuf_len, "path required");
+    return nullptr;
+  }
+  try {
+    const auto scene = toporoom::adapters::load_scene_ir_file(path);
+    return new TopoRoomDocument{toporoom::domain::FloorPlanDocument::from_scene_ir(scene)};
+  } catch (const std::exception& ex) {
+    write_error(errbuf, errbuf_len, ex.what());
+    return nullptr;
+  }
+}
+
+int toporoom_document_save(TopoRoomDocument* doc, const char* path, char* errbuf,
+                           int errbuf_len) {
+  if (!doc || !path) return write_error(errbuf, errbuf_len, "document and path required");
+  try {
+    const std::filesystem::path file(path);
+    if (file.has_parent_path() && !file.parent_path().empty()) {
+      std::filesystem::create_directories(file.parent_path());
+    }
+    const auto json = toporoom::adapters::scene_ir_to_json(doc->impl.to_scene_ir());
+    if (write_text(path, json) != 0) {
+      return write_error(errbuf, errbuf_len, "failed to write SceneIR");
+    }
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
 
 int toporoom_debug_fake_one_room(TopoRoomDocument* doc, TopoRoomGuide* guide,
                                  const char* out_dir, char* errbuf, int errbuf_len) {
