@@ -13,6 +13,8 @@ commands, SessionIsolate), tools `WallDraw` / `PlaceOpening` / `PlaceHostedCompo
 / `SetClearHeight` / `SetStoreyHeight`, and `GuidedEditWorkflow` (real multi-step
 量房, not only `debug_fake_one_room`). C API also create/load/save SceneIR 方案
 (`toporoom_document_save` / `load` / `from_sceneir_json`).
+The P0 phone host is Godot 4 (`godot/`, GDExtension over this C API). Kotlin JNI
+is a legacy stub.
 P1+ ports (MEP / furnishing / cloud sync / quote) are `NotImplemented*` stubs
 returning `NotInP0` (FR-013) — not P0 Done gates.
 Domain sources must not `#include` manifold or vendor SDKs — see

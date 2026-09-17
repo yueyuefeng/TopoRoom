@@ -16,3 +16,16 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  gdextension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Godot GDExtension (linux .so)
+        run: cmake -S godot/extension -B build-gdext -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++
+      - name: Build GDExtension
+        run: cmake --build build-gdext --parallel 2 --target toporoom_gdextension
+      - name: Check linux template_debug .so
+        run: test -f godot/bin/libtoporoom.linux.template_debug.x86_64.so
+      # Full Android APK export needs Godot 4 export templates + SDK/NDK/JDK.
+      # Not run here; see godot/README.md.

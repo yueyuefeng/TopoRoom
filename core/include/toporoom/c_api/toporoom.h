@@ -15,6 +15,9 @@ const char* toporoom_version(void);
 TopoRoomDocument* toporoom_document_create(const char* id);
 void toporoom_document_destroy(TopoRoomDocument* doc);
 
+/* Copies the document id. Returns 0 on success. */
+int toporoom_document_id(const TopoRoomDocument* doc, char* out, int out_len);
+
 /* Copies the first storey id. Returns 0 on success. */
 int toporoom_document_first_storey_id(TopoRoomDocument* doc, char* out, int out_len);
 
@@ -113,6 +116,15 @@ TopoRoomDocument* toporoom_document_load(const char* path, char* errbuf, int err
 /* Save 方案 as SceneIR JSON (creates parent directories). Returns 0 on success. */
 int toporoom_document_save(TopoRoomDocument* doc, const char* path, char* errbuf,
                            int errbuf_len);
+
+/*
+ * Probe GeometryPort + StatusGate without writing files.
+ * status_out receives "ok" or "fault". Returns 0 if a structural .glb would be
+ * allowed, 2 on geometry fault, 1 on bad arguments. DXF/PDF may still export
+ * when this returns 2 (semantic 户型图).
+ */
+int toporoom_document_rebuild_status(TopoRoomDocument* doc, char* status_out, int status_len,
+                                     char* errbuf, int errbuf_len);
 
 /*
  * Debug / emulator: four walls, two laser key edges, one door, close room,

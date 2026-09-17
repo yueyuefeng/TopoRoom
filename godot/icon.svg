@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#1c2420"/>
+  <rect x="22" y="30" width="84" height="68" fill="none" stroke="#d7c49a" stroke-width="6"/>
+  <rect x="50" y="74" width="16" height="24" fill="#3d8f5a"/>
+  <rect x="78" y="46" width="20" height="14" fill="none" stroke="#5b8fd6" stroke-width="4"/>
+  <text x="64" y="24" text-anchor="middle" font-size="14" fill="#d7c49a" font-family="sans-serif">Στ</text>
+</svg>

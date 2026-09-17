@@ -122,6 +122,26 @@ TEST(CApi, SceneIrSaveLoadRoundTrip) {
   toporoom_document_destroy(v02);
 }
 
+TEST(CApi, DocumentIdAndRebuildStatusAfterFakeOneRoom) {
+  TopoRoomDocument* doc = toporoom_document_create("doc_status");
+  ASSERT_NE(doc, nullptr);
+  char id[64] = {};
+  ASSERT_EQ(toporoom_document_id(doc, id, sizeof(id)), 0);
+  EXPECT_STREQ(id, "doc_status");
+
+  TopoRoomGuide* guide = toporoom_guide_create();
+  ASSERT_NE(guide, nullptr);
+  char err[256] = {};
+  ASSERT_EQ(toporoom_debug_fake_one_room(doc, guide, nullptr, err, sizeof(err)), 0) << err;
+
+  char status[32] = {};
+  ASSERT_EQ(toporoom_document_rebuild_status(doc, status, sizeof(status), err, sizeof(err)), 0)
+      << err;
+  EXPECT_STREQ(status, "ok");
+  toporoom_guide_destroy(guide);
+  toporoom_document_destroy(doc);
+}
+
 TEST(CApi, IosExternalDepthOutOfP0) { EXPECT_EQ(toporoom_ios_external_depth_in_p0(), 0); }
 
 TEST(CApi, WhitelistAndReleaseTrainJson) {

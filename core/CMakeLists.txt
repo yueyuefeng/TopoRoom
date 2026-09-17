@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 include(FetchContent)
 
+# Needed when the static core is linked into JNI / Godot shared libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(TOPOROOM_CORE_SOURCES
   src/domain/error.cpp
   src/domain/kinds.cpp

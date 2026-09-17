@@ -215,14 +215,23 @@ TEST(ExportAppService, OkPathProducesGlbDxfPdf) {
   EXPECT_NO_THROW(gate.assert_exportable(rebuilt));
 }
 
-TEST(GodotSample, ReadOnlyProjectInstancesFixtureGlb) {
+TEST(GodotSample, HostProjectKeepsGlbRoamReadOnly) {
   const auto project = read_text(repo_path("godot/project.godot"));
-  EXPECT_NE(project.find("TopoRoom Roam"), std::string::npos);
-  EXPECT_NE(project.find("roam.tscn"), std::string::npos);
-  const auto scene = read_text(repo_path("godot/roam.tscn"));
-  EXPECT_NE(scene.find("rect-room-door-laser.glb"), std::string::npos);
-  EXPECT_EQ(scene.find("SceneIR"), std::string::npos);
-  EXPECT_EQ(scene.find("save_dimension"), std::string::npos);
+  EXPECT_NE(project.find("拓间 TopoRoom"), std::string::npos);
+  EXPECT_NE(project.find("app/main.tscn"), std::string::npos);
+  EXPECT_NE(project.find("toporoom.gdextension"), std::string::npos);
+  EXPECT_EQ(project.find("save_dimension"), std::string::npos);
+
+  const auto roam_script = read_text(repo_path("godot/app/roam.gd"));
+  EXPECT_NE(roam_script.find("rect-room-door-laser.glb"), std::string::npos);
+  EXPECT_NE(roam_script.find("GLTFDocument"), std::string::npos);
+  EXPECT_EQ(roam_script.find("save_dimension"), std::string::npos);
+  EXPECT_EQ(roam_script.find("add_wall"), std::string::npos);
+
+  const auto ext = read_text(repo_path("godot/toporoom.gdextension"));
+  EXPECT_NE(ext.find("toporoom_library_init"), std::string::npos);
+  EXPECT_NE(ext.find("android.debug.arm64"), std::string::npos);
+
   const auto glb = read_bytes(repo_path("godot/fixtures/rect-room-door-laser.glb"));
   ASSERT_GE(glb.size(), 20u);
   EXPECT_EQ(glb[0], 'g');
