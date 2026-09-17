@@ -18,6 +18,15 @@ Specs:
 - [docs/architecture/ADR-001-godot-interaction-shell-host.md](./docs/architecture/ADR-001-godot-interaction-shell-host.md) (Godot host pivot)
 - [docs/architecture/ADR-002-godot-3d-command-synced-edit.md](./docs/architecture/ADR-002-godot-3d-command-synced-edit.md) (3D gizmos → C API)
 
+## 界面预览
+
+Godot 宿主截图（首页 / 引导量房 / 拍户型图 / 确认承重 / 拆改 / 3D 编辑）：
+[docs/screenshots/README.md](./docs/screenshots/README.md)
+
+| 首页 | 拍户型图 · 确认承重 | 拆改确认 |
+|------|----------------------|----------|
+| [![首页](./docs/screenshots/01-home.png)](./docs/screenshots/01-home.png) | [![确认承重](./docs/screenshots/04-photo-review-kinds.png)](./docs/screenshots/04-photo-review-kinds.png) | [![承重确认](./docs/screenshots/06-shear-confirm.png)](./docs/screenshots/06-shear-confirm.png) |
+
 ## Quick start (Linux CI)
 
 ```bash
@@ -50,6 +59,7 @@ mobile/android/       Legacy Kotlin JNI stub (tests; not the P0 APK path)
 mobile/ios/           Xcode SwiftUI shell + ObjC++ (software host)
 docs/architecture/    FINAL specs + ADR-001/002 Godot host
 docs/hardware/        ADR-001 PoC SKU lock + Stage-Gate checklist
+docs/screenshots/     Godot 宿主 UI 预览 PNG
 firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 ```
 

@@ -52,6 +52,22 @@ func _ready() -> void:
 			await get_tree().process_frame
 			await get_tree().create_timer(0.25).timeout
 			await _shot(out_dir.path_join("toporoom-ui-photo-confirm.png"))
+	if is_instance_valid(photo):
+		photo.visible = false
+	if is_instance_valid(main):
+		main.visible = false
+	if Session.has_core():
+		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
+		var edit: Node3D = preload("res://app/edit_3d.tscn").instantiate()
+		add_child(edit)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await get_tree().create_timer(0.8).timeout
+		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		if edit.has_node("Lighting") and edit.get_node("Lighting").has_method("apply_preset"):
+			edit.get_node("Lighting").apply_preset("warm")
+			await get_tree().create_timer(0.35).timeout
+			await _shot(out_dir.path_join("toporoom-ui-edit-3d-warm.png"))
 	print("UI screenshots written to ", out_dir)
 	get_tree().quit()
 

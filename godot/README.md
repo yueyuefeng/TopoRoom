@@ -39,6 +39,9 @@ should come from this Godot project + export templates.
    runs `FakeVisionAdapter`, lets you tap walls to set 承重 vs 砌体, then 拆改
    (shear walls need confirm). The 2D canvas draws SceneIR JSON, not a mesh.
 
+UI 预览（首页 / 引导 / 拍户型图 / 拆改 / 3D）：
+[docs/screenshots/README.md](../docs/screenshots/README.md).
+
 Without the `.so`, the editor still opens; the UI shows `GDExtension 未加载`.
 
 ## GDExtension layout
@@ -104,7 +107,8 @@ and a local Android SDK/NDK/JDK are missing. Deliverable here is the project
    matching the Godot version (4.3.x).
 3. Build the Android `.so` files above into `godot/bin/`.
 4. Open `godot/`, confirm the Android preset in `export_presets.cfg`
-   (`com.toporoom.godot`, arm64-v8a + x86_64, Gradle build).
+   (`com.toporoom.godot`, arm64-v8a phone APK, Gradle build). Enable x86_64
+   only after building the emulator `.so`.
 5. **Project → Export → Android → Export Debug APK**, or:
 
    ```bash

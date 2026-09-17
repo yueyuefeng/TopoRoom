@@ -20,4 +20,5 @@ local.properties
 .pioenvs/
 .piolibdeps/
 .cxx/
+*.apk
 
