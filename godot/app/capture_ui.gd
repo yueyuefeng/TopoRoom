@@ -63,7 +63,7 @@ func _ready() -> void:
 		await _shot(out_dir.path_join("toporoom-ui-photo-demolish.png"))
 		if photo.has_method("_with_force"):
 			photo._canvas.selected_id = "wall_n"
-			photo._confirm_label.text = "「wall_n」是承重/剪力墙。拆除或打断将改写 SceneIR，需确认。"
+			photo._confirm_label.text = "「wall_n」是承重墙。拆除或打断会改写方案，确认吗？"
 			photo._confirm.visible = true
 			await get_tree().process_frame
 			await get_tree().create_timer(0.25).timeout

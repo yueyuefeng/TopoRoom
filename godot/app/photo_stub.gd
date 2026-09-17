@@ -15,7 +15,7 @@ var _dock: VBoxContainer
 var _confirm: PanelContainer
 var _confirm_label: Label
 var _pending: Callable
-var _picker: MediaPicker
+var _picker: Node
 var _image_uri := ""
 var _thumb_path := ""
 
@@ -66,6 +66,7 @@ func _ready() -> void:
 	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_preview.custom_minimum_size = Vector2(0, 180)
 	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_preview.visible = false
 	hcol.add_child(_preview)
 	_canvas = PlanCanvas.new()

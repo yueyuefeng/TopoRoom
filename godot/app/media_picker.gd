@@ -1,4 +1,3 @@
-class_name MediaPicker
 extends Node
 ## Android system camera + gallery (TopoRoomMedia plugin). Desktop FileDialog fallback.
 

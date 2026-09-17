@@ -20,6 +20,9 @@ mkdir -p "$(dirname "$OUT")"
 if [[ -x "$ROOT/godot/scripts/build_android_plugin.sh" ]]; then
   "$ROOT/godot/scripts/build_android_plugin.sh" || echo "WARN: TopoRoomMedia plugin AAR not rebuilt; using android/plugins if present."
 fi
+if [[ -x "$ROOT/godot/scripts/inject_android_media_plugin.sh" ]]; then
+  "$ROOT/godot/scripts/inject_android_media_plugin.sh"
+fi
 # Editor import once so .glb / .tscn are cached.
 "$GODOT_BIN" --headless --path "$ROOT/godot" --import --quit || true
 "$GODOT_BIN" --headless --path "$ROOT/godot" --export-debug "Android" "$OUT"
