@@ -84,8 +84,9 @@ func _ready() -> void:
 	_snack.anchor_top = 1.0
 	_snack.offset_left = Tokens.S2
 	_snack.offset_right = -Tokens.S2
-	_snack.offset_top = -88
-	_snack.offset_bottom = -Tokens.S2
+	# Sit above the bottom dock so 确认承重 / 拆改 chips stay tappable.
+	_snack.offset_top = -220
+	_snack.offset_bottom = -132
 	add_child(_snack)
 	Session.log_line.connect(func(text: String): _snack.show_message(text))
 	Session.document_changed.connect(_refresh)
@@ -151,6 +152,7 @@ func _build_confirm() -> PanelContainer:
 
 func _clear_dock() -> void:
 	for c in _dock.get_children():
+		_dock.remove_child(c)
 		c.queue_free()
 
 

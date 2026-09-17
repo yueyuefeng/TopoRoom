@@ -33,6 +33,8 @@ func _ready() -> void:
 			photo._show_review()
 		await get_tree().process_frame
 		await get_tree().create_timer(0.35).timeout
+		if photo._snack:
+			photo._snack.visible = false
 		await _shot(out_dir.path_join("toporoom-ui-photo-review.png"))
 		if photo.has_method("_show_demolish"):
 			photo._show_demolish()
@@ -40,6 +42,8 @@ func _ready() -> void:
 		photo._canvas.queue_redraw()
 		await get_tree().process_frame
 		await get_tree().create_timer(0.35).timeout
+		if photo._snack:
+			photo._snack.visible = false
 		await _shot(out_dir.path_join("toporoom-ui-photo-demolish.png"))
 		if photo.has_method("_with_force"):
 			photo._canvas.selected_id = "wall_n"
