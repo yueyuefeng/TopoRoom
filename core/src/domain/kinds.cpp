@@ -30,6 +30,20 @@ const char* to_string(OpeningKind kind) {
   return "unknown";
 }
 
+const char* to_string(WindowSubtype subtype) {
+  switch (subtype) {
+    case WindowSubtype::Standard:
+      return "standard";
+    case WindowSubtype::Bay:
+      return "bay";
+    case WindowSubtype::FloorCeiling:
+      return "floorCeiling";
+    case WindowSubtype::Unspecified:
+      return "";
+  }
+  return "";
+}
+
 const char* to_string(MeasurementSource source) {
   switch (source) {
     case MeasurementSource::Laser:
@@ -91,6 +105,16 @@ std::optional<OpeningKind> opening_kind_from_string(std::string_view value) {
   if (value == "door") return OpeningKind::Door;
   if (value == "window") return OpeningKind::Window;
   if (value == "archway") return OpeningKind::Archway;
+  return std::nullopt;
+}
+
+std::optional<WindowSubtype> window_subtype_from_string(std::string_view value) {
+  if (value.empty() || value == "unspecified") return WindowSubtype::Unspecified;
+  if (value == "standard") return WindowSubtype::Standard;
+  if (value == "bay" || value == "bayWindow") return WindowSubtype::Bay;
+  if (value == "floorCeiling" || value == "floor_ceiling" || value == "floorToCeiling") {
+    return WindowSubtype::FloorCeiling;
+  }
   return std::nullopt;
 }
 

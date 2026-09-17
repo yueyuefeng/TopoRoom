@@ -26,6 +26,7 @@ struct SceneIROpening {
   double height_mm = 0;
   double offset_mm = 0;
   double sill_height_mm = 0;
+  WindowSubtype subtype = WindowSubtype::Unspecified;
 };
 
 struct SceneIRWall {

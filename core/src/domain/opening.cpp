@@ -10,7 +10,8 @@ Opening::Opening(OpeningProps props)
       width_(props.width),
       height_(props.height),
       offset_along_wall_(props.offset_along_wall),
-      sill_height_(props.sill_height) {}
+      sill_height_(props.sill_height),
+      subtype_(props.subtype) {}
 
 Opening Opening::create(OpeningProps props) {
   if (props.width.value() <= 0) {
@@ -34,6 +35,7 @@ Opening Opening::with_kind(OpeningKind kind) const {
   props.height = height_;
   props.offset_along_wall = offset_along_wall_;
   props.sill_height = sill_height_;
+  props.subtype = subtype_;
   return Opening::create(std::move(props));
 }
 
@@ -46,6 +48,7 @@ Opening Opening::with_placement(LengthMm width, LengthMm height, LengthMm offset
   props.height = height;
   props.offset_along_wall = offset_along_wall;
   props.sill_height = sill_height;
+  props.subtype = subtype_;
   return Opening::create(std::move(props));
 }
 

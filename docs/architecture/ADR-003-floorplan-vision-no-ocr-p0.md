@@ -56,22 +56,29 @@ Not survey-grade. The golden fixture (`apt-plan-user-01`) is a **regression
 floor**, not a claimed field accuracy.
 
 `./build/core/toporoom_tests --gtest_filter='FloorPlanRaster*'`
-(`core/tests/floor_plan_raster_vision_test.cpp`) plus
+(`core/tests/floor_plan_raster_vision_test.cpp` +
+`core/tests/floor_plan_raster_geom_test.cpp`) plus
 `core/fixtures/vision/apt-plan-user-01.expected.json`:
 
-| Check | Floor (expected.json) | Recorded golden apply (`apt-plan-user-01.sceneir.json`) |
-|-------|------------------------|----------------------------------------------------------|
-| Shear / 承重 | ≥ 12 | 22 |
-| Masonry / 砌体 | ≥ 8 | 20 |
-| Doors | ≥ 3 | 6 |
-| Windows | ≥ 3 | 7 |
-| Columns (nearly-square shear) | ≥ 2 | (counted in shear bars) |
-| Walls applied | ≥ 18 | 42 |
-| Openings applied | ≥ 4 | 13 |
-| Scale | 12–28 mm/px (200 mm bar thickness) | bbox ≈ **9600 × 8663 mm** |
-| Rebuild | StatusGate `ok` | `ok` |
+| Check | Floor (expected.json) | Recorded golden apply (`apt-plan-user-01.sceneir.json`) | This iteration (raster) |
+|-------|------------------------|----------------------------------------------------------|-------------------------|
+| Shear / 承重 | ≥ 12 | 22 | 22 |
+| Masonry / 砌体 | ≥ 8 | 20 | 14 |
+| Doors | ≥ 3 | 6 | 6 |
+| Windows | ≥ 3 | 7 | 9 |
+| Bay / 飘窗 | ≥ 1 | — | 3 |
+| Floor-ceiling / 落地窗 | ≥ 1 | — | 2 detected |
+| Columns (nearly-square shear) | ≥ 2 | (counted in shear bars) | (counted in shear bars) |
+| Walls applied | ≥ 18 | 42 | 36 |
+| Openings applied | ≥ 4 | 13 | 15 |
+| Exterior | closed (gap ≤ 150 mm) | open fragments | closed (flood interior) |
+| Scale | 12–28 mm/px (200 mm bar thickness) | bbox ≈ **9600 × 8663 mm** | same |
+| Rebuild | StatusGate `ok` | `ok` | `ok` |
 
 Plan width must not collapse to FakeVision’s 4000 mm rectangle.
+
+Additive SceneIR 0.2 `opening.subtype` (`bay` / `floorCeiling` / `standard`);
+omitted when unspecified so 0.1 readers stay valid.
 
 **mm source of truth for critical edges remains laser / typed commands.**
 Vision places topology (which wall is shear, where a door likely sits).

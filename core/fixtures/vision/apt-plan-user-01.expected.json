@@ -5,6 +5,8 @@
   "min_masonry": 8,
   "min_doors": 3,
   "min_windows": 3,
+  "min_bay_windows": 1,
+  "min_floor_ceiling_windows": 1,
   "min_columns": 2,
   "min_walls_applied": 18,
   "min_openings_applied": 4,
@@ -12,5 +14,6 @@
   "mm_per_px_max": 28.0,
   "plan_width_mm_min": 7000,
   "plan_width_mm_max": 20000,
-  "notes": "P0 black-blob + gray-line + heuristic openings. OCR/swing-arc/deskew are P1."
+  "max_exterior_gap_mm": 150,
+  "notes": "P0 black-blob + gray-line + heuristic openings. Closed envelope via merge/snap/T-node/close. WindowSubtype bay (飘窗) and floorCeiling (落地窗). OCR/swing-arc/deskew are P1. After close iteration: 22 shear / 14 masonry / 15 openings / 36 walls, ≥1 bay, ≥1 floor-ceiling, StatusGate ok."
 }

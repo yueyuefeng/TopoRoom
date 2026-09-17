@@ -49,6 +49,7 @@ struct AddOpeningProps {
   LengthMm height = LengthMm::of(1);
   LengthMm offset_along_wall = LengthMm::zero();
   LengthMm sill_height = LengthMm::zero();
+  WindowSubtype subtype = WindowSubtype::Unspecified;
 };
 
 struct CloseRoomProps {
