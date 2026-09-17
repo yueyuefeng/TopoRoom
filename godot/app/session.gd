@@ -230,7 +230,7 @@ func add_opening(kind: String) -> String:
 	host.guide_note_opening()
 	host.guide_sync_from_document(false)
 	auto_save()
-	var label := {"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind)
+	var label: String = str({"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind))
 	return _ok("放置%s" % label)
 
 

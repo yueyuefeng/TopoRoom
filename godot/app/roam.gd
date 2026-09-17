@@ -90,7 +90,7 @@ func _load_glb() -> void:
 func _refresh_status() -> void:
 	if _status == null:
 		return
-	var light := _lighting.preset_label() if _lighting else "—"
+	var light: String = _lighting.preset_label() if _lighting else "—"
 	if _glb_loaded:
 		_status.text = "只读漫游 · 灯光 %s · %s\n节点来自 Deliverables/.glb，禁止从三角网写回尺寸。" % [light, _glb_path]
 	else:

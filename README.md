@@ -89,10 +89,10 @@ Open `godot/project.godot` after building the desktop `.so`
 **漫游检查** loads that `.glb` read-only. **3D 编辑** (next to 漫游) edits
 walls/openings via gizmos + C API, with 白天/暖光 light presets.
 
-Android APK: compile `arm64-v8a` (optional `x86_64`) with
-`./godot/scripts/build_extension.sh android arm64-v8a`, then Godot **Export →
-Android** using `export_presets.cfg`. Linux CMake CI builds the **linux**
-`.so`; it does **not** install Godot export templates or produce an APK.
+Android APK: compile `arm64-v8a` with
+`./godot/scripts/build_extension.sh android arm64-v8a`, then
+`./godot/scripts/export_android_debug.sh`. Min Android **7.0 (API 24)**,
+**arm64-v8a** phones. See [godot/README.md](./godot/README.md).
 
 ### Android Studio (legacy JNI stub)
 
