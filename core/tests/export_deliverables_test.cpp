@@ -227,6 +227,7 @@ TEST(GodotSample, HostProjectKeepsGlbRoamReadOnly) {
   EXPECT_NE(roam_script.find("GLTFDocument"), std::string::npos);
   EXPECT_EQ(roam_script.find("save_dimension"), std::string::npos);
   EXPECT_EQ(roam_script.find("add_wall"), std::string::npos);
+  EXPECT_EQ(roam_script.find("set_measurement"), std::string::npos);
 
   const auto ext = read_text(repo_path("godot/toporoom.gdextension"));
   EXPECT_NE(ext.find("toporoom_library_init"), std::string::npos);
@@ -238,4 +239,47 @@ TEST(GodotSample, HostProjectKeepsGlbRoamReadOnly) {
   EXPECT_EQ(glb[1], 'l');
   EXPECT_EQ(glb[2], 'T');
   EXPECT_EQ(glb[3], 'F');
+}
+
+TEST(GodotSample, ThreeDEditIsCommandSyncedWithLighting) {
+  const auto edit = read_text(repo_path("godot/app/edit_3d.gd"));
+  const auto lighting = read_text(repo_path("godot/app/lighting.gd"));
+  const auto session = read_text(repo_path("godot/app/session.gd"));
+  const auto main = read_text(repo_path("godot/app/main.gd"));
+  const auto roam = read_text(repo_path("godot/app/roam.gd"));
+  const auto adr = read_text(repo_path("docs/architecture/ADR-002-godot-3d-command-synced-edit.md"));
+  const auto scene = read_text(repo_path("godot/app/edit_3d.tscn"));
+
+  EXPECT_NE(scene.find("edit_3d.gd"), std::string::npos);
+
+  // roam/edit scripts must not call add_wall / set_measurement except through Session/host.
+  EXPECT_EQ(roam.find("host.add_wall"), std::string::npos);
+  EXPECT_EQ(roam.find("host.set_measurement"), std::string::npos);
+  EXPECT_EQ(edit.find("host.add_wall"), std::string::npos);
+  EXPECT_EQ(edit.find("host.set_measurement"), std::string::npos);
+  EXPECT_EQ(lighting.find("add_wall"), std::string::npos);
+  EXPECT_EQ(lighting.find("set_measurement"), std::string::npos);
+
+  EXPECT_NE(edit.find("Session.move_shared_vertex"), std::string::npos);
+  EXPECT_NE(edit.find("Session.update_opening_geom"), std::string::npos);
+  EXPECT_NE(edit.find("MeshInstance3D"), std::string::npos);
+
+  EXPECT_NE(session.find("host.add_wall"), std::string::npos);
+  EXPECT_NE(session.find("host.set_measurement"), std::string::npos);
+  EXPECT_NE(session.find("host.move_wall"), std::string::npos);
+  EXPECT_NE(session.find("keep_preview"), std::string::npos);
+  EXPECT_NE(session.find("auto_save"), std::string::npos);
+  EXPECT_NE(session.find("rebuild_status"), std::string::npos);
+
+  EXPECT_NE(lighting.find("DirectionalLight3D"), std::string::npos);
+  EXPECT_NE(lighting.find("shadow_enabled"), std::string::npos);
+  EXPECT_NE(lighting.find("WorldEnvironment"), std::string::npos);
+  EXPECT_NE(lighting.find("PRESET_WARM"), std::string::npos);
+
+  EXPECT_NE(main.find("3D 编辑"), std::string::npos);
+  EXPECT_NE(main.find("edit_3d.tscn"), std::string::npos);
+
+  EXPECT_NE(adr.find("Gizmo commit"), std::string::npos);
+  EXPECT_NE(adr.find("StatusGate"), std::string::npos);
+  EXPECT_NE(adr.find("auto_save"), std::string::npos);
 }

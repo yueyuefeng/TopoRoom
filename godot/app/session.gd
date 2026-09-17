@@ -14,6 +14,9 @@ var fake_laser_queue: Array[float] = [4000.0, 3000.0]
 var opening_serial: int = 0
 var key_serial: int = 0
 var screen: String = "home"  # home | guide
+var last_rebuild: Dictionary = {}
+var keep_preview: bool = false
+var preview_sceneir_json: String = ""
 
 func _ready() -> void:
 	if ClassDB.class_exists("TopoRoomHost"):
@@ -23,6 +26,8 @@ func _ready() -> void:
 		key_serial = 0
 		guide_mark_host_ok(true)
 		auto_save()
+		keep_preview = false
+		preview_sceneir_json = sceneir_json()
 		screen = "home"
 		_log("Godot 宿主已连接 C API %s" % host.version())
 	else:
@@ -46,9 +51,28 @@ func _fail(err: String) -> String:
 
 func _ok(msg: String) -> String:
 	last_error = ""
+	if not keep_preview:
+		preview_sceneir_json = sceneir_json()
 	_log(msg)
 	emit_signal("document_changed")
 	return ""
+
+
+func _after_structural_edit(ok_msg: String) -> String:
+	# Gizmo/command commit: auto_save SceneIR, probe StatusGate.
+	# Fault keeps the previous solid preview; SceneIR remains Domain truth.
+	var probe: Dictionary = rebuild_probe()
+	last_rebuild = probe
+	if not bool(probe.get("ok", false)):
+		keep_preview = true
+		last_error = str(probe.get("error", "rebuild fault"))
+		auto_save()
+		_log("StatusGate Fault: %s — 预览保持上一版实体，未把拖动手柄当作尺寸真相" % last_error)
+		emit_signal("document_changed")
+		return last_error
+	keep_preview = false
+	auto_save()
+	return _ok(ok_msg)
 
 
 func _result(d: Dictionary, ok_msg: String) -> String:
@@ -91,7 +115,9 @@ func new_scheme(id: String = "doc_godot") -> String:
 	glb_ok = false
 	last_glb_path = ""
 	guide_mark_host_ok(true)
+	keep_preview = false
 	auto_save()
+	preview_sceneir_json = sceneir_json()
 	screen = "guide"
 	return _result(d, "新建方案 %s" % id)
 
@@ -105,6 +131,8 @@ func load_scheme(path: String) -> String:
 		host.guide_sync_from_document(false)
 		opening_serial = 0
 		key_serial = 0
+		keep_preview = false
+		preview_sceneir_json = sceneir_json()
 	return _result(d, "加载方案 %s" % path.get_file())
 
 
@@ -119,6 +147,8 @@ func load_fixture_json(res_path: String) -> String:
 	if d.get("ok", false):
 		host.guide_mark_host_ok(true)
 		host.guide_sync_from_document(false)
+		keep_preview = false
+		preview_sceneir_json = sceneir_json()
 	return _result(d, "加载夹具 %s" % res_path.get_file())
 
 
@@ -233,8 +263,71 @@ func set_storey_height(height_mm: float) -> String:
 	if host == null:
 		return _fail("no core")
 	var d: Dictionary = host.set_storey_height(host.first_storey_id(), height_mm, true)
-	auto_save()
-	return _result(d, "层高 %smm" % str(height_mm))
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "storey_height")))
+	return _after_structural_edit("层高 %smm" % str(height_mm))
+
+
+func set_wall_height_mm(wall_id: String, height_mm: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.set_wall_height(host.first_storey_id(), wall_id, height_mm)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "set_wall_height")))
+	return _after_structural_edit("墙高 %s %smm" % [wall_id, str(height_mm)])
+
+
+func move_shared_vertex(old_x: float, old_y: float, new_x: float, new_y: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var parsed: Variant = JSON.parse_string(sceneir_json())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return _fail("no sceneir")
+	var storeys: Array = parsed.get("storeys", [])
+	if storeys.is_empty() or typeof(storeys[0]) != TYPE_DICTIONARY:
+		return _fail("no storey")
+	var walls: Array = storeys[0].get("walls", [])
+	var storey: String = host.first_storey_id()
+	var eps := 0.51
+	var any := false
+	for w in walls:
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = w.get("start", {})
+		var b: Dictionary = w.get("end", {})
+		var x0 := float(a.get("x", 0))
+		var y0 := float(a.get("y", 0))
+		var x1 := float(b.get("x", 0))
+		var y1 := float(b.get("y", 0))
+		var changed := false
+		if abs(x0 - old_x) < eps and abs(y0 - old_y) < eps:
+			x0 = new_x
+			y0 = new_y
+			changed = true
+		if abs(x1 - old_x) < eps and abs(y1 - old_y) < eps:
+			x1 = new_x
+			y1 = new_y
+			changed = true
+		if not changed:
+			continue
+		var d: Dictionary = host.move_wall(storey, str(w.get("id", "")), x0, y0, x1, y1)
+		if not d.get("ok", false):
+			return _fail(str(d.get("error", "move_wall")))
+		any = true
+	if not any:
+		return _fail("no shared vertex")
+	return _after_structural_edit("移动墙端点")
+
+
+func update_opening_geom(opening_id: String, kind: String, width_mm: float, height_mm: float, offset_mm: float, sill_mm: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.update_opening(
+		host.first_storey_id(), opening_id, kind, width_mm, height_mm, offset_mm, sill_mm
+	)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "update_opening")))
+	return _after_structural_edit("更新洞口 %s" % opening_id)
 
 
 func rebuild_probe() -> Dictionary:

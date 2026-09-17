@@ -1,30 +1,31 @@
 extends Node3D
 ## Read-only glTF roam. Instances a StatusGate .glb. Does not write SceneIR.
 
+const Lighting := preload("res://app/lighting.gd")
+
 var _yaw := 0.35
 var _pitch := -0.55
 var _distance := 9.0
 var _camera: Camera3D
 var _status: Label
 var _root: Node3D
+var _lighting: Node3D
 var _dragging := false
+var _cjk: SystemFont
+var _glb_path := ""
+var _glb_loaded := false
 
 
 func _ready() -> void:
-	var env := WorldEnvironment.new()
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.16, 0.18, 0.20)
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.7, 0.72, 0.75)
-	environment.ambient_light_energy = 0.55
-	env.environment = environment
-	add_child(env)
+	_cjk = SystemFont.new()
+	_cjk.font_names = PackedStringArray([
+		"Noto Sans CJK SC", "Noto Sans CJK", "Source Han Sans SC",
+		"DroidSansFallback", "Noto Sans SC", "WenQuanYi Micro Hei", "sans-serif",
+	])
 
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-50, 40, 0)
-	light.light_energy = 1.1
-	add_child(light)
+	_lighting = Lighting.new()
+	_lighting.name = "Lighting"
+	add_child(_lighting)
 
 	_camera = Camera3D.new()
 	_camera.current = true
@@ -45,11 +46,23 @@ func _ready() -> void:
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.custom_minimum_size = Vector2(480, 0)
+	_status.add_theme_font_override("font", _cjk)
 	col.add_child(_status)
+	var light_btn := Button.new()
+	light_btn.text = "白天 / 暖光"
+	light_btn.add_theme_font_override("font", _cjk)
+	light_btn.pressed.connect(func(): _lighting.toggle_preset(); _refresh_status())
+	col.add_child(light_btn)
 	var back := Button.new()
 	back.text = "返回户型图"
+	back.add_theme_font_override("font", _cjk)
 	back.pressed.connect(func(): get_tree().change_scene_to_file("res://app/main.tscn"))
 	col.add_child(back)
+	var edit := Button.new()
+	edit.text = "3D 编辑"
+	edit.add_theme_font_override("font", _cjk)
+	edit.pressed.connect(func(): get_tree().change_scene_to_file("res://app/edit_3d.tscn"))
+	col.add_child(edit)
 
 
 func _load_glb() -> void:
@@ -69,11 +82,19 @@ func _load_glb() -> void:
 			loaded = _append_gltf("res://fixtures/rect-room-door-laser.glb")
 			if loaded:
 				path = "res://fixtures/rect-room-door-laser.glb"
-	if _status:
-		if loaded:
-			_status.text = "只读漫游 · %s\n节点来自 Deliverables/.glb，禁止从三角网写回尺寸。" % path
-		else:
-			_status.text = "没有可逛的 glb。请先在户型图导出（StatusGate OK）。"
+	_glb_loaded = loaded
+	_glb_path = path if loaded else ""
+	_refresh_status()
+
+
+func _refresh_status() -> void:
+	if _status == null:
+		return
+	var light := _lighting.preset_label() if _lighting else "—"
+	if _glb_loaded:
+		_status.text = "只读漫游 · 灯光 %s · %s\n节点来自 Deliverables/.glb，禁止从三角网写回尺寸。" % [light, _glb_path]
+	else:
+		_status.text = "没有可逛的 glb。请先在户型图导出（StatusGate OK）。"
 
 
 func _append_gltf(path: String) -> bool:

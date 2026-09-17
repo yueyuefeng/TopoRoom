@@ -16,6 +16,7 @@ Specs:
 - [docs/architecture/FINAL-toporoom-software-architecture.md](./docs/architecture/FINAL-toporoom-software-architecture.md)
 - [docs/architecture/FINAL-toporoom-domain-model.md](./docs/architecture/FINAL-toporoom-domain-model.md)
 - [docs/architecture/ADR-001-godot-interaction-shell-host.md](./docs/architecture/ADR-001-godot-interaction-shell-host.md) (Godot host pivot)
+- [docs/architecture/ADR-002-godot-3d-command-synced-edit.md](./docs/architecture/ADR-002-godot-3d-command-synced-edit.md) (3D gizmos → C API)
 
 ## Quick start (Linux CI)
 
@@ -43,11 +44,11 @@ core/                 C++ domain, ports, app services, fakes, SceneIR JSON, C AP
   tests/              GoogleTest (ctest)
   fixtures/           SceneIR 0.1 gold JSON, whitelist, release-train
 godot/                Godot 4 P0 host (UI + GDExtension + Android export)
-  app/                新建方案 / Fake 一室 / 引导量房 / 2D 户型图 / 只读漫游
+  app/                新建方案 / Fake 一室 / 引导量房 / 2D 户型图 / 3D 编辑 / 只读漫游
   extension/          GDExtension CMake (godot-cpp + toporoom_core)
 mobile/android/       Legacy Kotlin JNI stub (tests; not the P0 APK path)
 mobile/ios/           Xcode SwiftUI shell + ObjC++ (software host)
-docs/architecture/    FINAL specs
+docs/architecture/    FINAL specs + ADR-001/002 Godot host
 docs/hardware/        ADR-001 PoC SKU lock + Stage-Gate checklist
 firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 ```
@@ -71,8 +72,11 @@ firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 - SceneIR / `FloorPlanDocument` is the only editable truth (I1).
 - Godot UI issues **commands** through the C API. The 2D plan is a view of
   SceneIR walls/openings, not a triangle editor.
-- Exported `.glb` roam is still **read-only** (I7 mesh / I8). Godot must not
-  write millimetres back from Node transforms or meshes.
+- **3D 编辑** may drag wall/opening gizmos; each commit goes through the same
+  C API and rebuilds meshes from SceneIR (ADR-002). Dragged triangles are
+  not millimetre truth.
+- Exported `.glb` roam is still **read-only** (I7 mesh / I8). Lighting /
+  shadows / materials are Visualization-only.
 - iOS remains a software-core host; P0 hardware capture (Type-C depth
   whitelist) stays Android-first per the FINAL hardware spec.
 
@@ -82,7 +86,8 @@ Open `godot/project.godot` after building the desktop `.so`
 ([godot/README.md](./godot/README.md)). Home copy: **新建方案** / **Fake 一室** /
 **引导量房** / **导出**. Guided flow: 画墙 → 门窗洞/垭口 → 关键尺寸
 (Fake 激光 or 手输) → 闭合房间 → 导出 DXF/PDF (`glb` only when Status is OK).
-**漫游检查** loads that `.glb` read-only.
+**漫游检查** loads that `.glb` read-only. **3D 编辑** (next to 漫游) edits
+walls/openings via gizmos + C API, with 白天/暖光 light presets.
 
 Android APK: compile `arm64-v8a` (optional `x86_64`) with
 `./godot/scripts/build_extension.sh android arm64-v8a`, then Godot **Export →
@@ -117,7 +122,7 @@ in this CI — sources + scheme only.
 | **I4** | Writes are serial per `documentId`. |
 | **I5** | Capture emits commands into the same `FloorPlanDocument`. |
 | **I6** | Structural-solid export requires Status == OK. Faults reject export. |
-| **I7** | `.glb` roam is a read-only glTF consumer. Godot UI may host InteractionShell commands; Godot Node is not SceneIR. |
+| **I7** | `.glb` roam is a read-only glTF consumer. Godot UI / 3D gizmos may host InteractionShell **commands**; Godot Node is not SceneIR. |
 | **I8** | VisualizationDerivative must not write dimensions back. |
 | **I9** | Laser lengths go through Command into semantics with `source`. |
 | **I10** | UI → Application → Domain ← Adapters. |

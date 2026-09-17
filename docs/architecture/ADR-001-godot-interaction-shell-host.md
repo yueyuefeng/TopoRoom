@@ -18,6 +18,7 @@ Godot UI (guided flow, 2D 户型图, HUD)
             → Domain (SceneIR)
 Deliverables StatusGate → .glb / DXF / PDF
 Godot roam ← load .glb read-only
+Godot 3D 编辑 ← SceneIR meshes + gizmos → C API commands (ADR-002)
 ```
 
 ## Why
@@ -36,6 +37,7 @@ and the FINAL rule "Godot 可当编辑器 = 不进 MVP".
 |-------|------|
 | SceneIR / FloorPlanDocument | Sole editable 方案 |
 | Godot Control / Node2D 户型图 | View of SceneIR; clicks issue **commands** |
+| Godot Node3D 3D 编辑 | Interactive meshes/gizmos; commit → C API → SceneIR (ADR-002) |
 | Godot Node3D roam | VisualizationDerivative / Deliverables consumer; **glb only** |
 | Kotlin `mobile/android/` | Legacy JNI stub; keep for tests, do not delete abruptly |
 
@@ -47,6 +49,17 @@ dimensions. The 2026-09-17 host pivot adds: Godot may also **present** the
 InteractionShell UI, provided every edit is a command through the C API.
 
 I8 (VisualizationDerivative must not write dimensions back) is unchanged.
+
+## Amendment (2026-09-17) — 3D gizmos
+
+Product follow-up: the 3D viewport **may** present interactive wall/opening
+meshes. That does **not** revive “Godot as mesh CAD”. See
+[ADR-002](./ADR-002-godot-3d-command-synced-edit.md): gizmo commit → C API →
+SceneIR; rebuild from Domain; lighting is Visualization-only; `.glb` roam
+stays read-only.
+
+The I7 sentence “Godot = glTF Conformist 只读宿主” continues to apply to
+**Deliverables `.glb`**, not to the command-synced edit scene.
 
 ## Consequences
 

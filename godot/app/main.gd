@@ -103,7 +103,7 @@ func _build_home() -> Control:
 	var root: Control = pair[0]
 	var col: VBoxContainer = pair[1]
 	col.add_child(_label("拓间 TopoRoom", 28, Color(0.12, 0.16, 0.14)))
-	col.add_child(_label("Godot 宿主 · 户型图 · 量房会话 · glb 只读漫游", 14, Color(0.35, 0.35, 0.32)))
+	col.add_child(_label("Godot 宿主 · 户型图 · 量房会话 · 3D 编辑 · glb 只读漫游", 14, Color(0.35, 0.35, 0.32)))
 	_banner = _label("")
 	_phase = _label("")
 	col.add_child(_banner)
@@ -112,7 +112,7 @@ func _build_home() -> Control:
 	col.add_child(_btn("引导量房", func(): Session.screen = "guide"; _show_guide()))
 	col.add_child(_btn("Fake 一室", func(): Session.fake_one_room(); _show_guide()))
 	col.add_child(_btn("导出 DXF/PDF（glb 若 OK）", func(): Session.export_deliverables()))
-	col.add_child(_btn("漫游检查（只读 glb）", func(): _open_roam()))
+	col.add_child(_view_row())
 	col.add_child(_btn("加载夹具 垭口/净高", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
 	col.add_child(_label("方案列表", 18))
 	_scheme_list = VBoxContainer.new()
@@ -163,7 +163,7 @@ func _build_guide() -> Control:
 	col.add_child(_btn("一键引导工作流", func(): Session.run_guided_edit()))
 	col.add_child(_btn("重建闸门探测", func(): _probe()))
 	col.add_child(_btn("导出 DXF/PDF/glb", func(): Session.export_deliverables()))
-	col.add_child(_btn("漫游检查（只读 glb）", func(): _open_roam()))
+	col.add_child(_view_row())
 	_guide_canvas = _canvas()
 	col.add_child(_guide_canvas)
 	_log = _label("", 14, Color(0.25, 0.25, 0.25))
@@ -198,8 +198,24 @@ func _probe() -> void:
 	_render()
 
 
+func _view_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var roam := _btn("漫游检查（只读 glb）", func(): _open_roam())
+	roam.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var edit := _btn("3D 编辑", func(): _open_edit_3d())
+	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(roam)
+	row.add_child(edit)
+	return row
+
+
 func _open_roam() -> void:
 	get_tree().change_scene_to_file("res://app/roam.tscn")
+
+
+func _open_edit_3d() -> void:
+	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
 
 
 func _scheme_button(path: String) -> Button:
@@ -214,7 +230,7 @@ func _render() -> void:
 		_guide_canvas.set_sceneir_json(json)
 
 	var core_ok := Session.has_core()
-	var banner := "Godot InteractionShell · SceneIR 唯一真相 · 网格禁止写回"
+	var banner := "Godot InteractionShell · SceneIR 唯一真相 · 3D 手柄经命令写回 · 网格禁止当尺寸"
 	if not core_ok:
 		banner = "GDExtension 未加载 — 先编译 libtoporoom.*.so（见 godot/README.md）"
 	elif Session.glb_ok:
