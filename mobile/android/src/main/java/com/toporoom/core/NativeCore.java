@@ -121,5 +121,9 @@ public final class NativeCore {
   public static native boolean nativeIosExternalDepthInP0();
 
   public static native boolean nativeReleaseTrainMatches(String json, String softwareTag,
-      String moduleSku, String firmware, int whitelistVersion);
+      String moduleSku, String firmware, int whitelistVersion, String hubFirmware);
+
+  public static native byte[] nativeHubPackMeasureCmd(int timeoutMs);
+
+  public static native double nativeHubParseLengthNotifyMm(byte[] notify);
 }

@@ -59,7 +59,7 @@ class GuideViewModel(
         storeyId = bridge.firstStoreyId(docHandle)
         val listed = bridge.whitelistAllows(whitelistJson, query)
         val trainOk = bridge.releaseTrainMatches(
-            releaseTrainJson, "0.1.0", query.moduleSku, query.firmware, 1,
+            releaseTrainJson, "0.1.0", query.moduleSku, query.firmware, 1, "0.1.0",
         )
         val hostOk = listed || debugBuild
         bridge.guideMarkHostOk(guideHandle, hostOk)
@@ -107,10 +107,9 @@ class GuideViewModel(
         return ""
     }
 
-    fun measureLaserFake(): String {
-        val mm = fakeLaserMm.removeFirstOrNull() ?: 4000.0
+    fun measureLaser(valueMm: Double, instrumentId: String, fake: Boolean): String {
         val id = "m_key_${keyCount + 1}"
-        val err = bridge.setMeasurement(docHandle, id, mm, "laser", "fake_laser", "wall_s")
+        val err = bridge.setMeasurement(docHandle, id, valueMm, "laser", instrumentId, "wall_s")
         if (err.isNotEmpty()) return err
         bridge.guideNoteKey(guideHandle, "laser", false)
         keyCount += 1
@@ -118,6 +117,11 @@ class GuideViewModel(
         autoSave()
         refresh("关键尺寸 Fake激光 ${mm}mm")
         return ""
+    }
+
+    fun measureLaserFake(): String {
+        val mm = fakeLaserMm.removeFirstOrNull() ?: 4000.0
+        return measureLaser(mm, "fake_laser", fake = true)
     }
 
     fun measureTyped(valueMm: Double, explicit: Boolean): String {

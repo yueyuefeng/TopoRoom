@@ -16,6 +16,8 @@
 
 Also index: [domain-model readme](./FINAL-toporoom-domain-model-readme.md), [ubiquitous language](./toporoom-industry-ubiquitous-language.md), [debate-domain/04](./debate-domain/04-ddd-strategist.md).
 
+PoC hardware (China sourcing, dual track — **not** a Gemini E lock): [ADR-001](../hardware/ADR-001-poc-module-selection.md), [Stage-Gate checklist](../hardware/stage-gate-poc-checklist.md).
+
 ---
 
 ## 辩论与评审（输入归档）

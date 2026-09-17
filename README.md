@@ -47,7 +47,9 @@ godot/                Godot 4 P0 host (UI + GDExtension + Android export)
   extension/          GDExtension CMake (godot-cpp + toporoom_core)
 mobile/android/       Legacy Kotlin JNI stub (tests; not the P0 APK path)
 mobile/ios/           Xcode SwiftUI shell + ObjC++ (software host)
-docs/architecture/    FINAL specs + ADR-001 Godot host
+docs/architecture/    FINAL specs
+docs/hardware/        ADR-001 PoC SKU lock + Stage-Gate checklist
+firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 ```
 
 ## How hosts consume the core
@@ -128,9 +130,9 @@ nlohmann JSON (JSON stays in adapters).
 1. ~~Manifold **native** GeometryPort (`CrossSection → Extrude → Boolean`).~~ **Done**
 2. ~~DXF / PDF / `.glb` exporters and Godot read-only roam.~~ **Done**
 3. ~~Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).~~ **Done**
-   (CI uses `FakeBleLaserTransport` / `ReplayLaserPort`; no real radio.)
+   (CI: `FakeBleLaserTransport` / `ReplayLaserPort`. Device: TopoRoom hub GATT.)
 4. ~~`DepthStreamPort` VendorSdk + UVC + replay fixture; Android whitelist.~~ **Done**
-   (`core/fixtures/android-whitelist.v1.json`; iOS external depth stays out of P0.)
+   (Pluggable `dabai_dcw` \| `dual_rgb_uvc` \| `fake`. No Gemini E lock. No ¥200 ASIC Type-C claim.)
 5. ~~JNI/NDK + Swift UI: guided capture, runtime permission prompts, USB/BT UX.~~ **Done**
    (`GuidedRoomSession`: host OK, ≥4 walls, ≥1 opening, rebuild OK, and ≥2 laser
    key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be
