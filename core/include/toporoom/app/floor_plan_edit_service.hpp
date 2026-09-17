@@ -87,6 +87,49 @@ struct SetWallHeightCommand {
   double height_mm = 0;
 };
 
+struct SetWallKindCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  domain::WallKind kind = domain::WallKind::Masonry;
+};
+
+struct DemolishWallCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  bool force = false;
+};
+
+struct SplitWallCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  double offset_mm = 0;
+};
+
+struct PartialDemolishCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  double offset_mm = 0;
+  double length_mm = 0;
+  bool force = false;
+};
+
+struct PunchOpeningCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  std::optional<std::string> opening_id;
+  domain::OpeningKind kind = domain::OpeningKind::Door;
+  double width_mm = 900;
+  double height_mm = 2100;
+  double offset_mm = 800;
+  double sill_height_mm = 0;
+  bool force = false;
+};
+
 struct PlaceHostedComponentCommand {
   std::string document_id;
   std::string storey_id;
@@ -125,6 +168,11 @@ class FloorPlanEditService {
   CommandResult resize_wall(const ResizeWallCommand& command);
   CommandResult delete_wall(const DeleteWallCommand& command);
   CommandResult set_wall_height(const SetWallHeightCommand& command);
+  CommandResult set_wall_kind(const SetWallKindCommand& command);
+  CommandResult demolish_wall(const DemolishWallCommand& command);
+  CommandResult split_wall(const SplitWallCommand& command);
+  CommandResult partial_demolish(const PartialDemolishCommand& command);
+  CommandResult punch_opening(const PunchOpeningCommand& command);
   CommandResult add_opening(const AddOpeningCommand& command);
   CommandResult update_opening(const UpdateOpeningCommand& command);
   CommandResult delete_opening(const DeleteOpeningCommand& command);

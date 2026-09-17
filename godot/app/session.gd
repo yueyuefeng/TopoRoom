@@ -277,6 +277,82 @@ func set_wall_height_mm(wall_id: String, height_mm: float) -> String:
 	return _after_structural_edit("墙高 %s %smm" % [wall_id, str(height_mm)])
 
 
+func set_wall_kind(wall_id: String, kind: String) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.set_wall_kind(host.first_storey_id(), wall_id, kind)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "set_wall_kind")))
+	var label: String = "承重/剪力墙" if kind == "shearWall" else "非承重/砌体"
+	return _after_structural_edit("墙 %s → %s" % [wall_id, label])
+
+
+func demolish_wall(wall_id: String, force: bool = false) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.demolish_wall(host.first_storey_id(), wall_id, force)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "demolish_wall")))
+	return _after_structural_edit("拆除墙 %s" % wall_id)
+
+
+func split_wall(wall_id: String, offset_mm: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.split_wall(host.first_storey_id(), wall_id, offset_mm)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "split_wall")))
+	return _after_structural_edit("打断墙 %s" % wall_id)
+
+
+func partial_demolish(wall_id: String, offset_mm: float, length_mm: float, force: bool = false) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.partial_demolish(host.first_storey_id(), wall_id, offset_mm, length_mm, force)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "partial_demolish")))
+	return _after_structural_edit("局部拆除 %s" % wall_id)
+
+
+func punch_opening(wall_id: String, kind: String, force: bool = false) -> String:
+	if host == null:
+		return _fail("no core")
+	opening_serial += 1
+	var oid: String = "op_punch_%d" % opening_serial
+	var d: Dictionary = host.punch_opening(
+		host.first_storey_id(), wall_id, oid, kind, 900.0, 2100.0, 200.0, 0.0, force
+	)
+	if not d.get("ok", false):
+		opening_serial -= 1
+		return _fail(str(d.get("error", "punch_opening")))
+	var label: String = Tokens.opening_label(kind)
+	return _after_structural_edit("打洞 %s @ %s" % [label, wall_id])
+
+
+func import_photo_fake(image_uri: String = "fixture:photo") -> String:
+	if host == null:
+		return _fail("no core")
+	var id: String = "doc_photo_%d" % Time.get_ticks_msec()
+	var created: Dictionary = host.create_document(id)
+	if not created.get("ok", false):
+		return _fail(str(created.get("error", "create")))
+	opening_serial = 0
+	key_serial = 0
+	glb_ok = false
+	last_glb_path = ""
+	keep_preview = false
+	guide_mark_host_ok(true)
+	var d: Dictionary = host.import_fake_vision(image_uri)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "vision")))
+	host.guide_note_wall()
+	host.guide_sync_from_document(false)
+	auto_save()
+	preview_sceneir_json = sceneir_json()
+	screen = "photo"
+	return _ok("识墙完成：四边承重 + 一道砌体隔墙")
+
+
 func move_shared_vertex(old_x: float, old_y: float, new_x: float, new_y: float) -> String:
 	if host == null:
 		return _fail("no core")

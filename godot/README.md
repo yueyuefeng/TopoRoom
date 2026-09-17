@@ -33,10 +33,11 @@ should come from this Godot project + export templates.
 
 3. Import / open `godot/project.godot` (this directory).
 
-4. Play. Home is a branded workbench: **新建方案** / **拍户型图**（占位） /
+4. Play. Home is a branded workbench: **新建方案** / **拍户型图** /
    **引导量房**, a paper 户型图 card, and chips for Fake 一室 / 导出 / 3D 编辑 /
-   漫游. The 2D canvas draws 承重/砌体 walls and 门窗洞/垭口 from SceneIR JSON,
-   not from a triangle mesh. Visual tokens live in `app/theme/`.
+   漫游. **拍户型图** imports a photo (gallery / camera picker / 示例图),
+   runs `FakeVisionAdapter`, lets you tap walls to set 承重 vs 砌体, then 拆改
+   (shear walls need confirm). The 2D canvas draws SceneIR JSON, not a mesh.
 
 Without the `.so`, the editor still opens; the UI shows `GDExtension 未加载`.
 

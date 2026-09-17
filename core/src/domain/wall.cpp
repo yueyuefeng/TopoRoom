@@ -102,6 +102,18 @@ Wall Wall::with_height(LengthMm height) const {
   return Wall::create(std::move(props));
 }
 
+Wall Wall::with_kind(WallKind kind) const {
+  auto props = snapshot();
+  props.kind = kind;
+  return Wall::create(std::move(props));
+}
+
+Wall Wall::with_openings(std::vector<Opening> openings) const {
+  auto props = snapshot();
+  props.openings = std::move(openings);
+  return Wall::create(std::move(props));
+}
+
 Wall Wall::with_geometry(PointMm start, PointMm end) const {
   auto props = snapshot();
   props.start = start;

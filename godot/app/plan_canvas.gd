@@ -1,8 +1,19 @@
 extends Control
 ## 户型图 canvas driven by SceneIR JSON (walls / 门窗洞 / 垭口). Not a mesh editor.
 
+signal wall_clicked(wall_id)
+
 var snapshot: Dictionary = {}
 var show_chrome: bool = true
+var interactive: bool = false
+var selected_id: String = ""
+
+var _map_min_x := 0.0
+var _map_min_y := 0.0
+var _map_ox := 0.0
+var _map_oy := 0.0
+var _map_scale := 1.0
+var _segments: Array = []
 
 
 func set_sceneir_json(text: String) -> void:
@@ -50,6 +61,12 @@ func _draw() -> void:
 	var oy: float = pad + ((size.y - 2.0 * pad) - dy * scale) * 0.5
 
 	var opening_count := 0
+	_segments.clear()
+	_map_min_x = min_x
+	_map_min_y = min_y
+	_map_ox = ox
+	_map_oy = oy
+	_map_scale = scale
 	for w in walls:
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
@@ -96,6 +113,10 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	var stroke := Tokens.wall_stroke(kind)
 	var thickness_mm := float(w.get("thicknessMm", 200))
 	var width: float = clampf(6.0 + thickness_mm / 80.0, 7.0, 14.0)
+	var wid := str(w.get("id", ""))
+	_segments.append({"id": wid, "a": p0, "b": p1, "kind": kind})
+	if selected_id == wid:
+		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
 	draw_line(p0, p1, stroke, width)
 	_draw_dim(p0, p1, Vector2(x1 - x0, y1 - y0).length())
 
@@ -211,3 +232,48 @@ func _font() -> Font:
 	if Studio and Studio.font:
 		return Studio.font
 	return ThemeDB.fallback_font
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not interactive:
+		return
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var hit: String = _hit_wall(mb.position)
+			if not hit.is_empty():
+				selected_id = hit
+				wall_clicked.emit(hit)
+				queue_redraw()
+				accept_event()
+	elif event is InputEventScreenTouch:
+		var st: InputEventScreenTouch = event as InputEventScreenTouch
+		if st.pressed:
+			var hit2: String = _hit_wall(st.position)
+			if not hit2.is_empty():
+				selected_id = hit2
+				wall_clicked.emit(hit2)
+				queue_redraw()
+				accept_event()
+
+
+func _hit_wall(pos: Vector2) -> String:
+	var best: String = ""
+	var best_d: float = 18.0
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY:
+			continue
+		var d: float = _dist_seg(pos, seg.a, seg.b)
+		if d < best_d:
+			best_d = d
+			best = str(seg.get("id", ""))
+	return best
+
+
+func _dist_seg(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab: Vector2 = b - a
+	var t: float = 0.0
+	var denom: float = ab.length_squared()
+	if denom > 0.0001:
+		t = clampf((p - a).dot(ab) / denom, 0.0, 1.0)
+	return p.distance_to(a + ab * t)

@@ -30,6 +30,15 @@ class PointMm {
            std::abs(y_ - other.y_) <= epsilon;
   }
 
+  // Point at t millimetres from `from` toward `to` along the segment.
+  static PointMm along(const PointMm& from, const PointMm& to, double t_mm) {
+    const double len = from.distance_to(to);
+    if (len <= 1e-9) return from;
+    const double u = t_mm / len;
+    return PointMm::of(from.x() + (to.x() - from.x()) * u,
+                       from.y() + (to.y() - from.y()) * u);
+  }
+
  private:
   PointMm(double x, double y) : x_(x), y_(y) {}
   double x_;

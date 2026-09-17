@@ -104,6 +104,18 @@ class FloorPlanDocument {
   void delete_wall(const std::string& storey_id, const std::string& wall_id);
   void set_wall_height(const std::string& storey_id, const std::string& wall_id,
                        LengthMm height_mm);
+  Wall set_wall_kind(const std::string& storey_id, const std::string& wall_id,
+                     WallKind kind);
+  // Full 拆除. ShearWall requires force=true (JoyPlan 承重确认).
+  void demolish_wall(const std::string& storey_id, const std::string& wall_id, bool force);
+  // Split at offset_mm along the wall; returns the new second segment id.
+  std::string split_wall(const std::string& storey_id, const std::string& wall_id,
+                         LengthMm offset_mm);
+  // Remove [offset, offset+length] along the wall (局部拆除). ShearWall needs force.
+  void partial_demolish(const std::string& storey_id, const std::string& wall_id,
+                        LengthMm offset_mm, LengthMm length_mm, bool force);
+  // 打洞: add an opening; ShearWall needs force.
+  Opening punch_opening(AddOpeningProps props, bool force);
   Opening add_opening(AddOpeningProps props);
   Opening update_opening(const std::string& storey_id, const std::string& opening_id,
                          OpeningKind kind, LengthMm width, LengthMm height,

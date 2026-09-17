@@ -49,6 +49,38 @@ int toporoom_document_set_wall_height(TopoRoomDocument* doc, const char* storey_
                                       const char* wall_id, double height_mm, char* errbuf,
                                       int errbuf_len);
 
+/* kind: "shearWall" | "masonry" | "partition" | "exterior" | "interior". */
+int toporoom_document_set_wall_kind(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, const char* kind, char* errbuf,
+                                    int errbuf_len);
+
+/* Full 拆除. force!=0 required for shearWall. */
+int toporoom_document_demolish_wall(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, int force, char* errbuf,
+                                    int errbuf_len);
+
+int toporoom_document_split_wall(TopoRoomDocument* doc, const char* storey_id,
+                                 const char* wall_id, double offset_mm, char* new_id_out,
+                                 int new_id_len, char* errbuf, int errbuf_len);
+
+int toporoom_document_partial_demolish(TopoRoomDocument* doc, const char* storey_id,
+                                       const char* wall_id, double offset_mm,
+                                       double length_mm, int force, char* errbuf,
+                                       int errbuf_len);
+
+int toporoom_document_punch_opening(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, const char* opening_id,
+                                    const char* kind, double width_mm, double height_mm,
+                                    double offset_mm, double sill_height_mm, int force,
+                                    char* errbuf, int errbuf_len);
+
+/* FakeVisionAdapter → add_wall with WallKind. image_uri may be empty. */
+int toporoom_document_import_fake_vision(TopoRoomDocument* doc, const char* image_uri,
+                                         char* errbuf, int errbuf_len);
+
+/* Always 0 until on-device ML is linked. */
+int toporoom_vision_ml_available(void);
+
 int toporoom_document_update_opening(TopoRoomDocument* doc, const char* storey_id,
                                      const char* opening_id, const char* kind,
                                      double width_mm, double height_mm, double offset_mm,

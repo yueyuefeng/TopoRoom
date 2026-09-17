@@ -49,6 +49,7 @@ set(TOPOROOM_CORE_SOURCES
   src/app/evidence_pack.cpp
   src/adapters/release_train.cpp
   src/adapters/p1_stubs.cpp
+  src/adapters/floor_plan_vision_adapters.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -155,6 +156,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/p1_stubs_test.cpp
     tests/domain_model_v02_test.cpp
     tests/editing_workflows_test.cpp
+    tests/wall_demolish_vision_test.cpp
   )
 
   target_link_libraries(toporoom_tests

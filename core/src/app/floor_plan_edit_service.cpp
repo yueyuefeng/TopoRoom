@@ -58,6 +58,48 @@ CommandResult FloorPlanEditService::set_wall_height(const SetWallHeightCommand& 
   });
 }
 
+CommandResult FloorPlanEditService::set_wall_kind(const SetWallKindCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    document.set_wall_kind(command.storey_id, command.wall_id, command.kind);
+  });
+}
+
+CommandResult FloorPlanEditService::demolish_wall(const DemolishWallCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    document.demolish_wall(command.storey_id, command.wall_id, command.force);
+  });
+}
+
+CommandResult FloorPlanEditService::split_wall(const SplitWallCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    document.split_wall(command.storey_id, command.wall_id,
+                        domain::LengthMm::of(command.offset_mm));
+  });
+}
+
+CommandResult FloorPlanEditService::partial_demolish(const PartialDemolishCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    document.partial_demolish(command.storey_id, command.wall_id,
+                              domain::LengthMm::of(command.offset_mm),
+                              domain::LengthMm::of(command.length_mm), command.force);
+  });
+}
+
+CommandResult FloorPlanEditService::punch_opening(const PunchOpeningCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    domain::AddOpeningProps props;
+    props.storey_id = command.storey_id;
+    props.wall_id = command.wall_id;
+    props.id = command.opening_id;
+    props.kind = command.kind;
+    props.width = domain::LengthMm::of(command.width_mm);
+    props.height = domain::LengthMm::of(command.height_mm);
+    props.offset_along_wall = domain::LengthMm::of(command.offset_mm);
+    props.sill_height = domain::LengthMm::of(command.sill_height_mm);
+    document.punch_opening(std::move(props), command.force);
+  });
+}
+
 CommandResult FloorPlanEditService::add_opening(const AddOpeningCommand& command) {
   return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
     domain::AddOpeningProps props;
