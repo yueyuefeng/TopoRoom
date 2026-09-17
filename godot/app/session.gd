@@ -230,7 +230,7 @@ func add_opening(kind: String) -> String:
 	host.guide_note_opening()
 	host.guide_sync_from_document(false)
 	auto_save()
-	var label := {"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind)
+	var label: String = Tokens.opening_label(kind)
 	return _ok("放置%s" % label)
 
 
@@ -415,7 +415,17 @@ func phase_label() -> String:
 func blocking_reason() -> String:
 	if host == null:
 		return "GDExtension 未加载"
-	return host.guide_blocking_reason()
+	var raw: String = host.guide_blocking_reason()
+	var map := {
+		"host not on Android whitelist (or experimental)": "宿主未就绪",
+		"draw at least 4 walls": "请先画至少四面墙",
+		"need ≥2 laser key edges, or typed explicit with ≥2 typed edges": "需要至少两条激光关键边，或已确认的手输边长",
+		"place at least one opening": "请放置至少一个门窗洞或垭口",
+		"rebuild must succeed before export": "导出前需要重建通过",
+	}
+	if map.has(raw):
+		return str(map[raw])
+	return raw
 
 
 func can_export() -> bool:

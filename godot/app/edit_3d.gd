@@ -19,8 +19,6 @@ var _solids: Node3D
 var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
-var _cjk: Font
-
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -34,7 +32,6 @@ var _built_json := ""
 
 
 func _ready() -> void:
-	_cjk = _system_cjk()
 	_lighting = Lighting.new()
 	_lighting.name = "Lighting"
 	add_child(_lighting)
@@ -58,53 +55,39 @@ func _ready() -> void:
 	_orbit()
 
 
-func _system_cjk() -> Font:
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray([
-		"Noto Sans CJK SC", "Noto Sans CJK", "Source Han Sans SC",
-		"DroidSansFallback", "Noto Sans SC", "WenQuanYi Micro Hei", "sans-serif",
-	])
-	return font
-
-
 func _build_hud() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var col := VBoxContainer.new()
-	col.offset_left = 16
-	col.offset_top = 16
-	col.add_theme_constant_override("separation", 8)
-	layer.add_child(col)
-	_status = _hud_label("", 15)
-	_status.custom_minimum_size = Vector2(520, 0)
+	var hud: Dictionary = Studio.attach_hud(self)
+	var col: VBoxContainer = hud.column
+	var row := Studio.hbox(Tokens.S1)
+	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
+	row.add_child(Studio.chip("加载夹具", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
+	var grow := Control.new()
+	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(grow)
+	var light_idx := 0
+	if _lighting and _lighting.preset == Lighting.PRESET_WARM:
+		light_idx = 1
+	row.add_child(Studio.segmented(PackedStringArray(["白天", "暖光"]), light_idx, func(_i: int, name: String):
+		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
+		_update_hud()
+	))
+	col.add_child(row)
+	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
-	_sel_label = _hud_label("", 14)
-	_sel_label.custom_minimum_size = Vector2(520, 0)
+	_sel_label = Studio.caption("")
 	col.add_child(_sel_label)
-	col.add_child(_hud_btn("返回户型图", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
-	col.add_child(_hud_btn("白天 / 暖光", func(): _lighting.toggle_preset(); _update_hud()))
-	col.add_child(_hud_btn("加载夹具样例", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
-	col.add_child(_hud_label("左键选择/拖动手柄 · 右键旋转 · 滚轮缩放。提交后经 C API 写回 SceneIR。", 12))
-
-
-func _hud_label(text: String, size_px: int) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_override("font", _cjk)
-	l.add_theme_font_size_override("font_size", size_px)
-	l.add_theme_color_override("font_color", Color(0.95, 0.95, 0.93))
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return l
-
-
-func _hud_btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(220, 40)
-	b.add_theme_font_override("font", _cjk)
-	b.add_theme_font_size_override("font_size", 15)
-	b.pressed.connect(cb)
-	return b
+	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
+	var snack := preload("res://app/ui/snackbar.gd").new()
+	snack.theme = Studio.theme
+	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	snack.anchor_top = 1.0
+	snack.offset_left = 16
+	snack.offset_right = -16
+	snack.offset_top = -80
+	snack.offset_bottom = -16
+	hud.layer.add_child(snack)
+	Session.log_line.connect(func(text: String): snack.show_message(text))
 
 
 func _on_document_changed() -> void:
@@ -199,8 +182,8 @@ func _add_floor(walls: Array) -> void:
 		min_y = min(min_y, min(float(a.get("y", 0)), float(b.get("y", 0))))
 		max_x = max(max_x, max(float(a.get("x", 0)), float(b.get("x", 0))))
 		max_y = max(max_y, max(float(a.get("y", 0)), float(b.get("y", 0))))
-	var sx := max((max_x - min_x) / 1000.0, 0.5)
-	var sz := max((max_y - min_y) / 1000.0, 0.5)
+	var sx: float = max((max_x - min_x) / 1000.0, 0.5)
+	var sz: float = max((max_y - min_y) / 1000.0, 0.5)
 	var pos := Vector3((min_x + max_x) * 0.0005, -0.02, (min_y + max_y) * 0.0005)
 	_add_box(_solids, Vector3(sx + 0.4, 0.04, sz + 0.4), pos, Basis.IDENTITY, _lighting.floor_material(), {})
 
@@ -241,7 +224,7 @@ func _add_wall_mesh(w: Dictionary) -> void:
 	cuts.sort_custom(func(a, b): return float(a.t) < float(b.t))
 	var cursor := 0.0
 	var wall_h: float = f.height
-	var wall_mat: Material = _lighting.wall_material()
+	var wall_mat: Material = _lighting.wall_material_for_kind(str(w.get("kind", "exterior")))
 	var meta_wall := {"pick": KIND_WALL, "wall_id": f.id}
 	for cut in cuts:
 		if cut.op == null:
@@ -283,7 +266,7 @@ func _add_wall_span(f: Dictionary, t0: float, t1: float, z0: float, z1: float, m
 func _add_opening_volume(f: Dictionary, op: Dictionary) -> void:
 	var kind := str(op.get("kind", "door"))
 	var oid := str(op.get("id", ""))
-	var selected := _selected.get("pick", "") == KIND_OPENING and str(_selected.get("opening_id", "")) == oid
+	var selected: bool = str(_selected.get("pick", "")) == KIND_OPENING and str(_selected.get("opening_id", "")) == oid
 	var offset := float(op.get("offsetMm", 0))
 	var width := float(op.get("widthMm", 0))
 	var height := float(op.get("heightMm", 0))
@@ -347,8 +330,8 @@ func _build_gizmos() -> void:
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		var f := _frame(w)
-		var is_wall := _selected.get("pick", "") == KIND_WALL and f.id == sel_wall
-		var wall_hot := is_wall or sel_wall == f.id
+		var is_wall: bool = str(_selected.get("pick", "")) == KIND_WALL and f.id == sel_wall
+		var wall_hot: bool = is_wall or sel_wall == f.id
 		_add_handle(_gizmos, Vector3(f.x0 / 1000.0, f.height * 0.0005, f.y0 / 1000.0), 0.13, HANDLE_WALL_END, {
 			"pick": HANDLE_WALL_END, "wall_id": f.id, "end": "start", "x_mm": f.x0, "y_mm": f.y0,
 		}, wall_hot)
@@ -705,21 +688,21 @@ func _intersect(pos: Vector2, mask: int) -> Dictionary:
 
 func _update_hud() -> void:
 	var walls: Array = _walls()
-	var light := _lighting.preset_label() if _lighting else "—"
+	var light: String = _lighting.preset_label() if _lighting else "—"
 	var gate := Session.last_rebuild
 	var gate_s := str(gate.get("status", "—"))
 	if Session.keep_preview:
-		_status.text = "3D 编辑 · 灯光 %s · StatusGate Fault — 预览保持上一版实体\n%s" % [light, Session.last_error]
+		_status.text = "灯光 %s · 重建未通过，预览保持上一版实体\n%s" % [light, Session.last_error]
 	elif walls.is_empty():
-		_status.text = "3D 编辑 · 灯光 %s\n尚无墙。请返回户型图画墙，或加载夹具样例。" % light
+		_status.text = "灯光 %s · 还没有墙。请返回户型图绘制，或加载夹具样例。" % light
 	else:
-		_status.text = "3D 编辑 · 灯光 %s · StatusGate %s · 网格非尺寸真相" % [light, gate_s]
-	var sel := "未选择。点墙/门洞/窗洞/垭口，拖动手柄。"
+		_status.text = "灯光 %s · 闸门 %s · 尺寸只来自命令" % [light, gate_s]
+	var sel := "点选墙或门窗洞，拖动手柄调整。"
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
 		var kind := str(op.get("kind", _selected.get("kind", "")))
-		var label := {"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind)
+		var label: String = Tokens.opening_label(kind)
 		sel = "选中 %s %s  偏移 %dmm  宽 %dmm  高 %dmm" % [
 			label,
 			str(_selected.get("opening_id", "")),

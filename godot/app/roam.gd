@@ -11,18 +11,11 @@ var _status: Label
 var _root: Node3D
 var _lighting: Node3D
 var _dragging := false
-var _cjk: SystemFont
 var _glb_path := ""
 var _glb_loaded := false
 
 
 func _ready() -> void:
-	_cjk = SystemFont.new()
-	_cjk.font_names = PackedStringArray([
-		"Noto Sans CJK SC", "Noto Sans CJK", "Source Han Sans SC",
-		"DroidSansFallback", "Noto Sans SC", "WenQuanYi Micro Hei", "sans-serif",
-	])
-
 	_lighting = Lighting.new()
 	_lighting.name = "Lighting"
 	add_child(_lighting)
@@ -37,32 +30,26 @@ func _ready() -> void:
 	add_child(_root)
 	_load_glb()
 
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var col := VBoxContainer.new()
-	col.offset_left = 16
-	col.offset_top = 16
-	layer.add_child(col)
-	_status = Label.new()
+	var hud: Dictionary = Studio.attach_hud(self)
+	var col: VBoxContainer = hud.column
+	var row := Studio.hbox(Tokens.S1)
+	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
+	row.add_child(Studio.chip("3D 编辑", func(): get_tree().change_scene_to_file("res://app/edit_3d.tscn")))
+	var grow := Control.new()
+	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(grow)
+	var light_idx := 0
+	if _lighting and _lighting.preset == Lighting.PRESET_WARM:
+		light_idx = 1
+	row.add_child(Studio.segmented(PackedStringArray(["白天", "暖光"]), light_idx, func(_i: int, name: String):
+		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
+		_refresh_status()
+	))
+	col.add_child(row)
+	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(480, 0)
-	_status.add_theme_font_override("font", _cjk)
 	col.add_child(_status)
-	var light_btn := Button.new()
-	light_btn.text = "白天 / 暖光"
-	light_btn.add_theme_font_override("font", _cjk)
-	light_btn.pressed.connect(func(): _lighting.toggle_preset(); _refresh_status())
-	col.add_child(light_btn)
-	var back := Button.new()
-	back.text = "返回户型图"
-	back.add_theme_font_override("font", _cjk)
-	back.pressed.connect(func(): get_tree().change_scene_to_file("res://app/main.tscn"))
-	col.add_child(back)
-	var edit := Button.new()
-	edit.text = "3D 编辑"
-	edit.add_theme_font_override("font", _cjk)
-	edit.pressed.connect(func(): get_tree().change_scene_to_file("res://app/edit_3d.tscn"))
-	col.add_child(edit)
+	col.add_child(Studio.caption("只读漫游 · 节点来自交付 glb，不会写回尺寸。"))
 
 
 func _load_glb() -> void:
@@ -90,11 +77,11 @@ func _load_glb() -> void:
 func _refresh_status() -> void:
 	if _status == null:
 		return
-	var light := _lighting.preset_label() if _lighting else "—"
+	var light: String = _lighting.preset_label() if _lighting else "—"
 	if _glb_loaded:
-		_status.text = "只读漫游 · 灯光 %s · %s\n节点来自 Deliverables/.glb，禁止从三角网写回尺寸。" % [light, _glb_path]
+		_status.text = "灯光 %s · %s" % [light, _glb_path]
 	else:
-		_status.text = "没有可逛的 glb。请先在户型图导出（StatusGate OK）。"
+		_status.text = "还没有可漫游的模型。请先在户型图导出（闸门通过后才有 glb）。"
 
 
 func _append_gltf(path: String) -> bool:
