@@ -1,0 +1,16 @@
+{
+  "adapter": "raster",
+  "fixture": "apt-plan-user-01.png",
+  "min_shear": 12,
+  "min_masonry": 8,
+  "min_doors": 3,
+  "min_windows": 3,
+  "min_columns": 2,
+  "min_walls_applied": 18,
+  "min_openings_applied": 4,
+  "mm_per_px_min": 12.0,
+  "mm_per_px_max": 28.0,
+  "plan_width_mm_min": 7000,
+  "plan_width_mm_max": 20000,
+  "notes": "P0 black-blob + gray-line + heuristic openings. OCR/swing-arc/deskew are P1."
+}

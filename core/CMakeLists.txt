@@ -50,6 +50,8 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/release_train.cpp
   src/adapters/p1_stubs.cpp
   src/adapters/floor_plan_vision_adapters.cpp
+  src/adapters/floor_plan_raster_analyzer.cpp
+  src/adapters/stb_image_impl.cpp
   src/c_api/toporoom_c_api.cpp
 )
 
@@ -63,6 +65,8 @@ target_include_directories(toporoom_core
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/toporoom-hub/include
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_compile_features(toporoom_core PUBLIC cxx_std_20)
@@ -72,6 +76,11 @@ if(MSVC)
   target_compile_options(toporoom_core PRIVATE /W4 /WX)
 else()
   target_compile_options(toporoom_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+if(NOT MSVC)
+  set_source_files_properties(src/adapters/stb_image_impl.cpp PROPERTIES
+    COMPILE_OPTIONS "-w;-Wno-error")
 endif()
 
 # CMake 3.22 (Android Studio side-by-side) does not accept
@@ -157,6 +166,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/domain_model_v02_test.cpp
     tests/editing_workflows_test.cpp
     tests/wall_demolish_vision_test.cpp
+    tests/floor_plan_raster_vision_test.cpp
   )
 
   target_link_libraries(toporoom_tests

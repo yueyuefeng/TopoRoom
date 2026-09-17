@@ -100,8 +100,8 @@ func _build_home() -> Control:
 	col.add_child(hero)
 
 	col.add_child(Studio.section("开始"))
-	col.add_child(Studio.action_card("拍户型图", "打开相机，拍现场图后识别墙体", "拍", func(): _open_photo("camera")))
-	col.add_child(Studio.action_card("从相册导入", "选一张已有户型图，接着预览识别", "图", func(): _open_photo("gallery")))
+	col.add_child(Studio.action_card("拍户型图", "打开相机，拍完立即识别墙和门窗", "拍", func(): _open_photo("camera")))
+	col.add_child(Studio.action_card("从相册导入", "选一张户型图，自动生成 3D 草模", "图", func(): _open_photo("gallery")))
 	col.add_child(Studio.action_card("引导量房", "一步步画墙、开门窗、记尺寸", "尺", func(): Session.screen = "guide"; _show_guide()))
 
 	var more := Studio.card("QuietCard")

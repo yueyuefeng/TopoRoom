@@ -368,23 +368,77 @@ int toporoom_document_import_fake_vision(TopoRoomDocument* doc, const char* imag
     toporoom::ports::VisionRequest req;
     req.image_uri = image_uri ? image_uri : "";
     const auto detected = vision.detect_walls(req);
-    if (!detected.ok) {
-      return write_error(errbuf, errbuf_len,
-                         detected.error.empty() ? "vision failed" : detected.error.c_str());
+    std::string err;
+    if (toporoom::adapters::apply_vision_result(doc->impl, detected, &err) != 0) {
+      return write_error(errbuf, errbuf_len, err.empty() ? "vision failed" : err.c_str());
     }
-    const std::string storey = doc->impl.storeys().empty() ? "" : doc->impl.storeys()[0].id();
-    if (storey.empty()) return write_error(errbuf, errbuf_len, "no storey");
-    for (const auto& wall : detected.walls) {
-      toporoom::domain::AddWallProps props;
-      props.storey_id = storey;
-      props.id = wall.id;
-      props.start = toporoom::domain::PointMm::of(wall.start_x, wall.start_y);
-      props.end = toporoom::domain::PointMm::of(wall.end_x, wall.end_y);
-      props.thickness = toporoom::domain::LengthMm::of(wall.thickness_mm);
-      props.height = toporoom::domain::LengthMm::of(wall.height_mm);
-      props.kind = wall.kind;
-      doc->impl.add_wall(std::move(props));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+namespace {
+
+void zero_counts(TopoRoomVisionCounts* counts) {
+  if (!counts) return;
+  counts->wall_count = 0;
+  counts->opening_count = 0;
+  counts->shear_count = 0;
+  counts->masonry_count = 0;
+  counts->door_count = 0;
+  counts->window_count = 0;
+  counts->mm_per_px = 0;
+}
+
+void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResult& detected,
+                 const toporoom::domain::FloorPlanDocument& doc) {
+  if (!counts) return;
+  zero_counts(counts);
+  counts->mm_per_px = detected.mm_per_px;
+  if (doc.storeys().empty()) return;
+  const auto& storey = doc.storeys()[0];
+  counts->wall_count = static_cast<int>(storey.walls().size());
+  int opening_n = 0;
+  int shear = 0;
+  int masonry = 0;
+  int doors = 0;
+  int windows = 0;
+  for (const auto& wall : storey.walls()) {
+    if (wall.kind() == toporoom::domain::WallKind::ShearWall) ++shear;
+    else ++masonry;
+    for (const auto& opening : wall.openings()) {
+      ++opening_n;
+      if (opening.kind() == toporoom::domain::OpeningKind::Window) ++windows;
+      else ++doors;
     }
+  }
+  counts->opening_count = opening_n;
+  counts->shear_count = shear;
+  counts->masonry_count = masonry;
+  counts->door_count = doors;
+  counts->window_count = windows;
+}
+
+}  // namespace
+
+int toporoom_vision_import_image(TopoRoomDocument* doc, const char* path,
+                                 TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len) {
+  zero_counts(counts);
+  if (!doc) return 1;
+  if (!path || !path[0]) {
+    return write_error(errbuf, errbuf_len, "image path required");
+  }
+  try {
+    toporoom::adapters::RasterVisionAdapter vision;
+    toporoom::ports::VisionRequest req;
+    req.image_uri = path;
+    const auto detected = vision.detect_walls(req);
+    std::string err;
+    if (toporoom::adapters::apply_vision_result(doc->impl, detected, &err) != 0) {
+      return write_error(errbuf, errbuf_len, err.empty() ? "vision failed" : err.c_str());
+    }
+    fill_counts(counts, detected, doc->impl);
     return 0;
   } catch (const std::exception& ex) {
     return write_error(errbuf, errbuf_len, ex.what());

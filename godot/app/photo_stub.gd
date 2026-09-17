@@ -1,5 +1,5 @@
 extends Control
-## 拍户型图：系统相机 / 相册 → 预览 → Fake 识墙 → 确认承重 → 拆改。
+## 拍户型图：系统相机 / 相册 → 立刻光栅识别 → 确认承重 → 3D / 拆改。
 
 const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
@@ -195,7 +195,7 @@ func _show_pick() -> void:
 	gal.custom_minimum_size = Vector2(0, 48)
 	gal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(gal)
-	var demo := Studio.ghost("用示例图试试", func(): _run_fake("fixture:photo"))
+	var demo := Studio.ghost("用示例图试试", func(): _run_example())
 	demo.custom_minimum_size = Vector2(0, 44)
 	demo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(demo)
@@ -211,9 +211,9 @@ func _show_preview(path: String) -> void:
 	_load_thumb(path)
 	_preview.visible = true
 	_canvas.visible = false
-	_hint.text = "看一下这张图。确认后会识别墙体（当前为示意结果），照片本身不是尺寸。"
+	_hint.text = "确认这张图无误。识别会标出承重墙、砌体墙和门窗。"
 	_clear_dock()
-	var go := Studio.primary("开始识墙", func(): _run_fake(path))
+	var go := Studio.primary("开始识墙", func(): _run_vision(path))
 	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(go)
 	var row := Studio.hbox(Tokens.S1)
@@ -229,7 +229,7 @@ func _show_preview(path: String) -> void:
 func _show_review() -> void:
 	_mode = "review"
 	_phase.text = "确认承重"
-	_hint.text = "点墙切换承重（暖色）和隔墙（深灰）。认准了再进入拆改。"
+	_hint.text = _review_hint()
 	_preview.visible = not _thumb_path.is_empty()
 	if _preview.visible:
 		_preview.custom_minimum_size = Vector2(0, 96)
@@ -246,9 +246,13 @@ func _show_review() -> void:
 	row.add_child(shear)
 	row.add_child(mason)
 	_dock.add_child(row)
-	var next := Studio.primary("下一步：拆改", func(): _show_demolish())
+	var next := Studio.primary("进入 3D", func(): _enter_3d())
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(next)
+	var demolish := Studio.ghost("先拆改", func(): _show_demolish())
+	demolish.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	demolish.custom_minimum_size = Vector2(0, 44)
+	_dock.add_child(demolish)
 	_refresh()
 
 
@@ -311,6 +315,42 @@ func _run_fake(uri: String) -> void:
 	_refresh()
 
 
+func _run_vision(uri: String) -> void:
+	_image_uri = uri
+	Session.import_photo_vision(uri)
+	if Session.last_error.is_empty():
+		if not Session.last_import_path.is_empty():
+			_thumb_path = Session.last_import_path
+			_load_thumb(_thumb_path)
+		_show_review()
+	_refresh()
+
+
+func _run_example() -> void:
+	var res_path := "res://fixtures/apt-plan-user-01.png"
+	if FileAccess.file_exists(res_path):
+		var stored: String = Session.store_imported_image(res_path)
+		_run_vision(stored if not stored.is_empty() else ProjectSettings.globalize_path(res_path))
+		return
+	_run_fake("fixture:photo")
+
+
+func _enter_3d() -> void:
+	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
+
+
+func _review_hint() -> String:
+	var v: Dictionary = Session.last_vision
+	if v.is_empty():
+		return "点墙切换承重（暖色）和隔墙（深灰）。认准了再进入 3D。"
+	return "识别到承重 %d、砌体 %d、门 %d、窗 %d。点墙可改类型，然后进入 3D。" % [
+		int(v.get("shear_count", 0)),
+		int(v.get("masonry_count", 0)),
+		int(v.get("door_count", 0)),
+		int(v.get("window_count", 0)),
+	]
+
+
 func _pick_gallery() -> void:
 	_picker.pick_gallery()
 
@@ -326,7 +366,9 @@ func _on_image(path: String) -> void:
 	var stored: String = Session.store_imported_image(path)
 	if stored.is_empty():
 		stored = path
-	_show_preview(stored)
+	_thumb_path = stored
+	_load_thumb(stored)
+	_run_vision(stored)
 
 
 func _load_thumb(path: String) -> void:

@@ -263,6 +263,23 @@ Dictionary TopoRoomHost::import_fake_vision(const String& image_uri) {
   return from_rc(rc, err);
 }
 
+Dictionary TopoRoomHost::import_vision_image(const String& path) {
+  if (!doc_) return need_doc();
+  const std::string p = to_utf8(path);
+  char err[512] = {};
+  TopoRoomVisionCounts counts{};
+  const int rc = toporoom_vision_import_image(doc_, p.c_str(), &counts, err, sizeof(err));
+  Dictionary d = from_rc(rc, err);
+  d["wall_count"] = counts.wall_count;
+  d["opening_count"] = counts.opening_count;
+  d["shear_count"] = counts.shear_count;
+  d["masonry_count"] = counts.masonry_count;
+  d["door_count"] = counts.door_count;
+  d["window_count"] = counts.window_count;
+  d["mm_per_px"] = counts.mm_per_px;
+  return d;
+}
+
 bool TopoRoomHost::vision_ml_available() const { return toporoom_vision_ml_available() != 0; }
 
 Dictionary TopoRoomHost::add_opening(const String& storey_id, const String& wall_id,
@@ -542,6 +559,8 @@ void TopoRoomHost::_bind_methods() {
       &TopoRoomHost::punch_opening);
   ClassDB::bind_method(D_METHOD("import_fake_vision", "image_uri"),
                        &TopoRoomHost::import_fake_vision);
+  ClassDB::bind_method(D_METHOD("import_vision_image", "path"),
+                       &TopoRoomHost::import_vision_image);
   ClassDB::bind_method(D_METHOD("vision_ml_available"), &TopoRoomHost::vision_ml_available);
 
   ClassDB::bind_method(D_METHOD("add_opening", "storey_id", "wall_id", "opening_id", "kind",
