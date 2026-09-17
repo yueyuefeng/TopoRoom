@@ -1,4 +1,9 @@
-# Android host
+# Android host (legacy JNI stub)
+
+> **Deprecated as the P0 APK path.** Product host is the Godot 4 project in
+> [`godot/`](../../godot/README.md) (GDExtension → C API → SceneIR, export
+> templates → APK). This Gradle/JNI app is kept for Fake-loop / JNI tests.
+> Do not delete it abruptly.
 
 Installable Kotlin app that links `toporoom_core` through JNI (`NativeCore` →
 `toporoom.h`). P0 capture is **Android-first**; debug/emulator builds use

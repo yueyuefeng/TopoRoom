@@ -91,7 +91,10 @@ class MainActivity : android.app.Activity() {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         col.addView(titleView("拓间 TopoRoom"))
-        col.addView(subTitleView("户型图 · 量房会话 · Fake/Replay"))
+        col.addView(subTitleView("遗留 JNI 壳 · 户型图 · 量房会话 · Fake/Replay"))
+        col.addView(bodyView().apply {
+            text = "P0 APK 请用 godot/ 导出。本页仅 JNI / Fake 测试。"
+        })
         homeBanner = bodyView()
         homePhase = bodyView()
         col.addView(homeBanner)

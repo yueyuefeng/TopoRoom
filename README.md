@@ -1,8 +1,10 @@
 # 拓间 TopoRoom
 
 **C++ only.** No TypeScript, no JavaScript, no pnpm/npm workspace. The
-editable product core is a CMake static library consumed by native **iOS**
-and **Android** hosts through a C API (`core/include/toporoom/c_api/toporoom.h`).
+editable product core is a CMake static library. The P0 **Android APK** is a
+**Godot 4** project that talks to that library through a GDExtension over the
+C API (`core/include/toporoom/c_api/toporoom.h`). Godot is the InteractionShell
+UI, not a mesh CAD.
 
 Low-cost Type-C depth + phone host + Bluetooth **laser** anchors → editable
 floor-plan semantics (**SceneIR 0.2**, 方案/户型文档) → 户型图 export (DXF / PDF / glTF).
@@ -13,6 +15,7 @@ Specs:
 - [docs/architecture/FINAL-toporoom-hw-sw-requirements.md](./docs/architecture/FINAL-toporoom-hw-sw-requirements.md)
 - [docs/architecture/FINAL-toporoom-software-architecture.md](./docs/architecture/FINAL-toporoom-software-architecture.md)
 - [docs/architecture/FINAL-toporoom-domain-model.md](./docs/architecture/FINAL-toporoom-domain-model.md)
+- [docs/architecture/ADR-001-godot-interaction-shell-host.md](./docs/architecture/ADR-001-godot-interaction-shell-host.md) (Godot host pivot)
 
 ## Quick start (Linux CI)
 
@@ -24,7 +27,12 @@ ctest --test-dir build --output-on-failure
 
 Requires CMake ≥ 3.20, a C++20 compiler, and network on first configure
 (GoogleTest + nlohmann/json + [elalish/manifold](https://github.com/elalish/manifold)
-v3.5.3 via FetchContent).
+v3.5.3 via FetchContent). Godot GDExtension (optional job / local):
+
+```bash
+./godot/scripts/build_extension.sh
+# → godot/bin/libtoporoom.linux.template_debug.x86_64.so
+```
 
 ## Layout
 
@@ -34,21 +42,24 @@ core/                 C++ domain, ports, app services, fakes, SceneIR JSON, C AP
   src/
   tests/              GoogleTest (ctest)
   fixtures/           SceneIR 0.1 gold JSON, whitelist, release-train
-godot/                Godot 4 read-only .glb roam (no SceneIR write-back)
-mobile/android/       Gradle app + JNI (Fake/Replay in debug)
+godot/                Godot 4 P0 host (UI + GDExtension + Android export)
+  app/                新建方案 / Fake 一室 / 引导量房 / 2D 户型图 / 只读漫游
+  extension/          GDExtension CMake (godot-cpp + toporoom_core)
+mobile/android/       Legacy Kotlin JNI stub (tests; not the P0 APK path)
 mobile/ios/           Xcode SwiftUI shell + ObjC++ (software host)
-docs/architecture/    FINAL specs
+docs/architecture/    FINAL specs + ADR-001 Godot host
 ```
 
-## How mobile hosts consume the core
+## How hosts consume the core
 
 ```
-        Swift UI (iOS)                 Kotlin/Java UI (Android)
-                │                                │
-                ▼                                ▼
-        TopoRoomCore.mm                    NativeCore JNI
-                │                                │
-                └──────────► C API (toporoom.h) ◄┘
+ Godot 4 UI (P0 Android APK)          Kotlin JNI (legacy)     Swift UI (iOS)
+ GuidedCapture / 户型图 / roam              MainActivity           GuideRootView
+         │                                      │                      │
+         ▼                                      ▼                      ▼
+  GDExtension TopoRoomHost              NativeCore JNI          TopoRoomCore.mm
+         │                                      │                      │
+         └──────────────────► C API (toporoom.h) ◄─────────────────────┘
                                    │
                                    ▼
                          toporoom_core (C++)
@@ -56,23 +67,35 @@ docs/architecture/    FINAL specs
 ```
 
 - SceneIR / `FloorPlanDocument` is the only editable truth (I1).
-- Godot, if used at all, is a **read-only** glTF consumer. It does not write
-  dimensions back.
-- iOS is a first-class host for the **software** core; P0 hardware capture
-  (Type-C depth whitelist) remains Android-first per the FINAL hardware spec.
+- Godot UI issues **commands** through the C API. The 2D plan is a view of
+  SceneIR walls/openings, not a triangle editor.
+- Exported `.glb` roam is still **read-only** (I7 mesh / I8). Godot must not
+  write millimetres back from Node transforms or meshes.
+- iOS remains a software-core host; P0 hardware capture (Type-C depth
+  whitelist) stays Android-first per the FINAL hardware spec.
 
-### Android Studio (P0 primary host)
+### Godot 4 (P0 Android host)
 
-Open `mobile/android/` as a Gradle project (SDK 34 + NDK + CMake 3.22). Debug
-builds load `android-whitelist.v1.json` then **bypass** an unlisted emulator
-with Fake/Replay. Home: **新建方案** / **Fake 一室** / **引导量房** / **导出**.
-Guided flow: 画墙 → 门窗洞/垭口 → 关键尺寸 (Fake 激光 or 手输) → 重建 → 导出
-DXF/PDF (`glb` only when Status is OK). See
+Open `godot/project.godot` after building the desktop `.so`
+([godot/README.md](./godot/README.md)). Home copy: **新建方案** / **Fake 一室** /
+**引导量房** / **导出**. Guided flow: 画墙 → 门窗洞/垭口 → 关键尺寸
+(Fake 激光 or 手输) → 闭合房间 → 导出 DXF/PDF (`glb` only when Status is OK).
+**漫游检查** loads that `.glb` read-only.
+
+Android APK: compile `arm64-v8a` (optional `x86_64`) with
+`./godot/scripts/build_extension.sh android arm64-v8a`, then Godot **Export →
+Android** using `export_presets.cfg`. Linux CMake CI builds the **linux**
+`.so`; it does **not** install Godot export templates or produce an APK.
+
+### Android Studio (legacy JNI stub)
+
+`mobile/android/` is **deprecated as the P0 APK path** and kept for JNI /
+Fake-loop tests. Open it as a Gradle project (SDK 34 + NDK + CMake 3.22) if
+you still need that shell. See
 [mobile/android/README.md](./mobile/android/README.md).
 
-`./gradlew assembleDebug` needs a local Android SDK/NDK. Linux CMake CI does
-not assemble the APK; it runs GoogleTest only. JVM `GuideViewModel` tests:
-`./gradlew test` (also needs the Android Gradle plugin / SDK).
+`./gradlew assembleDebug` needs a local Android SDK/NDK. JVM `GuideViewModel`
+tests: `./gradlew test`.
 
 ### Xcode (software host)
 
@@ -92,7 +115,7 @@ in this CI — sources + scheme only.
 | **I4** | Writes are serial per `documentId`. |
 | **I5** | Capture emits commands into the same `FloorPlanDocument`. |
 | **I6** | Structural-solid export requires Status == OK. Faults reject export. |
-| **I7** | Godot is a read-only glTF host. |
+| **I7** | `.glb` roam is a read-only glTF consumer. Godot UI may host InteractionShell commands; Godot Node is not SceneIR. |
 | **I8** | VisualizationDerivative must not write dimensions back. |
 | **I9** | Laser lengths go through Command into semantics with `source`. |
 | **I10** | UI → Application → Domain ← Adapters. |
@@ -112,7 +135,9 @@ nlohmann JSON (JSON stays in adapters).
    (`GuidedRoomSession`: host OK, ≥4 walls, ≥1 opening, rebuild OK, and ≥2 laser
    key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be
    empty. `release-train.v1.json` maps software tag ↔ module SKU / firmware /
-   whitelist file version.) Android host (`mobile/android`) is an installable
+   whitelist file version.)
+   **Host pivot:** Godot 4 + GDExtension is the P0 Android APK path; Kotlin JNI
+   app is a legacy stub. Android host (`mobile/android`) is an installable
    Gradle app: JNI covers create/load/save 方案, wall/opening/room/hosted edits,
    `GuidedEditWorkflow` C API, and DXF/PDF/(glb-when-OK) export. Debug builds
    run Fake/Replay without hardware.
