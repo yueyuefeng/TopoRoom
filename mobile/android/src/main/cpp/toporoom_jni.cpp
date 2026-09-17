@@ -139,6 +139,216 @@ Java_com_toporoom_core_NativeCore_nativeSceneIrJson(JNIEnv* env, jclass /*clazz*
   return out;
 }
 
+namespace {
+
+jstring load_into(JNIEnv* env, TopoRoomDocument* doc, const char* err, jlongArray outHandle) {
+  if (!doc) return env->NewStringUTF(err && err[0] ? err : "load failed");
+  if (!outHandle || env->GetArrayLength(outHandle) < 1) {
+    toporoom_document_destroy(doc);
+    return env->NewStringUTF("outHandle required");
+  }
+  const jlong handle = reinterpret_cast<jlong>(doc);
+  env->SetLongArrayRegion(outHandle, 0, 1, &handle);
+  return env->NewStringUTF("");
+}
+
+}  // namespace
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeLoadFromJson(JNIEnv* env, jclass /*clazz*/,
+                                                     jstring json, jlongArray outHandle) {
+  JUtf j(env, json);
+  char err[512] = {};
+  TopoRoomDocument* doc = toporoom_document_from_sceneir_json(j.c, err, sizeof(err));
+  return load_into(env, doc, err, outHandle);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeLoadFromFile(JNIEnv* env, jclass /*clazz*/,
+                                                     jstring path, jlongArray outHandle) {
+  JUtf p(env, path);
+  char err[512] = {};
+  TopoRoomDocument* doc = toporoom_document_load(p.c, err, sizeof(err));
+  return load_into(env, doc, err, outHandle);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeSaveToFile(JNIEnv* env, jclass /*clazz*/,
+                                                   jlong handle, jstring path) {
+  JUtf p(env, path);
+  char err[256] = {};
+  const int rc = toporoom_document_save(reinterpret_cast<TopoRoomDocument*>(handle), p.c,
+                                        err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeMoveWall(JNIEnv* env, jclass /*clazz*/,
+                                                 jlong handle, jstring storeyId,
+                                                 jstring wallId, jdouble x0, jdouble y0,
+                                                 jdouble x1, jdouble y1) {
+  JUtf storey(env, storeyId);
+  JUtf wall(env, wallId);
+  char err[256] = {};
+  const int rc = toporoom_document_move_wall(reinterpret_cast<TopoRoomDocument*>(handle),
+                                             storey.c, wall.c, x0, y0, x1, y1, err,
+                                             sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeResizeWall(JNIEnv* env, jclass /*clazz*/,
+                                                   jlong handle, jstring storeyId,
+                                                   jstring wallId, jdouble lengthMm) {
+  JUtf storey(env, storeyId);
+  JUtf wall(env, wallId);
+  char err[256] = {};
+  const int rc = toporoom_document_resize_wall(reinterpret_cast<TopoRoomDocument*>(handle),
+                                               storey.c, wall.c, lengthMm, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeDeleteWall(JNIEnv* env, jclass /*clazz*/,
+                                                   jlong handle, jstring storeyId,
+                                                   jstring wallId) {
+  JUtf storey(env, storeyId);
+  JUtf wall(env, wallId);
+  char err[256] = {};
+  const int rc = toporoom_document_delete_wall(reinterpret_cast<TopoRoomDocument*>(handle),
+                                               storey.c, wall.c, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeSetWallHeight(JNIEnv* env, jclass /*clazz*/,
+                                                      jlong handle, jstring storeyId,
+                                                      jstring wallId, jdouble heightMm) {
+  JUtf storey(env, storeyId);
+  JUtf wall(env, wallId);
+  char err[256] = {};
+  const int rc =
+      toporoom_document_set_wall_height(reinterpret_cast<TopoRoomDocument*>(handle),
+                                        storey.c, wall.c, heightMm, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeUpdateOpening(
+    JNIEnv* env, jclass /*clazz*/, jlong handle, jstring storeyId, jstring openingId,
+    jstring kind, jdouble widthMm, jdouble heightMm, jdouble offsetMm, jdouble sillMm) {
+  JUtf storey(env, storeyId);
+  JUtf opening(env, openingId);
+  JUtf k(env, kind);
+  char err[256] = {};
+  const int rc = toporoom_document_update_opening(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, opening.c, k.c, widthMm,
+      heightMm, offsetMm, sillMm, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeDeleteOpening(JNIEnv* env, jclass /*clazz*/,
+                                                      jlong handle, jstring storeyId,
+                                                      jstring openingId) {
+  JUtf storey(env, storeyId);
+  JUtf opening(env, openingId);
+  char err[256] = {};
+  const int rc = toporoom_document_delete_opening(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, opening.c, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeSetRoomAttributes(
+    JNIEnv* env, jclass /*clazz*/, jlong handle, jstring storeyId, jstring roomId,
+    jstring name, jstring spaceType, jboolean hasClearHeight, jdouble clearHeightMm) {
+  JUtf storey(env, storeyId);
+  JUtf room(env, roomId);
+  JUtf n(env, name);
+  JUtf space(env, spaceType);
+  char err[256] = {};
+  const int rc = toporoom_document_set_room_attributes(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, room.c, n.c, space.c,
+      hasClearHeight ? 1 : 0, clearHeightMm, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeSetStoreyHeight(JNIEnv* env, jclass /*clazz*/,
+                                                        jlong handle, jstring storeyId,
+                                                        jdouble heightMm,
+                                                        jboolean followMatchingWalls) {
+  JUtf storey(env, storeyId);
+  char err[256] = {};
+  const int rc = toporoom_document_set_storey_height(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, heightMm,
+      followMatchingWalls ? 1 : 0, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativePlaceHosted(
+    JNIEnv* env, jclass /*clazz*/, jlong handle, jstring storeyId, jstring componentId,
+    jstring kind, jdouble zBottomMm, jdouble depthMm, jstring hostWallId) {
+  JUtf storey(env, storeyId);
+  JUtf id(env, componentId);
+  JUtf k(env, kind);
+  JUtf host(env, hostWallId);
+  char err[256] = {};
+  const int rc = toporoom_document_place_hosted(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, id.c, k.c, zBottomMm,
+      depthMm, host.c, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeUpdateHosted(
+    JNIEnv* env, jclass /*clazz*/, jlong handle, jstring storeyId, jstring componentId,
+    jstring kind, jdouble zBottomMm, jdouble depthMm, jstring hostWallId) {
+  JUtf storey(env, storeyId);
+  JUtf id(env, componentId);
+  JUtf k(env, kind);
+  JUtf host(env, hostWallId);
+  char err[256] = {};
+  const int rc = toporoom_document_update_hosted(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, id.c, k.c, zBottomMm,
+      depthMm, host.c, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeDeleteHosted(JNIEnv* env, jclass /*clazz*/,
+                                                     jlong handle, jstring storeyId,
+                                                     jstring componentId) {
+  JUtf storey(env, storeyId);
+  JUtf id(env, componentId);
+  char err[256] = {};
+  const int rc = toporoom_document_delete_hosted(
+      reinterpret_cast<TopoRoomDocument*>(handle), storey.c, id.c, err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_toporoom_core_NativeCore_nativeGuideSyncFromDocument(JNIEnv* /*env*/,
+                                                              jclass /*clazz*/,
+                                                              jlong guide, jlong doc,
+                                                              jboolean rebuildOk) {
+  return toporoom_guide_sync_from_document(reinterpret_cast<TopoRoomGuide*>(guide),
+                                           reinterpret_cast<TopoRoomDocument*>(doc),
+                                           rebuildOk ? 1 : 0);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_toporoom_core_NativeCore_nativeRunGuidedEdit(JNIEnv* env, jclass /*clazz*/,
+                                                      jlong doc, jlong guide) {
+  char err[256] = {};
+  const int rc = toporoom_document_run_guided_edit(
+      reinterpret_cast<TopoRoomDocument*>(doc), reinterpret_cast<TopoRoomGuide*>(guide),
+      err, sizeof(err));
+  return jerr(env, rc, err);
+}
+
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_toporoom_core_NativeCore_nativeDebugFakeOneRoom(JNIEnv* env, jclass /*clazz*/,
                                                          jlong doc, jlong guide,

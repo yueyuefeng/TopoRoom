@@ -103,6 +103,17 @@ int toporoom_document_export(TopoRoomDocument* doc, const char* format, const ch
 char* toporoom_document_to_sceneir_json(TopoRoomDocument* doc);
 void toporoom_string_free(char* s);
 
+/* Load 方案 from SceneIR JSON text. Caller owns the document; NULL on error. */
+TopoRoomDocument* toporoom_document_from_sceneir_json(const char* json, char* errbuf,
+                                                      int errbuf_len);
+
+/* Load 方案 from a SceneIR JSON file. Caller owns the document; NULL on error. */
+TopoRoomDocument* toporoom_document_load(const char* path, char* errbuf, int errbuf_len);
+
+/* Save 方案 as SceneIR JSON (creates parent directories). Returns 0 on success. */
+int toporoom_document_save(TopoRoomDocument* doc, const char* path, char* errbuf,
+                           int errbuf_len);
+
 /*
  * Debug / emulator: four walls, two laser key edges, one door, close room,
  * export glb+dxf+pdf into out_dir (created if needed). Document must be empty.

@@ -16,3 +16,4 @@ DerivedData/
 .gradle/
 local.properties
 *.iml
+.cxx/
