@@ -80,6 +80,8 @@ func _ready() -> void:
 		await get_tree().process_frame
 		await get_tree().create_timer(0.8).timeout
 		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		if edit.has_method("_dismiss_coach"):
+			edit._dismiss_coach()
 		if edit.has_method("_show_handle_tip"):
 			var giz: Node = edit.get_node_or_null("Gizmos")
 			var tip_at := Vector3(0.0, 1.4, 0.0)

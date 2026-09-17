@@ -158,6 +158,13 @@ Invariant check (no Godot binary required):
 ./godot/scripts/check_3d_edit_invariants.sh
 ```
 
+Live drag preview (needs the desktop `.so` + Godot 4.3):
+
+```bash
+GODOT=/path/to/Godot_v4.3-stable_linux.x86_64 \
+  $GODOT --path godot res://app/test_edit_3d_live.tscn
+```
+
 `.glb` **漫游检查** is still read-only.
 
 ## What Godot is allowed to do

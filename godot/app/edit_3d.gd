@@ -156,6 +156,7 @@ func _build_tip_chip() -> void:
 	_tip_chip.visible = false
 	_tip_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tip_chip.z_index = 20
+	_tip_chip.theme = Studio.theme
 	_tip_label = Studio.label("", Tokens.FONT_CHIP, Tokens.TEXT)
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	var pad := MarginContainer.new()
@@ -171,6 +172,7 @@ func _build_tip_chip() -> void:
 func _build_coach() -> void:
 	_coach = PanelContainer.new()
 	_coach.theme_type_variation = "HudGlass"
+	_coach.theme = Studio.theme
 	_coach.visible = false
 	_coach.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_coach.anchor_top = 1.0

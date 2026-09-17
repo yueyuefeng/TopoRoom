@@ -27,6 +27,8 @@ has "$root/godot/app/edit_3d.gd" "_apply_live_preview" || fail "edit_3d missing 
 has "$root/godot/app/edit_3d.gd" "_mutate_snapshot_from_drag" || fail "edit_3d missing live SceneIR preview mutate"
 has "$root/godot/app/edit_3d.gd" "InputEventScreenTouch" || fail "edit_3d missing ScreenTouch handle drag"
 has "$root/godot/app/edit_3d.gd" "handle_coach_seen" || fail "edit_3d missing first-time coach"
+has "$root/godot/app/test_edit_3d_live.gd" "_apply_live_preview" || fail "missing live preview test"
+has "$root/godot/app/test_edit_3d_live.gd" "C API unchanged" || fail "live preview test must assert SceneIR unchanged during drag"
 has "$root/godot/app/lighting.gd" "gizmo_material_for" || fail "lighting missing per-kind gizmo materials"
 has "$root/godot/app/lighting.gd" "COLOR_WALL_END" || fail "lighting missing distinct handle colors"
 has "$root/godot/app/lighting.gd" "DirectionalLight3D" || fail "lighting missing DirectionalLight3D"
