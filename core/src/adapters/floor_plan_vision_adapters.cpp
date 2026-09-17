@@ -1,8 +1,34 @@
 #include "toporoom/adapters/floor_plan_vision_adapters.hpp"
 
-namespace toporoom::adapters {
+#include <fstream>
+#include <string>
 
-ports::VisionResult FakeVisionAdapter::detect_walls(const ports::VisionRequest&) {
+namespace toporoom::adapters {
+namespace {
+
+bool looks_like_filesystem_path(const std::string& uri) {
+  if (uri.empty()) return false;
+  if (uri.rfind("fixture:", 0) == 0) return false;
+  if (uri.rfind("camera:", 0) == 0) return false;
+  return uri.find('/') != std::string::npos || uri.find('\\') != std::string::npos;
+}
+
+bool file_readable(const std::string& path) {
+  std::ifstream in(path, std::ios::binary);
+  return static_cast<bool>(in);
+}
+
+}  // namespace
+
+ports::VisionResult FakeVisionAdapter::detect_walls(const ports::VisionRequest& request) {
+  if (looks_like_filesystem_path(request.image_uri) && request.image_bytes.empty() &&
+      !file_readable(request.image_uri)) {
+    ports::VisionResult out;
+    out.ok = false;
+    out.adapter_id = "fake";
+    out.error = "image not found: " + request.image_uri;
+    return out;
+  }
   ports::VisionResult out;
   out.ok = true;
   out.adapter_id = "fake";

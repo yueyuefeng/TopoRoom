@@ -20,7 +20,7 @@ Specs:
 
 ## 界面预览
 
-Godot 宿主截图（首页 / 引导量房 / 拍户型图 / 确认承重 / 拆改 / 3D 编辑）：
+Godot 宿主截图（首页 / 引导量房 / 拍户型图 / 预览 / 确认承重 / 拆改 / 3D 编辑）：
 [docs/screenshots/README.md](./docs/screenshots/README.md)
 
 | 首页 | 拍户型图 · 确认承重 | 拆改确认 |
@@ -100,9 +100,11 @@ Open `godot/project.godot` after building the desktop `.so`
 walls/openings via gizmos + C API, with 白天/暖光 light presets.
 
 Android APK: compile `arm64-v8a` (optional `x86_64`) with
-`./godot/scripts/build_extension.sh android arm64-v8a`, then Godot **Export →
+`./godot/scripts/build_extension.sh android arm64-v8a`, build the camera
+plugin with `./godot/scripts/build_android_plugin.sh`, then Godot **Export →
 Android** using `export_presets.cfg`. Linux CMake CI builds the **linux**
 `.so`; it does **not** install Godot export templates or produce an APK.
+Camera/gallery: [godot/android-plugin/README.md](./godot/android-plugin/README.md).
 
 ### Android Studio (legacy JNI stub)
 

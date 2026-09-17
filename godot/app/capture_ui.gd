@@ -27,6 +27,22 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
 	await _shot(out_dir.path_join("toporoom-ui-photo.png"))
+	DirAccess.make_dir_recursive_absolute(OS.get_user_data_dir().path_join("imports"))
+	var demo := Image.create(720, 420, false, Image.FORMAT_RGB8)
+	demo.fill(Color("E8F0FE"))
+	for y in range(40, 380, 2):
+		demo.set_pixel(80, y, Color("3D4248"))
+		demo.set_pixel(640, y, Color("3D4248"))
+	for x in range(80, 640, 2):
+		demo.set_pixel(x, 40, Color("E07050"))
+		demo.set_pixel(x, 380, Color("E07050"))
+	var demo_path := OS.get_user_data_dir().path_join("imports/preview_demo.png")
+	demo.save_png(demo_path)
+	if photo.has_method("_show_preview"):
+		photo._show_preview(demo_path)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	await _shot(out_dir.path_join("toporoom-ui-photo-preview.png"))
 	if Session.has_core():
 		Session.import_photo_fake("fixture:photo")
 		if photo.has_method("_show_review"):

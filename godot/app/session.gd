@@ -13,10 +13,13 @@ var glb_ok: bool = false
 var fake_laser_queue: Array[float] = [4000.0, 3000.0]
 var opening_serial: int = 0
 var key_serial: int = 0
-var screen: String = "home"  # home | guide
+var screen: String = "home"  # home | guide | photo
 var last_rebuild: Dictionary = {}
 var keep_preview: bool = false
 var preview_sceneir_json: String = ""
+var photo_intent: String = ""  # camera | gallery | pick
+var last_import_path: String = ""
+var last_import_uri: String = ""
 
 func _ready() -> void:
 	if ClassDB.class_exists("TopoRoomHost"):
@@ -329,9 +332,48 @@ func punch_opening(wall_id: String, kind: String, force: bool = false) -> String
 	return _after_structural_edit("打洞 %s @ %s" % [label, wall_id])
 
 
+func imports_dir() -> String:
+	return OS.get_user_data_dir().path_join("imports")
+
+
+func store_imported_image(src: String) -> String:
+	if src.is_empty() or src.begins_with("fixture:"):
+		last_import_path = ""
+		last_import_uri = src
+		return src
+	var abs_src := src
+	if src.begins_with("user://") or src.begins_with("res://"):
+		abs_src = ProjectSettings.globalize_path(src)
+	DirAccess.make_dir_recursive_absolute(imports_dir())
+	var ext := src.get_extension().to_lower()
+	if ext.is_empty():
+		ext = "jpg"
+	var dest := imports_dir().path_join("import_%d.%s" % [Time.get_ticks_msec(), ext])
+	if abs_src == dest:
+		last_import_path = dest
+		last_import_uri = dest
+		return dest
+	var copied := DirAccess.copy_absolute(abs_src, dest)
+	if copied != OK:
+		var inf := FileAccess.open(abs_src, FileAccess.READ)
+		if inf == null:
+			return ""
+		var outf := FileAccess.open(dest, FileAccess.WRITE)
+		if outf == null:
+			return ""
+		outf.store_buffer(inf.get_buffer(inf.get_length()))
+	last_import_path = dest
+	last_import_uri = dest
+	return dest
+
+
 func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	if host == null:
 		return _fail("no core")
+	var stored: String = store_imported_image(image_uri)
+	if stored.is_empty() and not image_uri.begins_with("fixture:"):
+		return _fail("无法保存照片")
+	var vision_uri: String = stored if not stored.is_empty() else image_uri
 	var id: String = "doc_photo_%d" % Time.get_ticks_msec()
 	var created: Dictionary = host.create_document(id)
 	if not created.get("ok", false):
@@ -342,7 +384,7 @@ func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	last_glb_path = ""
 	keep_preview = false
 	guide_mark_host_ok(true)
-	var d: Dictionary = host.import_fake_vision(image_uri)
+	var d: Dictionary = host.import_fake_vision(vision_uri)
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "vision")))
 	host.guide_note_wall()
@@ -350,7 +392,7 @@ func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	auto_save()
 	preview_sceneir_json = sceneir_json()
 	screen = "photo"
-	return _ok("识墙完成：四边承重 + 一道砌体隔墙")
+	return _ok("已识别墙体：四边承重 + 一道隔墙。尺寸仍以量房命令为准。")
 
 
 func move_shared_vertex(old_x: float, old_y: float, new_x: float, new_y: float) -> String:

@@ -1,11 +1,13 @@
 extends Control
-## 拍户型图：选图 → Fake 识墙 → 确认承重 → 拆改。像素不进 SceneIR。
+## 拍户型图：系统相机 / 相册 → 预览 → Fake 识墙 → 确认承重 → 拆改。
 
 const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
+const MediaPickerScript := preload("res://app/media_picker.gd")
 
-var _mode := "pick"  # pick | review | demolish
+var _mode := "pick"  # pick | preview | review | demolish
 var _canvas: Control
+var _preview: TextureRect
 var _phase: Label
 var _hint: Label
 var _snack: PanelContainer
@@ -13,8 +15,9 @@ var _dock: VBoxContainer
 var _confirm: PanelContainer
 var _confirm_label: Label
 var _pending: Callable
-var _dialog: FileDialog
+var _picker: MediaPicker
 var _image_uri := ""
+var _thumb_path := ""
 
 
 func _ready() -> void:
@@ -28,7 +31,7 @@ func _ready() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", Tokens.S1)
+	root.add_theme_constant_override("separation", 0)
 	add_child(root)
 
 	var top := MarginContainer.new()
@@ -37,7 +40,7 @@ func _ready() -> void:
 	top.add_theme_constant_override("margin_top", Tokens.S2)
 	var top_row := Studio.hbox(Tokens.S1)
 	top_row.add_child(Studio.ghost("返回", func(): _back()))
-	var title := Studio.section("拍户型图")
+	var title := Studio.section("户型图")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top_row.add_child(title)
@@ -50,16 +53,25 @@ func _ready() -> void:
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("margin_left", Tokens.S2)
 	mid.add_theme_constant_override("margin_right", Tokens.S2)
+	mid.add_theme_constant_override("margin_top", Tokens.S1)
+	mid.add_theme_constant_override("margin_bottom", Tokens.S1)
 	var hero := Studio.card("HeroCard")
 	hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var hcol := Studio.vbox(6)
+	var hcol := Studio.vbox(8)
 	hcol.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_hint = Studio.caption("选择现场户型图或使用示例图。识别结果写入 SceneIR，照片网格不是尺寸真相。")
+	_hint = Studio.caption("拍一张户型图，或从相册选已有照片。识别结果会写成墙段，照片只作对照。")
 	hcol.add_child(_hint)
+	_preview = TextureRect.new()
+	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_preview.custom_minimum_size = Vector2(0, 180)
+	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview.visible = false
+	hcol.add_child(_preview)
 	_canvas = PlanCanvas.new()
 	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_canvas.custom_minimum_size = Vector2(0, 280)
+	_canvas.custom_minimum_size = Vector2(0, 220)
 	_canvas.interactive = false
 	_canvas.wall_clicked.connect(_on_wall_clicked)
 	hcol.add_child(_canvas)
@@ -67,13 +79,12 @@ func _ready() -> void:
 	mid.add_child(hero)
 	root.add_child(mid)
 
-	var dock := PanelContainer.new()
-	dock.theme_type_variation = "HeroCard"
+	var dock := Studio.sheet()
 	var dm := MarginContainer.new()
-	dm.add_theme_constant_override("margin_left", Tokens.S2)
-	dm.add_theme_constant_override("margin_right", Tokens.S2)
-	dm.add_theme_constant_override("margin_top", 10)
-	dm.add_theme_constant_override("margin_bottom", 10)
+	dm.add_theme_constant_override("margin_left", 0)
+	dm.add_theme_constant_override("margin_right", 0)
+	dm.add_theme_constant_override("margin_top", 4)
+	dm.add_theme_constant_override("margin_bottom", 8)
 	_dock = Studio.vbox(Tokens.S1)
 	dm.add_child(_dock)
 	dock.add_child(dm)
@@ -84,9 +95,8 @@ func _ready() -> void:
 	_snack.anchor_top = 1.0
 	_snack.offset_left = Tokens.S2
 	_snack.offset_right = -Tokens.S2
-	# Sit above the bottom dock so 确认承重 / 拆改 chips stay tappable.
-	_snack.offset_top = -220
-	_snack.offset_bottom = -132
+	_snack.offset_top = -240
+	_snack.offset_bottom = -148
 	add_child(_snack)
 	Session.log_line.connect(func(text: String): _snack.show_message(text))
 	Session.document_changed.connect(_refresh)
@@ -94,15 +104,19 @@ func _ready() -> void:
 	_confirm = _build_confirm()
 	add_child(_confirm)
 
-	_dialog = FileDialog.new()
-	_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	_dialog.filters = PackedStringArray(["*.png,*.jpg,*.jpeg ; 户型图"])
-	_dialog.title = "选择户型图"
-	_dialog.file_selected.connect(_on_file)
-	add_child(_dialog)
+	_picker = MediaPickerScript.new()
+	add_child(_picker)
+	_picker.image_ready.connect(_on_image)
+	_picker.cancelled.connect(func(): _snack.show_message("已取消", "info"))
+	_picker.failed.connect(func(msg: String): _snack.show_message(msg, "error"))
 
 	_show_pick()
+	var intent: String = Session.photo_intent
+	Session.photo_intent = ""
+	if intent == "camera":
+		_pick_camera()
+	elif intent == "gallery":
+		_pick_gallery()
 
 
 func _pill(inner: Label) -> PanelContainer:
@@ -128,25 +142,33 @@ func _build_confirm() -> PanelContainer:
 	overlay.visible = false
 	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	var dim := StyleBoxFlat.new()
-	dim.bg_color = Color(0.12, 0.1, 0.08, 0.45)
+	dim.bg_color = Color(0.08, 0.09, 0.12, 0.42)
 	overlay.add_theme_stylebox_override("panel", dim)
-	var center := CenterContainer.new()
-	overlay.add_child(center)
-	var card := Studio.card("HeroCard")
-	card.custom_minimum_size = Vector2(300, 0)
+	var wrap := VBoxContainer.new()
+	wrap.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	wrap.alignment = BoxContainer.ALIGNMENT_END
+	overlay.add_child(wrap)
+	var grow := Control.new()
+	grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	grow.mouse_filter = Control.MOUSE_FILTER_STOP
+	grow.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			overlay.visible = false
+	)
+	wrap.add_child(grow)
+	var sheet := Studio.sheet()
 	var col := Studio.vbox(Tokens.S2)
-	_confirm_label = Studio.label("承重墙拆除需要确认。", Tokens.FONT_BODY, Tokens.TEXT, true)
+	col.add_child(Studio.section("确认拆除承重墙"))
+	_confirm_label = Studio.label("这面墙标成了承重墙。拆除会改写方案，需要你点一次确认。", Tokens.FONT_BODY, Tokens.TEXT, true)
 	col.add_child(_confirm_label)
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(Studio.ghost("取消", func(): overlay.visible = false))
-	row.add_child(Studio.primary("确认拆除", func():
+	col.add_child(Studio.primary("确认拆除", func():
 		overlay.visible = false
 		if _pending.is_valid():
 			_pending.call()
 	))
-	col.add_child(row)
-	card.add_child(col)
-	center.add_child(card)
+	col.add_child(Studio.ghost("先不拆", func(): overlay.visible = false))
+	sheet.add_child(col)
+	wrap.add_child(sheet)
 	return overlay
 
 
@@ -159,46 +181,105 @@ func _clear_dock() -> void:
 func _show_pick() -> void:
 	_mode = "pick"
 	_phase.text = "导入"
-	_hint.text = "选择现场户型图或使用示例图。识别走 FloorPlanVisionPort（当前 Fake），结果写入 SceneIR。"
+	_hint.text = "拍现场户型图，或从相册选一张。识别后可以改承重、再拆改。"
 	_canvas.interactive = false
 	_canvas.selected_id = ""
+	_preview.visible = false
+	_canvas.visible = true
 	_clear_dock()
-	_dock.add_child(Studio.primary("使用示例户型图", func(): _run_fake("fixture:photo")))
-	var row := Studio.flow()
-	row.add_child(Studio.ghost("从相册选择", func(): _pick_gallery()))
-	row.add_child(Studio.ghost("拍照", func(): _pick_camera()))
-	_dock.add_child(row)
-	_dock.add_child(Studio.caption("Android 会打开系统文件/相机选择器；桌面为文件对话框。像素只作参考，墙段来自命令。"))
+	var cam := Studio.primary("拍户型图", func(): _pick_camera())
+	cam.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.add_child(cam)
+	var gal := Studio.ghost("从相册导入", func(): _pick_gallery())
+	gal.custom_minimum_size = Vector2(0, 48)
+	gal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.add_child(gal)
+	var demo := Studio.ghost("用示例图试试", func(): _run_fake("fixture:photo"))
+	demo.custom_minimum_size = Vector2(0, 44)
+	demo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.add_child(demo)
+	_dock.add_child(Studio.caption("相机会打开系统拍照；相册走系统选择器。桌面试用时可改选本地图片。"))
 	_refresh()
+
+
+func _show_preview(path: String) -> void:
+	_mode = "preview"
+	_phase.text = "预览"
+	_image_uri = path
+	_thumb_path = path
+	_load_thumb(path)
+	_preview.visible = true
+	_canvas.visible = false
+	_hint.text = "看一下这张图。确认后会识别墙体（当前为示意结果），照片本身不是尺寸。"
+	_clear_dock()
+	var go := Studio.primary("开始识墙", func(): _run_fake(path))
+	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.add_child(go)
+	var row := Studio.hbox(Tokens.S1)
+	var recapture := Studio.ghost("重拍", func(): _pick_camera())
+	recapture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reimport := Studio.ghost("重选", func(): _pick_gallery())
+	reimport.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(recapture)
+	row.add_child(reimport)
+	_dock.add_child(row)
 
 
 func _show_review() -> void:
 	_mode = "review"
 	_phase.text = "确认承重"
-	_hint.text = "点墙切换 承重/剪力墙（暖橙）与 非承重/砌体（深墨）。"
+	_hint.text = "点墙切换承重（暖色）和隔墙（深灰）。认准了再进入拆改。"
+	_preview.visible = not _thumb_path.is_empty()
+	if _preview.visible:
+		_preview.custom_minimum_size = Vector2(0, 96)
+	_canvas.visible = true
 	_canvas.interactive = true
 	_clear_dock()
-	var flow := Studio.flow()
-	flow.add_child(Studio.chip("标为承重", func(): _set_selected_kind("shearWall")))
-	flow.add_child(Studio.chip("标为砌体", func(): _set_selected_kind("masonry")))
-	flow.add_child(Studio.accent_chip("进入拆改", func(): _show_demolish()))
-	_dock.add_child(flow)
+	var row := Studio.hbox(Tokens.S1)
+	var shear := Studio.ghost("标为承重", func(): _set_selected_kind("shearWall"))
+	shear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shear.custom_minimum_size = Vector2(0, 48)
+	var mason := Studio.ghost("标为隔墙", func(): _set_selected_kind("masonry"))
+	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mason.custom_minimum_size = Vector2(0, 48)
+	row.add_child(shear)
+	row.add_child(mason)
+	_dock.add_child(row)
+	var next := Studio.primary("下一步：拆改", func(): _show_demolish())
+	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.add_child(next)
 	_refresh()
 
 
 func _show_demolish() -> void:
 	_mode = "demolish"
 	_phase.text = "拆改"
-	_hint.text = "点选墙段。砌体可直接拆；承重墙需确认。"
+	_hint.text = "点选墙段。隔墙可直接拆；承重墙会再问一次。"
 	_canvas.interactive = true
+	_canvas.visible = true
+	_preview.visible = not _thumb_path.is_empty()
 	_clear_dock()
-	var flow := Studio.flow()
-	flow.add_child(Studio.chip("整段拆除", func(): _act_demolish()))
-	flow.add_child(Studio.chip("中点打断", func(): _act_split()))
-	flow.add_child(Studio.chip("局部拆除", func(): _act_partial()))
-	flow.add_child(Studio.chip("打门洞", func(): _act_punch()))
-	flow.add_child(Studio.ghost("返回确认", func(): _show_review()))
-	_dock.add_child(flow)
+	var row1 := Studio.hbox(Tokens.S1)
+	var a := Studio.ghost("整段拆除", func(): _act_demolish())
+	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	a.custom_minimum_size = Vector2(0, 48)
+	var b := Studio.ghost("中点打断", func(): _act_split())
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 48)
+	row1.add_child(a)
+	row1.add_child(b)
+	_dock.add_child(row1)
+	var row2 := Studio.hbox(Tokens.S1)
+	var c := Studio.ghost("局部拆除", func(): _act_partial())
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.custom_minimum_size = Vector2(0, 48)
+	var d := Studio.ghost("打门洞", func(): _act_punch())
+	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	d.custom_minimum_size = Vector2(0, 48)
+	row2.add_child(c)
+	row2.add_child(d)
+	_dock.add_child(row2)
+	_dock.add_child(Studio.ghost("返回确认承重", func(): _show_review()))
 	_refresh()
 
 
@@ -207,6 +288,12 @@ func _back() -> void:
 		_show_review()
 		return
 	if _mode == "review":
+		if not _image_uri.is_empty() and not _image_uri.begins_with("fixture:"):
+			_show_preview(_thumb_path if not _thumb_path.is_empty() else _image_uri)
+			return
+		_show_pick()
+		return
+	if _mode == "preview":
 		_show_pick()
 		return
 	get_tree().change_scene_to_file("res://app/main.tscn")
@@ -216,48 +303,45 @@ func _run_fake(uri: String) -> void:
 	_image_uri = uri
 	Session.import_photo_fake(uri)
 	if Session.last_error.is_empty():
+		if not Session.last_import_path.is_empty():
+			_thumb_path = Session.last_import_path
+			_load_thumb(_thumb_path)
 		_show_review()
 	_refresh()
 
 
 func _pick_gallery() -> void:
-	if OS.get_name() == "Android" and DisplayServer.has_method("file_dialog_show"):
-		DisplayServer.file_dialog_show(
-			"选择户型图",
-			OS.get_system_dir(OS.SYSTEM_DIR_DCIM),
-			"",
-			false,
-			DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
-			PackedStringArray(["*.png,*.jpg,*.jpeg;Images"]),
-			_on_native
-		)
-		return
-	_dialog.popup_centered_ratio(0.8)
+	_picker.pick_gallery()
 
 
 func _pick_camera() -> void:
-	if OS.get_name() == "Android" and DisplayServer.has_method("file_dialog_show"):
-		DisplayServer.file_dialog_show(
-			"拍照或从相册选择",
-			OS.get_system_dir(OS.SYSTEM_DIR_DCIM),
-			"",
-			false,
-			DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
-			PackedStringArray(["*.png,*.jpg,*.jpeg;Images"]),
-			_on_native
-		)
+	_picker.capture_photo()
+
+
+func _on_image(path: String) -> void:
+	if path.is_empty():
+		_snack.show_message("没有收到照片", "error")
 		return
-	_snack.show_message("桌面请用文件对话框或示例户型图。", "info")
-	_dialog.popup_centered_ratio(0.8)
+	var stored: String = Session.store_imported_image(path)
+	if stored.is_empty():
+		stored = path
+	_show_preview(stored)
 
 
-func _on_native(status: bool, selected_paths: PackedStringArray, _filter: int) -> void:
-	if status and not selected_paths.is_empty():
-		_on_file(selected_paths[0])
-
-
-func _on_file(path: String) -> void:
-	_run_fake(path)
+func _load_thumb(path: String) -> void:
+	_thumb_path = path
+	if path.is_empty() or path.begins_with("fixture:"):
+		_preview.texture = null
+		return
+	var abs_path := path
+	if path.begins_with("user://") or path.begins_with("res://"):
+		abs_path = ProjectSettings.globalize_path(path)
+	if not FileAccess.file_exists(abs_path):
+		return
+	var img := Image.new()
+	if img.load(abs_path) != OK:
+		return
+	_preview.texture = ImageTexture.create_from_image(img)
 
 
 func _on_wall_clicked(wall_id: String) -> void:
@@ -272,7 +356,7 @@ func _on_wall_clicked(wall_id: String) -> void:
 func _set_selected_kind(kind: String) -> void:
 	var id: String = str(_canvas.selected_id)
 	if id.is_empty():
-		_snack.show_message("请先点选一道墙。", "error")
+		_snack.show_message("先点选一道墙。", "error")
 		return
 	Session.set_wall_kind(id, kind)
 
@@ -288,10 +372,10 @@ func _needs_confirm(wall_id: String) -> bool:
 func _with_force(fn: Callable) -> void:
 	var id: String = _selected()
 	if id.is_empty():
-		_snack.show_message("请先点选一道墙。", "error")
+		_snack.show_message("先点选一道墙。", "error")
 		return
 	if _needs_confirm(id):
-		_confirm_label.text = "「%s」是承重/剪力墙。拆除或打断将改写 SceneIR，需确认。" % id
+		_confirm_label.text = "「%s」是承重墙。拆除或打断会改写方案，确认吗？" % id
 		_pending = fn
 		_confirm.visible = true
 		return

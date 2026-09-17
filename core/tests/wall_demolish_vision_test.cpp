@@ -1,3 +1,4 @@
+#include <fstream>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -34,6 +35,19 @@ using toporoom::ports::VisionRequest;
 
 namespace {
 
+std::string write_tiny_png(const std::string& path) {
+  static const unsigned char k_png[] = {
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00,
+      0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+      0x00, 0x00, 0x03, 0x00, 0x01, 0x18, 0xDD, 0x8D, 0xB0, 0x00, 0x00, 0x00,
+      0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};
+  std::ofstream out(path, std::ios::binary);
+  out.write(reinterpret_cast<const char*>(k_png), static_cast<std::streamsize>(sizeof(k_png)));
+  return path;
+}
+
 FloorPlanDocument rect_with_kinds() {
   auto doc = FloorPlanDocument::create(CreateFloorPlanProps{"doc_demo"});
   const std::string storey = doc.storeys()[0].id();
@@ -61,8 +75,9 @@ TEST(FloorPlanVision, FakeIsDeterministicWithKinds) {
   FakeVisionAdapter fake;
   VisionRequest a_req;
   a_req.image_uri = "fixture:photo";
+  const std::string photo = write_tiny_png("/tmp/toporoom_any.jpg");
   VisionRequest b_req;
-  b_req.image_uri = "/tmp/any.jpg";
+  b_req.image_uri = photo;
   const auto a = fake.detect_walls(a_req);
   const auto b = fake.detect_walls(b_req);
   ASSERT_TRUE(a.ok);
@@ -232,6 +247,34 @@ TEST(WallDemolish, EditServiceAndCApi) {
             0)
       << err;
   EXPECT_NE(std::string(nid).find("wall"), std::string::npos);
+  toporoom_document_destroy(doc);
+}
+
+TEST(FloorPlanVision, ImportExistingImagePathWritesWalls) {
+  const std::string photo = write_tiny_png("/tmp/toporoom_import_path.png");
+  TopoRoomDocument* doc = toporoom_document_create("doc_import_path");
+  ASSERT_NE(doc, nullptr);
+  char err[256] = {};
+  ASSERT_EQ(toporoom_document_import_fake_vision(doc, photo.c_str(), err, sizeof(err)), 0)
+      << err;
+  char* json = toporoom_document_to_sceneir_json(doc);
+  ASSERT_NE(json, nullptr);
+  const std::string text(json);
+  EXPECT_NE(text.find("shearWall"), std::string::npos);
+  EXPECT_NE(text.find("masonry"), std::string::npos);
+  EXPECT_NE(text.find("wall_p"), std::string::npos);
+  toporoom_string_free(json);
+  toporoom_document_destroy(doc);
+}
+
+TEST(FloorPlanVision, MissingImagePathFails) {
+  TopoRoomDocument* doc = toporoom_document_create("doc_missing_photo");
+  ASSERT_NE(doc, nullptr);
+  char err[256] = {};
+  EXPECT_NE(toporoom_document_import_fake_vision(doc, "/no/such/toporoom_photo.jpg", err,
+                                                 sizeof(err)),
+            0);
+  EXPECT_NE(std::string(err).find("not found"), std::string::npos);
   toporoom_document_destroy(doc);
 }
 

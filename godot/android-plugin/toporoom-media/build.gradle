@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.toporoom.plugin'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+}
+
+def godotLib = System.getenv("GODOT_LIB_AAR")
+if (godotLib == null || godotLib.isEmpty()) {
+    def candidates = [
+        file("${rootDir}/../android/build/libs/debug/godot-lib.template_debug.aar"),
+        file("${rootDir}/../android/build/libs/release/godot-lib.template_release.aar"),
+    ]
+    godotLib = candidates.find { it.exists() }?.absolutePath
+}
+
+dependencies {
+    if (godotLib != null) {
+        compileOnly files(godotLib)
+    }
+    compileOnly 'androidx.annotation:annotation:1.7.0'
+    compileOnly 'androidx.core:core:1.8.0'
+}

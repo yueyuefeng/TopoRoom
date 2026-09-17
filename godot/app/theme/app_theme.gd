@@ -23,10 +23,16 @@ static func build(font: Font) -> Theme:
 	t.set_type_variation("ChipButton", "Button")
 	_button(t, "ChipOn", _chip(Tokens.PRIMARY), _chip(Tokens.PRIMARY_HOVER), _chip(Tokens.PRIMARY_HOVER), Tokens.TEXT_ON_ACCENT)
 	t.set_type_variation("ChipOn", "Button")
-	_button(t, "AccentChip", _chip(Tokens.ACCENT), _chip(Color("275C4D")), _chip(Color("275C4D")), Tokens.TEXT_ON_ACCENT)
+	_button(t, "AccentChip", _chip(Tokens.PRIMARY), _chip(Tokens.PRIMARY_HOVER), _chip(Tokens.PRIMARY_HOVER), Tokens.TEXT_ON_ACCENT)
 	t.set_type_variation("AccentChip", "Button")
 	_button(t, "DangerChip", _chip(Tokens.DANGER_SOFT), _chip(Tokens.DANGER), _chip(Tokens.DANGER), Tokens.DANGER)
 	t.set_type_variation("DangerChip", "Button")
+	_button(t, "ActionCard", _action(Tokens.SURFACE_ELEVATED), _action(Tokens.PRIMARY_SOFT), _action(Tokens.PRIMARY_SOFT), Tokens.TEXT)
+	t.set_type_variation("ActionCard", "Button")
+	_button(t, "NavItem", _fill_tight(Color(0, 0, 0, 0)), _fill_tight(Tokens.SURFACE_MUTED), _fill_tight(Tokens.PRIMARY_SOFT), Tokens.TEXT_SECONDARY)
+	t.set_type_variation("NavItem", "Button")
+	_button(t, "NavItemOn", _fill_tight(Color(0, 0, 0, 0)), _fill_tight(Tokens.PRIMARY_SOFT), _fill_tight(Tokens.PRIMARY_SOFT), Tokens.PRIMARY)
+	t.set_type_variation("NavItemOn", "Button")
 
 	t.set_stylebox("panel", "PanelContainer", _card(Tokens.SURFACE, true))
 	t.set_stylebox("panel", "Panel", _card(Tokens.SURFACE, false))
@@ -34,6 +40,10 @@ static func build(font: Font) -> Theme:
 	t.set_stylebox("panel", "HeroCard", _card(Tokens.SURFACE_ELEVATED, true))
 	t.set_type_variation("QuietCard", "PanelContainer")
 	t.set_stylebox("panel", "QuietCard", _card(Tokens.SURFACE_MUTED, false))
+	t.set_type_variation("SheetPanel", "PanelContainer")
+	t.set_stylebox("panel", "SheetPanel", _sheet())
+	t.set_type_variation("NavBar", "PanelContainer")
+	t.set_stylebox("panel", "NavBar", _nav())
 	t.set_type_variation("HudGlass", "PanelContainer")
 	t.set_stylebox("panel", "HudGlass", _hud())
 	t.set_type_variation("SnackPanel", "PanelContainer")
@@ -44,10 +54,10 @@ static func build(font: Font) -> Theme:
 	t.set_stylebox("panel", "SnackErr", _snack(Tokens.DANGER))
 
 	var le_bg := _outline(Tokens.SURFACE, Tokens.HAIRLINE)
-	le_bg.content_margin_left = 12
-	le_bg.content_margin_right = 12
-	le_bg.content_margin_top = 8
-	le_bg.content_margin_bottom = 8
+	le_bg.content_margin_left = 14
+	le_bg.content_margin_right = 14
+	le_bg.content_margin_top = 10
+	le_bg.content_margin_bottom = 10
 	t.set_stylebox("normal", "LineEdit", le_bg)
 	t.set_stylebox("focus", "LineEdit", _outline(Tokens.SURFACE, Tokens.PRIMARY))
 	t.set_stylebox("read_only", "LineEdit", _outline(Tokens.SURFACE_MUTED, Tokens.HAIRLINE))
@@ -59,7 +69,7 @@ static func build(font: Font) -> Theme:
 
 	t.set_color("font_color", "CheckBox", Tokens.TEXT)
 	t.set_color("font_hover_color", "CheckBox", Tokens.TEXT)
-	t.set_color("font_pressed_color", "CheckBox", Tokens.ACCENT)
+	t.set_color("font_pressed_color", "CheckBox", Tokens.PRIMARY)
 	t.set_font("font", "CheckBox", font)
 	t.set_font_size("font_size", "CheckBox", Tokens.FONT_CAPTION)
 
@@ -99,11 +109,24 @@ static func _fill(bg: Color) -> StyleBoxFlat:
 	s.corner_radius_top_right = Tokens.R_MD
 	s.corner_radius_bottom_left = Tokens.R_MD
 	s.corner_radius_bottom_right = Tokens.R_MD
-	s.content_margin_left = 16
-	s.content_margin_right = 16
-	s.content_margin_top = 10
-	s.content_margin_bottom = 10
+	s.content_margin_left = 18
+	s.content_margin_right = 18
+	s.content_margin_top = 12
+	s.content_margin_bottom = 12
 	s.anti_aliasing = true
+	return s
+
+
+static func _fill_tight(bg: Color) -> StyleBoxFlat:
+	var s := _fill(bg)
+	s.content_margin_left = 4
+	s.content_margin_right = 4
+	s.content_margin_top = 6
+	s.content_margin_bottom = 6
+	s.corner_radius_top_left = Tokens.R_SM
+	s.corner_radius_top_right = Tokens.R_SM
+	s.corner_radius_bottom_left = Tokens.R_SM
+	s.corner_radius_bottom_right = Tokens.R_SM
 	return s
 
 
@@ -120,10 +143,19 @@ static func _chip(bg: Color) -> StyleBoxFlat:
 	s.corner_radius_top_right = Tokens.R_PILL
 	s.corner_radius_bottom_left = Tokens.R_PILL
 	s.corner_radius_bottom_right = Tokens.R_PILL
-	s.content_margin_left = 14
-	s.content_margin_right = 14
-	s.content_margin_top = 8
-	s.content_margin_bottom = 8
+	s.content_margin_left = 16
+	s.content_margin_right = 16
+	s.content_margin_top = 10
+	s.content_margin_bottom = 10
+	return s
+
+
+static func _action(bg: Color) -> StyleBoxFlat:
+	var s := _card(bg, true)
+	s.content_margin_left = Tokens.S2
+	s.content_margin_right = Tokens.S2
+	s.content_margin_top = 14
+	s.content_margin_bottom = 14
 	return s
 
 
@@ -143,8 +175,47 @@ static func _card(bg: Color, elevated: bool) -> StyleBoxFlat:
 	s.anti_aliasing = true
 	if elevated:
 		s.shadow_color = Tokens.SHADOW
-		s.shadow_size = 10
-		s.shadow_offset = Vector2(0, 3)
+		s.shadow_size = 12
+		s.shadow_offset = Vector2(0, 4)
+	return s
+
+
+static func _sheet() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tokens.SURFACE_ELEVATED
+	s.corner_radius_top_left = Tokens.R_XL
+	s.corner_radius_top_right = Tokens.R_XL
+	s.corner_radius_bottom_left = 0
+	s.corner_radius_bottom_right = 0
+	s.content_margin_left = Tokens.S3
+	s.content_margin_right = Tokens.S3
+	s.content_margin_top = Tokens.S2
+	s.content_margin_bottom = Tokens.S3
+	s.border_color = Tokens.HAIRLINE
+	s.border_width_top = 1
+	s.anti_aliasing = true
+	s.shadow_color = Tokens.SHADOW
+	s.shadow_size = 18
+	s.shadow_offset = Vector2(0, -2)
+	return s
+
+
+static func _nav() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tokens.SURFACE_ELEVATED
+	s.corner_radius_top_left = 0
+	s.corner_radius_top_right = 0
+	s.corner_radius_bottom_left = 0
+	s.corner_radius_bottom_right = 0
+	s.content_margin_left = Tokens.S2
+	s.content_margin_right = Tokens.S2
+	s.content_margin_top = 6
+	s.content_margin_bottom = 10
+	s.border_color = Tokens.HAIRLINE
+	s.border_width_top = 1
+	s.shadow_color = Tokens.SHADOW
+	s.shadow_size = 10
+	s.shadow_offset = Vector2(0, -2)
 	return s
 
 

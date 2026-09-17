@@ -1,56 +1,56 @@
 class_name Tokens
 extends Object
-## 拓间 design tokens — light “design studio” (量房 / 室内设计).
+## 拓间 design tokens — contemporary phone app (soft gray / one blue accent).
 ## 8px grid. Prefer these over ad-hoc ColorRect fills.
 
 # --- Surfaces ---
-const BG := Color("F4EEE4")
-const BG_GRID := Color("E7DFD2")
-const SURFACE := Color("FFFBF6")
-const SURFACE_MUTED := Color("F0E8DC")
+const BG := Color("F3F4F6")
+const BG_GRID := Color("E8EAED")
+const SURFACE := Color("FFFFFF")
+const SURFACE_MUTED := Color("F1F3F5")
 const SURFACE_ELEVATED := Color("FFFFFF")
-const HAIRLINE := Color("E2D6C6")
-const INK_FAINT := Color(0.22, 0.18, 0.14, 0.08)
+const HAIRLINE := Color("E5E7EB")
+const INK_FAINT := Color(0.12, 0.14, 0.18, 0.06)
 
 # --- Text ---
-const TEXT := Color("2A2622")
-const TEXT_SECONDARY := Color("6E675E")
-const TEXT_ON_ACCENT := Color("FFF8F2")
-const TEXT_DISABLED := Color("A39B92")
+const TEXT := Color("1C1C1E")
+const TEXT_SECONDARY := Color("6C6C70")
+const TEXT_ON_ACCENT := Color("FFFFFF")
+const TEXT_DISABLED := Color("AEAEB2")
 
-# --- Brand / actions ---
-const PRIMARY := Color("C45C26")
-const PRIMARY_HOVER := Color("B04F1E")
-const PRIMARY_SOFT := Color("F6DCCB")
-const ACCENT := Color("2F6B5A")
-const ACCENT_SOFT := Color("D5E6DF")
-const DANGER := Color("C23B2A")
-const DANGER_SOFT := Color("F4D4CE")
-const SUCCESS := Color("2F7A4A")
-const SUCCESS_SOFT := Color("D5E8D8")
-const WARNING := Color("C48A22")
+# --- Brand / actions (single accent) ---
+const PRIMARY := Color("3478F6")
+const PRIMARY_HOVER := Color("2B68DB")
+const PRIMARY_SOFT := Color("E8F0FE")
+const ACCENT := Color("3478F6")
+const ACCENT_SOFT := Color("E8F0FE")
+const DANGER := Color("E5484D")
+const DANGER_SOFT := Color("FDECEC")
+const SUCCESS := Color("2F9E44")
+const SUCCESS_SOFT := Color("E5F6E8")
+const WARNING := Color("E0A106")
 
-# --- 户型图 walls / openings (行业配色) ---
-const WALL_SHEAR := Color("E06A3A") ## 承重 / 剪力墙
-const WALL_MASONRY := Color("2C2A28") ## 非承重 / 砌体 / 隔墙
-const OPENING_DOOR := Color("2F7A4A")
-const OPENING_WINDOW := Color("3A7CA5")
-const OPENING_ARCH := Color("7A4E8C")
-const PAPER := Color("FBF6EE")
-const GRID := Color(0.28, 0.24, 0.18, 0.10)
-const DIM := Color("8A7F72")
+# --- 户型图 walls / openings (readable on white paper, not CAD chrome) ---
+const WALL_SHEAR := Color("E07050") ## 承重 / 剪力墙
+const WALL_MASONRY := Color("3D4248") ## 非承重 / 砌体 / 隔墙
+const OPENING_DOOR := Color("2F9E44")
+const OPENING_WINDOW := Color("3478F6")
+const OPENING_ARCH := Color("7A5C9E")
+const PAPER := Color("FAFBFC")
+const GRID := Color(0.20, 0.22, 0.26, 0.07)
+const DIM := Color("8E8E93")
 
 # --- 3D HUD glass ---
-const HUD_FILL := Color(0.99, 0.97, 0.93, 0.92)
-const HUD_BORDER := Color(0.88, 0.82, 0.74, 0.9)
+const HUD_FILL := Color(1.0, 1.0, 1.0, 0.94)
+const HUD_BORDER := Color(0.90, 0.91, 0.93, 0.95)
 
 # --- Type (px) ---
-const FONT_DISPLAY := 30
+const FONT_DISPLAY := 32
 const FONT_TITLE := 22
-const FONT_SECTION := 16
-const FONT_BODY := 15
-const FONT_CAPTION := 12
-const FONT_CHIP := 13
+const FONT_SECTION := 17
+const FONT_BODY := 16
+const FONT_CAPTION := 13
+const FONT_CHIP := 14
 
 # --- Space (8px grid) ---
 const S1 := 8
@@ -61,13 +61,13 @@ const S5 := 40
 const S6 := 48
 
 # --- Radius ---
-const R_SM := 8
-const R_MD := 12
-const R_LG := 16
-const R_XL := 20
+const R_SM := 10
+const R_MD := 14
+const R_LG := 20
+const R_XL := 24
 const R_PILL := 999
 
-const SHADOW := Color(0.18, 0.12, 0.08, 0.14)
+const SHADOW := Color(0.10, 0.12, 0.16, 0.10)
 
 
 static func is_load_bearing_kind(kind: String) -> bool:

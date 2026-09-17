@@ -94,8 +94,8 @@ func _draw_paper() -> void:
 
 func _draw_empty() -> void:
 	var f := _font()
-	var msg := "纸上尚无墙段"
-	var sub := "新建方案或引导量房后，承重墙与门窗洞会画在这里"
+	var msg := "还没有墙"
+	var sub := "拍一张户型图，或从引导量房开始"
 	draw_string(f, Vector2(24, size.y * 0.46), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Tokens.TEXT_SECONDARY)
 	draw_string(f, Vector2(24, size.y * 0.46 + 26), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.DIM)
 
