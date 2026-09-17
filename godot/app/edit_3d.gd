@@ -1,6 +1,8 @@
 extends Node3D
 ## Command-synced 3D edit. Meshes/gizmos are InteractionShell; millimetres live in SceneIR.
 ## Dragged triangle vertices are never written back. Lighting is Visualization-only.
+## Live drag mutates a local SceneIR copy and rebuilds BoxMesh previews every motion;
+## pointer-up still commits via Session → C API (StatusGate / auto_save).
 
 const Lighting := preload("res://app/lighting.gd")
 
@@ -12,6 +14,8 @@ const HANDLE_WALL_HEIGHT := "wall_height"
 const HANDLE_OPENING_OFFSET := "opening_offset"
 const HANDLE_OPENING_WIDTH := "opening_width"
 const HANDLE_STOREY_HEIGHT := "storey_height"
+const DRAG_SLOP_PX := 10.0
+const PREFS_PATH := "user://edit_3d.cfg"
 
 var _lighting: Node3D
 var _camera: Camera3D
@@ -19,6 +23,11 @@ var _solids: Node3D
 var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
+var _hud_layer: CanvasLayer
+var _tip_chip: PanelContainer
+var _tip_label: Label
+var _coach: PanelContainer
+var _dim_label: Label3D
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -26,9 +35,16 @@ var _orbiting := false
 var _target := Vector3(2.0, 1.1, 1.5)
 
 var _snapshot: Dictionary = {}
+var _drag_base: Dictionary = {}
 var _selected: Dictionary = {}
 var _drag: Dictionary = {}
+var _hover: Dictionary = {}
 var _built_json := ""
+var _live_preview := false
+var _dragging := false
+var _tip_world := Vector3.ZERO
+var _tip_text := ""
+var _last_drag_pos := Vector2(-99999, -99999)
 
 
 func _ready() -> void:
@@ -46,6 +62,18 @@ func _ready() -> void:
 	_gizmos = Node3D.new()
 	_gizmos.name = "Gizmos"
 	add_child(_gizmos)
+	_dim_label = Label3D.new()
+	_dim_label.name = "LiveDim"
+	_dim_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_dim_label.font_size = 48
+	_dim_label.modulate = Color(1, 1, 1, 0.95)
+	_dim_label.outline_modulate = Color(0.08, 0.09, 0.12, 0.85)
+	_dim_label.outline_size = 10
+	_dim_label.no_depth_test = true
+	_dim_label.visible = false
+	if Studio and Studio.font:
+		_dim_label.font = Studio.font
+	add_child(_dim_label)
 
 	_build_hud()
 	Session.document_changed.connect(_on_document_changed)
@@ -53,10 +81,17 @@ func _ready() -> void:
 		Session.last_rebuild = Session.rebuild_probe()
 	_refresh_world(true)
 	_orbit()
+	_maybe_show_coach()
+
+
+func _process(_delta: float) -> void:
+	if _tip_chip and _tip_chip.visible:
+		_place_tip()
 
 
 func _build_hud() -> void:
 	var hud: Dictionary = Studio.attach_hud(self)
+	_hud_layer = hud.layer
 	var col: VBoxContainer = hud.column
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
@@ -77,7 +112,10 @@ func _build_hud() -> void:
 	col.add_child(_status)
 	_sel_label = Studio.caption("")
 	col.add_child(_sel_label)
-	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
+	col.add_child(_make_legend())
+	col.add_child(Studio.caption("点彩色圆点看说明，拖动即时改墙。松开后经命令写回 SceneIR。"))
+	_build_tip_chip()
+	_build_coach()
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
 	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -90,8 +128,156 @@ func _build_hud() -> void:
 	Session.log_line.connect(func(text: String): snack.show_message(text))
 
 
+func _make_legend() -> HFlowContainer:
+	var flow := Studio.flow()
+	var items: Array = [
+		[HANDLE_WALL_END, "墙端点"],
+		[HANDLE_WALL_HEIGHT, "墙高"],
+		[HANDLE_STOREY_HEIGHT, "层高"],
+		[HANDLE_OPENING_OFFSET, "洞口"],
+		[HANDLE_OPENING_WIDTH, "净宽"],
+	]
+	for item in items:
+		var cell := HBoxContainer.new()
+		cell.add_theme_constant_override("separation", 4)
+		var dot := ColorRect.new()
+		dot.custom_minimum_size = Vector2(10, 10)
+		dot.color = _lighting.gizmo_color(str(item[0]))
+		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cell.add_child(dot)
+		cell.add_child(Studio.label(str(item[1]), Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY))
+		flow.add_child(cell)
+	return flow
+
+
+func _build_tip_chip() -> void:
+	_tip_chip = PanelContainer.new()
+	_tip_chip.theme_type_variation = "HudGlass"
+	_tip_chip.visible = false
+	_tip_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_chip.z_index = 20
+	_tip_label = Studio.label("", Tokens.FONT_CHIP, Tokens.TEXT)
+	_tip_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 12)
+	pad.add_theme_constant_override("margin_right", 12)
+	pad.add_theme_constant_override("margin_top", 8)
+	pad.add_theme_constant_override("margin_bottom", 8)
+	pad.add_child(_tip_label)
+	_tip_chip.add_child(pad)
+	_hud_layer.add_child(_tip_chip)
+
+
+func _build_coach() -> void:
+	_coach = PanelContainer.new()
+	_coach.theme_type_variation = "HudGlass"
+	_coach.visible = false
+	_coach.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_coach.anchor_top = 1.0
+	_coach.offset_left = 16
+	_coach.offset_right = -16
+	_coach.offset_top = -168
+	_coach.offset_bottom = -88
+	var box := Studio.vbox(Tokens.S1)
+	var title := Studio.label("彩色圆点都能点", Tokens.FONT_SECTION, Tokens.TEXT)
+	var body := Studio.caption("点一下看它做什么；按住拖动会立刻改墙，松开后才写入尺寸。")
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var actions := Studio.hbox(Tokens.S1)
+	var grow := Control.new()
+	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(grow)
+	actions.add_child(Studio.chip("知道了", func(): _dismiss_coach()))
+	box.add_child(title)
+	box.add_child(body)
+	box.add_child(actions)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 12)
+	pad.add_theme_constant_override("margin_right", 12)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	pad.add_child(box)
+	_coach.add_child(pad)
+	_hud_layer.add_child(_coach)
+
+
+func _coach_seen() -> bool:
+	var cf := ConfigFile.new()
+	if cf.load(PREFS_PATH) != OK:
+		return false
+	return bool(cf.get_value("ux", "handle_coach_seen", false))
+
+
+func _mark_coach_seen() -> void:
+	var cf := ConfigFile.new()
+	cf.load(PREFS_PATH)
+	cf.set_value("ux", "handle_coach_seen", true)
+	cf.save(PREFS_PATH)
+
+
+func _maybe_show_coach() -> void:
+	if _coach == null or _coach_seen():
+		return
+	if _walls().is_empty():
+		return
+	_coach.visible = true
+
+
+func _dismiss_coach() -> void:
+	if _coach:
+		_coach.visible = false
+	_mark_coach_seen()
+
+
+func _handle_tip(pick: String, opening_kind: String = "") -> String:
+	match pick:
+		HANDLE_WALL_END:
+			return "墙端点：拖动改墙线"
+		HANDLE_WALL_HEIGHT:
+			return "墙顶：拖动改这面墙高"
+		HANDLE_STOREY_HEIGHT:
+			return "层高角点：拖动改层高"
+		HANDLE_OPENING_OFFSET:
+			return "%s中心：拖动平移" % Tokens.opening_label(opening_kind)
+		HANDLE_OPENING_WIDTH:
+			return "%s边：拖动改净宽" % Tokens.opening_label(opening_kind)
+		_:
+			return "拖动手柄改尺寸"
+
+
+func _show_handle_tip(pick: String, opening_kind: String, world: Vector3) -> void:
+	_tip_text = _handle_tip(pick, opening_kind)
+	_tip_world = world
+	if _tip_label:
+		_tip_label.text = _tip_text
+	if _tip_chip:
+		_tip_chip.visible = true
+		_tip_chip.reset_size()
+	_place_tip()
+
+
+func _hide_handle_tip() -> void:
+	_tip_text = ""
+	if _tip_chip:
+		_tip_chip.visible = false
+
+
+func _place_tip() -> void:
+	if _tip_chip == null or not _tip_chip.visible or _camera == null:
+		return
+	var screen: Vector2 = _camera.unproject_position(_tip_world)
+	var size: Vector2 = _tip_chip.get_combined_minimum_size()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var pos := screen + Vector2(14, -size.y - 12)
+	pos.x = clampf(pos.x, 8.0, max(8.0, vp.x - size.x - 8.0))
+	pos.y = clampf(pos.y, 8.0, max(8.0, vp.y - size.y - 8.0))
+	_tip_chip.position = pos
+
+
 func _on_document_changed() -> void:
+	if _live_preview:
+		return
 	_refresh_world(not Session.keep_preview)
+	_maybe_show_coach()
 
 
 func _solids_json() -> String:
@@ -332,14 +518,14 @@ func _build_gizmos() -> void:
 		var f := _frame(w)
 		var is_wall: bool = str(_selected.get("pick", "")) == KIND_WALL and f.id == sel_wall
 		var wall_hot: bool = is_wall or sel_wall == f.id
-		_add_handle(_gizmos, Vector3(f.x0 / 1000.0, f.height * 0.0005, f.y0 / 1000.0), 0.13, HANDLE_WALL_END, {
+		_add_handle(_gizmos, Vector3(f.x0 / 1000.0, f.height * 0.0005, f.y0 / 1000.0), 0.14, HANDLE_WALL_END, {
 			"pick": HANDLE_WALL_END, "wall_id": f.id, "end": "start", "x_mm": f.x0, "y_mm": f.y0,
 		}, wall_hot)
-		_add_handle(_gizmos, Vector3(f.x1 / 1000.0, f.height * 0.0005, f.y1 / 1000.0), 0.13, HANDLE_WALL_END, {
+		_add_handle(_gizmos, Vector3(f.x1 / 1000.0, f.height * 0.0005, f.y1 / 1000.0), 0.14, HANDLE_WALL_END, {
 			"pick": HANDLE_WALL_END, "wall_id": f.id, "end": "end", "x_mm": f.x1, "y_mm": f.y1,
 		}, wall_hot)
 		if wall_hot:
-			_add_handle(_gizmos, Vector3((f.x0 + f.x1) * 0.0005, f.height / 1000.0, (f.y0 + f.y1) * 0.0005), 0.12, HANDLE_WALL_HEIGHT, {
+			_add_handle(_gizmos, Vector3((f.x0 + f.x1) * 0.0005, f.height / 1000.0, (f.y0 + f.y1) * 0.0005), 0.13, HANDLE_WALL_HEIGHT, {
 				"pick": HANDLE_WALL_HEIGHT, "wall_id": f.id, "height_mm": f.height,
 			}, is_wall)
 		for op in f.openings:
@@ -354,7 +540,7 @@ func _build_gizmos() -> void:
 			var height := float(op.get("heightMm", 0))
 			var sill := float(op.get("sillHeightMm", 0))
 			var cy := (sill + height * 0.5) / 1000.0
-			_add_handle(_gizmos, _along(f, offset + width * 0.5, cy), 0.11, HANDLE_OPENING_OFFSET, {
+			_add_handle(_gizmos, _along(f, offset + width * 0.5, cy), 0.12, HANDLE_OPENING_OFFSET, {
 				"pick": HANDLE_OPENING_OFFSET,
 				"wall_id": f.id,
 				"opening_id": oid,
@@ -364,7 +550,7 @@ func _build_gizmos() -> void:
 				"offset_mm": offset,
 				"sill_mm": sill,
 			}, hot)
-			_add_handle(_gizmos, _along(f, offset, cy), 0.09, HANDLE_OPENING_WIDTH, {
+			_add_handle(_gizmos, _along(f, offset, cy), 0.10, HANDLE_OPENING_WIDTH, {
 				"pick": HANDLE_OPENING_WIDTH,
 				"edge": "left",
 				"wall_id": f.id,
@@ -375,7 +561,7 @@ func _build_gizmos() -> void:
 				"offset_mm": offset,
 				"sill_mm": sill,
 			}, hot)
-			_add_handle(_gizmos, _along(f, offset + width, cy), 0.09, HANDLE_OPENING_WIDTH, {
+			_add_handle(_gizmos, _along(f, offset + width, cy), 0.10, HANDLE_OPENING_WIDTH, {
 				"pick": HANDLE_OPENING_WIDTH,
 				"edge": "right",
 				"wall_id": f.id,
@@ -398,22 +584,29 @@ func _first_corner(walls: Array) -> Vector2:
 	return Vector2(float(a.get("x", 0)), float(a.get("y", 0)))
 
 
-func _add_handle(parent: Node3D, pos: Vector3, radius: float, _kind: String, meta: Dictionary, hot: bool) -> void:
+func _add_handle(parent: Node3D, pos: Vector3, radius: float, kind: String, meta: Dictionary, hot: bool) -> void:
+	var press := _meta_matches(meta, _drag) and not _drag.is_empty()
+	var hover := (not press) and _meta_matches(meta, _hover)
 	var mi := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
 	mi.mesh = mesh
-	mi.material_override = _lighting.gizmo_material(hot)
+	mi.material_override = _lighting.gizmo_material_for(kind, hot, hover, press)
 	mi.position = pos
+	if press:
+		mi.scale = Vector3(1.22, 1.22, 1.22)
+	elif hover:
+		mi.scale = Vector3(1.14, 1.14, 1.14)
 	var body := StaticBody3D.new()
 	body.collision_layer = 2
 	body.collision_mask = 0
 	var col := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = radius
+	shape.radius = radius * 1.35
 	col.shape = shape
 	body.add_child(col)
+	meta["handle_kind"] = kind
 	for k in meta.keys():
 		body.set_meta(str(k), meta[k])
 		mi.set_meta(str(k), meta[k])
@@ -428,7 +621,8 @@ func _add_box(parent: Node3D, size: Vector3, pos: Vector3, basis: Basis, mat: Ma
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.transform = Transform3D(basis, pos)
-	if not meta.is_empty():
+	# Skip picking colliders during live drag — BoxMesh preview only.
+	if not meta.is_empty() and not _live_preview:
 		var body := StaticBody3D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
@@ -441,6 +635,9 @@ func _add_box(parent: Node3D, size: Vector3, pos: Vector3, basis: Basis, mat: Ma
 			body.set_meta(str(k), meta[k])
 			mi.set_meta(str(k), meta[k])
 		mi.add_child(body)
+	elif not meta.is_empty():
+		for k in meta.keys():
+			mi.set_meta(str(k), meta[k])
 	parent.add_child(mi)
 
 
@@ -486,20 +683,121 @@ func _unhandled_input(event: InputEvent) -> void:
 			_yaw -= mm.relative.x * 0.005
 			_pitch = clampf(_pitch - mm.relative.y * 0.005, -1.25, -0.08)
 			_orbit()
-	elif event is InputEventScreenDrag and _drag.is_empty():
+		else:
+			_on_hover(mm.position)
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.index != 0:
+			return
+		if st.pressed:
+			_on_left_down(st.position)
+		else:
+			_on_left_up()
+	elif event is InputEventScreenDrag:
 		var sd := event as InputEventScreenDrag
-		_yaw -= sd.relative.x * 0.005
-		_pitch = clampf(_pitch - sd.relative.y * 0.005, -1.25, -0.08)
-		_orbit()
+		if not _drag.is_empty():
+			_on_drag(sd.position)
+			get_viewport().set_input_as_handled()
+		else:
+			_yaw -= sd.relative.x * 0.005
+			_pitch = clampf(_pitch - sd.relative.y * 0.005, -1.25, -0.08)
+			_orbit()
+
+
+func _on_hover(pos: Vector2) -> void:
+	var hit := _intersect(pos, 2)
+	var next := {}
+	if not hit.is_empty() and hit.get("collider") != null:
+		next = _meta_dict(hit.get("collider"))
+		next.erase("orig_x_mm")
+		next.erase("orig_y_mm")
+		next.erase("orig_offset_mm")
+		next.erase("orig_width_mm")
+		next.erase("orig_height_mm")
+	if _hover_key(next) == _hover_key(_hover):
+		return
+	_hover = next
+	_tint_handles()
+
+
+func _hover_key(d: Dictionary) -> String:
+	if d.is_empty():
+		return ""
+	return "%s|%s|%s|%s" % [
+		str(d.get("pick", "")),
+		str(d.get("wall_id", "")),
+		str(d.get("opening_id", "")),
+		str(d.get("end", d.get("edge", ""))),
+	]
+
+
+func _tint_handles() -> void:
+	for mi in _gizmos.get_children():
+		if not (mi is MeshInstance3D):
+			continue
+		var kind := str(mi.get_meta("handle_kind", mi.get_meta("pick", "")))
+		var meta := _meta_from_node(mi)
+		var press := _meta_matches(meta, _drag) and not _drag.is_empty()
+		var hover := (not press) and _meta_matches(meta, _hover)
+		var hot := _handle_hot(meta)
+		mi.material_override = _lighting.gizmo_material_for(kind, hot, hover, press)
+		if press:
+			mi.scale = Vector3(1.22, 1.22, 1.22)
+		elif hover:
+			mi.scale = Vector3(1.14, 1.14, 1.14)
+		else:
+			mi.scale = Vector3.ONE
+
+
+func _handle_hot(meta: Dictionary) -> bool:
+	var pick := str(meta.get("pick", ""))
+	if pick == HANDLE_STOREY_HEIGHT:
+		return false
+	var sel_wall := str(_selected.get("wall_id", ""))
+	var sel_op := str(_selected.get("opening_id", ""))
+	if pick == HANDLE_WALL_END or pick == HANDLE_WALL_HEIGHT:
+		return sel_wall != "" and sel_wall == str(meta.get("wall_id", ""))
+	if pick == HANDLE_OPENING_OFFSET or pick == HANDLE_OPENING_WIDTH:
+		return sel_op != "" and sel_op == str(meta.get("opening_id", ""))
+	return false
+
+
+func _meta_from_node(mi: Node) -> Dictionary:
+	var d := {}
+	for k in ["pick", "wall_id", "opening_id", "hosted_id", "kind", "end", "edge", "handle_kind"]:
+		if mi.has_meta(k):
+			d[k] = mi.get_meta(k)
+	return d
+
+
+func _meta_matches(meta: Dictionary, probe: Dictionary) -> bool:
+	if probe.is_empty() or meta.is_empty():
+		return false
+	if str(meta.get("pick", "")) != str(probe.get("pick", "")):
+		return false
+	if probe.has("end") and str(meta.get("end", "")) != str(probe.get("end", "")):
+		return false
+	if probe.has("edge") and str(meta.get("edge", "")) != str(probe.get("edge", "")):
+		return false
+	if probe.has("opening_id") and str(meta.get("opening_id", "")) != str(probe.get("opening_id", "")):
+		return false
+	if probe.has("wall_id") and str(meta.get("wall_id", "")) != str(probe.get("wall_id", "")):
+		return false
+	return true
 
 
 func _on_left_down(pos: Vector2) -> void:
+	_last_drag_pos = Vector2(-99999, -99999)
+	var had_tip := _tip_chip != null and _tip_chip.visible
 	var hit := _intersect(pos, 2)
 	if hit.is_empty():
 		hit = _intersect(pos, 1)
 	if hit.is_empty():
 		_selected = {}
 		_drag = {}
+		_dragging = false
+		_live_preview = false
+		_hide_handle_tip()
 		_refresh_world(true)
 		return
 	var body: Object = hit.get("collider")
@@ -507,13 +805,33 @@ func _on_left_down(pos: Vector2) -> void:
 		return
 	var pick := str(body.get_meta("pick", ""))
 	if pick == HANDLE_WALL_END or pick == HANDLE_WALL_HEIGHT or pick == HANDLE_OPENING_OFFSET or pick == HANDLE_OPENING_WIDTH or pick == HANDLE_STOREY_HEIGHT:
+		# Mouse emulation + ScreenTouch both fire on Android; ignore the duplicate press.
+		if not _drag.is_empty() and _meta_matches(_meta_dict(body), _drag):
+			return
+		_dismiss_coach()
 		_drag = _meta_dict(body)
 		_drag["node"] = hit.get("collider").get_parent()
+		_drag["screen0"] = pos
+		var node: Node3D = _drag.get("node") as Node3D
+		if node:
+			_drag["anchor"] = node.global_position
+			_tip_world = node.global_position
+		_drag_base = _snapshot.duplicate(true)
+		_dragging = false
+		_live_preview = false
 		if _drag.has("opening_id"):
 			_selected = {"pick": KIND_OPENING, "opening_id": str(_drag.opening_id), "wall_id": str(_drag.get("wall_id", ""))}
 		elif _drag.has("wall_id"):
 			_selected = {"pick": KIND_WALL, "wall_id": str(_drag.wall_id)}
+		_show_handle_tip(pick, str(_drag.get("kind", "door")), _tip_world)
+		_clear(_gizmos)
+		_build_gizmos()
+		_rebind_drag_node()
+		_tint_handles()
+		_update_hud()
 		return
+	if had_tip:
+		_hide_handle_tip()
 	if pick == KIND_OPENING:
 		_selected = {"pick": KIND_OPENING, "opening_id": str(body.get_meta("opening_id", "")), "wall_id": str(body.get_meta("wall_id", "")), "kind": str(body.get_meta("kind", ""))}
 		_drag = {}
@@ -531,6 +849,21 @@ func _on_left_down(pos: Vector2) -> void:
 func _on_drag(pos: Vector2) -> void:
 	if _drag.is_empty():
 		return
+	if pos.distance_to(_last_drag_pos) < 0.05:
+		return
+	_last_drag_pos = pos
+	var origin: Vector2 = _drag.get("screen0", pos)
+	if (not _dragging) and pos.distance_to(origin) < DRAG_SLOP_PX:
+		return
+	if not _dragging:
+		_dragging = true
+		_live_preview = true
+		_hide_handle_tip()
+	_apply_drag_values(pos)
+	_apply_live_preview()
+
+
+func _apply_drag_values(pos: Vector2) -> void:
 	var ray := _ray(pos)
 	var pick := str(_drag.get("pick", ""))
 	var node: Node3D = _drag.get("node") as Node3D
@@ -540,30 +873,28 @@ func _on_drag(pos: Vector2) -> void:
 		var y_mm := _snap_mm(hit.z * 1000.0)
 		_drag["x_mm"] = x_mm
 		_drag["y_mm"] = y_mm
-		if node:
-			node.position = Vector3(x_mm / 1000.0, node.position.y, y_mm / 1000.0)
+		_drag["anchor"] = Vector3(x_mm / 1000.0, float((_drag.get("anchor", Vector3.ZERO) as Vector3).y), y_mm / 1000.0)
 	elif pick == HANDLE_WALL_HEIGHT or pick == HANDLE_STOREY_HEIGHT:
-		var y_m := _ray_height(ray.from, ray.dir, node.position if node else _target)
+		var at: Vector3 = _drag.get("anchor", node.position if node else _target)
+		var y_m := _ray_height(ray.from, ray.dir, at)
 		var h_mm := _snap_mm(clampf(y_m * 1000.0, 1200.0, 6000.0))
 		_drag["height_mm"] = h_mm
-		if node:
-			node.position.y = h_mm / 1000.0
+		at.y = h_mm / 1000.0
+		_drag["anchor"] = at
 	elif pick == HANDLE_OPENING_OFFSET or pick == HANDLE_OPENING_WIDTH:
-		var f := _wall_by_id(str(_drag.get("wall_id", "")))
+		var f := _wall_by_id_from(_drag_base if not _drag_base.is_empty() else _snapshot, str(_drag.get("wall_id", "")))
 		if f.is_empty():
 			return
-		var hit := _ray_xz(ray.from, ray.dir, 0.0)
-		var t_mm := _snap_mm(_project_mm(f, hit))
+		var hit2 := _ray_xz(ray.from, ray.dir, 0.0)
+		var t_mm := _snap_mm(_project_mm(f, hit2))
 		t_mm = clampf(t_mm, 0.0, f.length)
 		if pick == HANDLE_OPENING_OFFSET:
 			var width := float(_drag.get("width_mm", 900))
 			var offset := clampf(t_mm - width * 0.5, 0.0, max(f.length - width, 0.0))
 			_drag["offset_mm"] = offset
-			if node:
-				node.position = _along(f, offset + width * 0.5, node.position.y)
 		else:
-			var offset0 := float(_drag.get("offset_mm", 0))
-			var width0 := float(_drag.get("width_mm", 900))
+			var offset0 := float(_drag.get("orig_offset_mm", _drag.get("offset_mm", 0)))
+			var width0 := float(_drag.get("orig_width_mm", _drag.get("width_mm", 900)))
 			if str(_drag.get("edge", "")) == "left":
 				var right := offset0 + width0
 				var left := clampf(t_mm, 0.0, right - 200.0)
@@ -573,22 +904,144 @@ func _on_drag(pos: Vector2) -> void:
 				var left2 := offset0
 				var right2 := clampf(t_mm, left2 + 200.0, f.length)
 				_drag["width_mm"] = right2 - left2
-			if node:
-				node.position = _along(f, t_mm, node.position.y)
+
+
+func _apply_live_preview() -> void:
+	if _drag_base.is_empty():
+		return
+	_snapshot = _drag_base.duplicate(true)
+	_mutate_snapshot_from_drag(_snapshot)
+	_clear(_solids)
+	_build_solids()
+	_clear(_gizmos)
+	_build_gizmos()
+	_rebind_drag_node()
+	_update_live_dim()
 	_update_hud()
+
+
+func _mutate_snapshot_from_drag(snap: Dictionary) -> void:
+	var storeys: Array = snap.get("storeys", [])
+	if storeys.is_empty() or typeof(storeys[0]) != TYPE_DICTIONARY:
+		return
+	var storey: Dictionary = storeys[0]
+	var walls: Array = storey.get("walls", [])
+	var pick := str(_drag.get("pick", ""))
+	var eps := 0.51
+	if pick == HANDLE_WALL_END:
+		var old_x := float(_drag.get("orig_x_mm", 0))
+		var old_y := float(_drag.get("orig_y_mm", 0))
+		var new_x := float(_drag.get("x_mm", old_x))
+		var new_y := float(_drag.get("y_mm", old_y))
+		for w in walls:
+			if typeof(w) != TYPE_DICTIONARY:
+				continue
+			var a: Dictionary = w.get("start", {})
+			var b: Dictionary = w.get("end", {})
+			if abs(float(a.get("x", 0)) - old_x) < eps and abs(float(a.get("y", 0)) - old_y) < eps:
+				a["x"] = new_x
+				a["y"] = new_y
+			if abs(float(b.get("x", 0)) - old_x) < eps and abs(float(b.get("y", 0)) - old_y) < eps:
+				b["x"] = new_x
+				b["y"] = new_y
+	elif pick == HANDLE_WALL_HEIGHT:
+		var wid := str(_drag.get("wall_id", ""))
+		var h := float(_drag.get("height_mm", 2800))
+		for w in walls:
+			if typeof(w) == TYPE_DICTIONARY and str(w.get("id", "")) == wid:
+				w["heightMm"] = h
+				break
+	elif pick == HANDLE_STOREY_HEIGHT:
+		var old_h := float(storey.get("heightMm", 2800))
+		var new_h := float(_drag.get("height_mm", old_h))
+		storey["heightMm"] = new_h
+		for w in walls:
+			if typeof(w) != TYPE_DICTIONARY:
+				continue
+			if abs(float(w.get("heightMm", old_h)) - old_h) < eps:
+				w["heightMm"] = new_h
+	elif pick == HANDLE_OPENING_OFFSET or pick == HANDLE_OPENING_WIDTH:
+		var oid := str(_drag.get("opening_id", ""))
+		for w in walls:
+			if typeof(w) != TYPE_DICTIONARY:
+				continue
+			for op in w.get("openings", []):
+				if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == oid:
+					op["offsetMm"] = float(_drag.get("offset_mm", op.get("offsetMm", 0)))
+					op["widthMm"] = float(_drag.get("width_mm", op.get("widthMm", 0)))
+					return
+
+
+func _rebind_drag_node() -> void:
+	if _drag.is_empty():
+		return
+	for mi in _gizmos.get_children():
+		if not (mi is MeshInstance3D):
+			continue
+		if _meta_matches(_meta_from_node(mi), _drag):
+			_drag["node"] = mi
+			_tip_world = mi.global_position
+			return
+
+
+func _update_live_dim() -> void:
+	if _dim_label == null:
+		return
+	if not _live_preview or _drag.is_empty():
+		_dim_label.visible = false
+		return
+	var pick := str(_drag.get("pick", ""))
+	var text := ""
+	var pos := _drag.get("anchor", _target) as Vector3
+	if pick == HANDLE_WALL_END:
+		var f := _wall_by_id(str(_drag.get("wall_id", "")))
+		if not f.is_empty():
+			text = "%d mm" % int(f.length)
+			pos = Vector3((f.x0 + f.x1) * 0.0005, f.height * 0.0005 + 0.18, (f.y0 + f.y1) * 0.0005)
+	elif pick == HANDLE_WALL_HEIGHT or pick == HANDLE_STOREY_HEIGHT:
+		text = "%d mm" % int(float(_drag.get("height_mm", 0)))
+		pos.y += 0.18
+	elif pick == HANDLE_OPENING_WIDTH or pick == HANDLE_OPENING_OFFSET:
+		var f2 := _wall_by_id(str(_drag.get("wall_id", "")))
+		var width := float(_drag.get("width_mm", 0))
+		var offset := float(_drag.get("offset_mm", 0))
+		if pick == HANDLE_OPENING_WIDTH:
+			text = "净宽 %d mm" % int(width)
+		else:
+			text = "偏移 %d mm" % int(offset)
+		if not f2.is_empty():
+			pos = _along(f2, offset + width * 0.5, pos.y + 0.16)
+	if text.is_empty():
+		_dim_label.visible = false
+		return
+	_dim_label.text = text
+	_dim_label.position = pos
+	_dim_label.visible = true
 
 
 func _on_left_up() -> void:
 	if _drag.is_empty():
 		return
-	_commit_drag()
+	var did_drag := _dragging
+	_dragging = false
+	_live_preview = false
+	if _dim_label:
+		_dim_label.visible = false
+	if did_drag:
+		_hide_handle_tip()
+		_commit_drag()
 	_drag = {}
+	_drag_base = {}
+	_hover = {}
+	if not did_drag:
+		_tint_handles()
 
 
 func _commit_drag() -> void:
 	var pick := str(_drag.get("pick", ""))
 	if pick == HANDLE_WALL_END:
 		if abs(float(_drag.get("orig_x_mm", 0)) - float(_drag.get("x_mm", 0))) < 0.51 and abs(float(_drag.get("orig_y_mm", 0)) - float(_drag.get("y_mm", 0))) < 0.51:
+			_restore_base_preview()
 			return
 		Session.move_shared_vertex(
 			float(_drag.get("orig_x_mm", 0)),
@@ -598,14 +1051,17 @@ func _commit_drag() -> void:
 		)
 	elif pick == HANDLE_WALL_HEIGHT:
 		if abs(float(_drag.get("orig_height_mm", 0)) - float(_drag.get("height_mm", 0))) < 0.51:
+			_restore_base_preview()
 			return
 		Session.set_wall_height_mm(str(_drag.get("wall_id", "")), float(_drag.get("height_mm", 2800)))
 	elif pick == HANDLE_STOREY_HEIGHT:
 		if abs(float(_drag.get("orig_height_mm", 0)) - float(_drag.get("height_mm", 0))) < 0.51:
+			_restore_base_preview()
 			return
 		Session.set_storey_height(float(_drag.get("height_mm", 2800)))
 	elif pick == HANDLE_OPENING_OFFSET or pick == HANDLE_OPENING_WIDTH:
 		if abs(float(_drag.get("orig_offset_mm", 0)) - float(_drag.get("offset_mm", 0))) < 0.51 and abs(float(_drag.get("orig_width_mm", 0)) - float(_drag.get("width_mm", 0))) < 0.51:
+			_restore_base_preview()
 			return
 		Session.update_opening_geom(
 			str(_drag.get("opening_id", "")),
@@ -617,9 +1073,20 @@ func _commit_drag() -> void:
 		)
 
 
+func _restore_base_preview() -> void:
+	if _drag_base.is_empty():
+		return
+	_snapshot = _drag_base.duplicate(true)
+	_clear(_solids)
+	_build_solids()
+	_clear(_gizmos)
+	_build_gizmos()
+	_update_hud()
+
+
 func _meta_dict(body: Object) -> Dictionary:
 	var d := {}
-	for k in ["pick", "wall_id", "opening_id", "hosted_id", "kind", "end", "edge"]:
+	for k in ["pick", "wall_id", "opening_id", "hosted_id", "kind", "end", "edge", "handle_kind"]:
 		if body.has_meta(k):
 			d[k] = body.get_meta(k)
 	for k in ["x_mm", "y_mm", "width_mm", "height_mm", "offset_mm", "sill_mm"]:
@@ -639,7 +1106,14 @@ func _meta_dict(body: Object) -> Dictionary:
 
 
 func _wall_by_id(wall_id: String) -> Dictionary:
-	for w in _walls():
+	return _wall_by_id_from(_snapshot, wall_id)
+
+
+func _wall_by_id_from(snap: Dictionary, wall_id: String) -> Dictionary:
+	var storeys: Array = snap.get("storeys", [])
+	if storeys.is_empty() or typeof(storeys[0]) != TYPE_DICTIONARY:
+		return {}
+	for w in storeys[0].get("walls", []):
 		if typeof(w) == TYPE_DICTIONARY and str(w.get("id", "")) == wall_id:
 			return _frame(w)
 	return {}
@@ -697,7 +1171,7 @@ func _update_hud() -> void:
 		_status.text = "灯光 %s · 还没有墙。请返回户型图绘制，或加载夹具样例。" % light
 	else:
 		_status.text = "灯光 %s · 闸门 %s · 尺寸只来自命令" % [light, gate_s]
-	var sel := "点选墙或门窗洞，拖动手柄调整。"
+	var sel := "点彩色圆点看说明，拖动手柄改墙。"
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
@@ -711,11 +1185,17 @@ func _update_hud() -> void:
 			int(float(op.get("heightMm", 0))),
 		]
 	elif pick == KIND_WALL:
-		sel = "选中墙 %s（拖两端点 / 顶面层高手柄）" % str(_selected.get("wall_id", ""))
+		var wf := _wall_by_id(str(_selected.get("wall_id", "")))
+		if wf.is_empty():
+			sel = "选中墙 %s（拖两端点 / 顶面层高手柄）" % str(_selected.get("wall_id", ""))
+		else:
+			sel = "选中墙 %s  长 %dmm  高 %dmm" % [str(_selected.get("wall_id", "")), int(wf.length), int(wf.height)]
 	elif pick == KIND_HOSTED:
 		sel = "选中宿主构件 %s（命令编辑；非三角网）" % str(_selected.get("hosted_id", ""))
-	if not _drag.is_empty():
-		sel += "  · 拖动中，松开后经 C API 提交"
+	if _live_preview:
+		sel += "  · 预览中，松开后经 C API 提交"
+	elif not _drag.is_empty():
+		sel += "  · " + _handle_tip(str(_drag.get("pick", "")), str(_drag.get("kind", "")))
 	_sel_label.text = sel
 
 

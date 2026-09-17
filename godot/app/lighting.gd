@@ -5,6 +5,14 @@ extends Node3D
 const PRESET_DAY := "day"
 const PRESET_WARM := "warm"
 
+## Per-kind handle colors (Visualization only). Color alone is not the affordance —
+## edit_3d also highlights on hover/press and shows a Chinese tip on tap.
+const COLOR_WALL_END := Color(0.22, 0.74, 0.98)
+const COLOR_WALL_HEIGHT := Color(0.98, 0.70, 0.16)
+const COLOR_STOREY := Color(0.90, 0.38, 0.82)
+const COLOR_OPEN_MOVE := Color(0.30, 0.82, 0.44)
+const COLOR_OPEN_WIDTH := Color(0.98, 0.40, 0.36)
+
 var preset: String = PRESET_DAY
 var environment_node: WorldEnvironment
 var sun: DirectionalLight3D
@@ -17,8 +25,8 @@ var _floor_mat: StandardMaterial3D
 var _hosted_mat: StandardMaterial3D
 var _gizmo_mat: StandardMaterial3D
 var _gizmo_hot_mat: StandardMaterial3D
+var _gizmo_cache: Dictionary = {}
 var _opening_mats: Dictionary = {}
-
 
 func _ready() -> void:
 	_build()
@@ -106,7 +114,42 @@ func hosted_material() -> StandardMaterial3D:
 
 
 func gizmo_material(hot: bool = false) -> StandardMaterial3D:
-	return _gizmo_hot_mat if hot else _gizmo_mat
+	return gizmo_material_for("wall_end", hot, false, false)
+
+
+func gizmo_color(kind: String) -> Color:
+	match kind:
+		"wall_height":
+			return COLOR_WALL_HEIGHT
+		"storey_height":
+			return COLOR_STOREY
+		"opening_offset":
+			return COLOR_OPEN_MOVE
+		"opening_width":
+			return COLOR_OPEN_WIDTH
+		_:
+			return COLOR_WALL_END
+
+
+func gizmo_material_for(kind: String, selected: bool = false, hover: bool = false, press: bool = false) -> StandardMaterial3D:
+	var key := "%s_%s_%s_%s" % [kind, selected, hover, press]
+	if _gizmo_cache.has(key):
+		return _gizmo_cache[key]
+	var base := gizmo_color(kind)
+	var albedo := base
+	if press:
+		albedo = base.lerp(Color.WHITE, 0.45)
+	elif hover:
+		albedo = base.lerp(Color.WHITE, 0.28)
+	elif selected:
+		albedo = base.lerp(Color.WHITE, 0.12)
+	var mat := _unshaded(albedo)
+	if press or hover:
+		mat.emission_enabled = true
+		mat.emission = albedo
+		mat.emission_energy_multiplier = 0.85 if press else 0.45
+	_gizmo_cache[key] = mat
+	return mat
 
 
 func opening_material(kind: String, selected: bool) -> StandardMaterial3D:

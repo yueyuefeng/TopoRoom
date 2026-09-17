@@ -82,9 +82,9 @@ firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 - SceneIR / `FloorPlanDocument` is the only editable truth (I1).
 - Godot UI issues **commands** through the C API. The 2D plan is a view of
   SceneIR walls/openings, not a triangle editor.
-- **3D 编辑** may drag wall/opening gizmos; each commit goes through the same
-  C API and rebuilds meshes from SceneIR (ADR-002). Dragged triangles are
-  not millimetre truth.
+- **3D 编辑** may drag wall/opening gizmos; the wall BoxMesh follows the
+  finger live. Pointer-up still goes through the same C API and rebuilds
+  from SceneIR (ADR-002). Dragged triangles are not millimetre truth.
 - Exported `.glb` roam is still **read-only** (I7 mesh / I8). Lighting /
   shadows / materials are Visualization-only.
 - iOS remains a software-core host; P0 hardware capture (Type-C depth
@@ -97,7 +97,9 @@ Open `godot/project.godot` after building the desktop `.so`
 **引导量房** / **导出**. Guided flow: 画墙 → 门窗洞/垭口 → 关键尺寸
 (Fake 激光 or 手输) → 闭合房间 → 导出 DXF/PDF (`glb` only when Status is OK).
 **漫游检查** loads that `.glb` read-only. **3D 编辑** (next to 漫游) edits
-walls/openings via gizmos + C API, with 白天/暖光 light presets.
+walls/openings via colored gizmos (tap for a Chinese tip, live BoxMesh
+preview while dragging) + C API commit on pointer-up, with 白天/暖光 light
+presets.
 
 Android APK: compile `arm64-v8a` (optional `x86_64`) with
 `./godot/scripts/build_extension.sh android arm64-v8a`, build the camera

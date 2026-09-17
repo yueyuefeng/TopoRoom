@@ -125,17 +125,24 @@ and a local Android SDK/NDK/JDK are missing. Deliverable here is the project
 
 **3D 编辑** (next to **漫游检查**) builds `MeshInstance3D` walls / 门洞 / 窗洞 /
 垭口 / floor from SceneIR (mm → metres: `X=x/1000`, `Y=height/1000`,
-`Z=y/1000`). Yellow spheres are gizmos:
+`Z=y/1000`). Colored spheres are gizmos (blue wall ends, amber wall height,
+magenta storey corner, green opening centre, coral opening edges). Tap a
+handle for a Chinese tip (`墙端点：拖动改墙线`, `门洞边：拖动改净宽`,
+`层高角点：拖动改层高`). Hover/press enlarges and lightens the sphere; a HUD
+legend and first-time coach mark explain that color alone is not the click
+target.
 
-| Handle | Command |
-|--------|---------|
-| Wall endpoint | `Session.move_shared_vertex` → `move_wall` |
-| Opening centre / edges | `Session.update_opening_geom` → `update_opening` |
-| Wall top / storey corner | `set_wall_height` / `set_storey_height` |
+| Handle | Live preview | Command (pointer-up) |
+|--------|--------------|----------------------|
+| Wall endpoint | BoxMesh wall follows the finger | `Session.move_shared_vertex` → `move_wall` |
+| Opening centre / edges | Opening volume + net width | `Session.update_opening_geom` → `update_opening` |
+| Wall top / storey corner | Extrusion height | `set_wall_height` / `set_storey_height` |
 
-On pointer-up the host **auto_saves** SceneIR and probes StatusGate. A
-rebuild **Fault** keeps the previous solid preview and shows the error;
-dragged triangles are not kept as mm.
+While dragging, the viewport mutates a **local SceneIR copy** and rebuilds
+lightweight `BoxMesh` solids every motion (no Manifold / C API). On
+pointer-up the host **auto_saves** SceneIR and probes StatusGate. A rebuild
+**Fault** keeps the previous solid preview and shows the error; dragged
+triangles are not kept as mm.
 
 **白天 / 暖光** is a segmented control on the 3D HUD (`godot/app/lighting.gd`):
 `WorldEnvironment`, `DirectionalLight3D` with shadows, Omni fill, and (暖光) a

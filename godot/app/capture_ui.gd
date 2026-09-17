@@ -80,6 +80,14 @@ func _ready() -> void:
 		await get_tree().process_frame
 		await get_tree().create_timer(0.8).timeout
 		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		if edit.has_method("_show_handle_tip"):
+			var giz: Node = edit.get_node_or_null("Gizmos")
+			var tip_at := Vector3(0.0, 1.4, 0.0)
+			if giz and giz.get_child_count() > 1:
+				tip_at = (giz.get_child(1) as Node3D).global_position
+			edit._show_handle_tip("wall_end", "", tip_at)
+			await get_tree().process_frame
+			await _shot(out_dir.path_join("toporoom-ui-edit-3d-handle-tip.png"))
 		if edit.has_node("Lighting") and edit.get_node("Lighting").has_method("apply_preset"):
 			edit.get_node("Lighting").apply_preset("warm")
 			await get_tree().create_timer(0.35).timeout

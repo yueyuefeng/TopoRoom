@@ -13,8 +13,9 @@
 | [04-photo-review-kinds.png](./04-photo-review-kinds.png) | 确认承重：暖色剪力墙 + 深灰隔墙 |
 | [05-demolish.png](./05-demolish.png) | 拆改：整段拆除 / 中点打断 / 局部拆除 / 打门洞 |
 | [06-shear-confirm.png](./06-shear-confirm.png) | 承重墙拆除确认（底部 sheet） |
-| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D 编辑 · 白天 |
+| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D 编辑 · 白天（彩色手柄 + 图例） |
 | [08-edit-3d-warm.png](./08-edit-3d-warm.png) | 3D 编辑 · 暖光预设 |
+| [10-edit-3d-handle-tip.png](./10-edit-3d-handle-tip.png) | 点墙端点手柄后的说明条 |
 
 ## 01 首页
 
@@ -52,11 +53,20 @@ FakeVisionAdapter 识别结果：四边承重/剪力墙（暖色）+ 一道砌�
 
 ## 07 3D 编辑 · 白天
 
+彩色圆点是可点可拖的手柄（蓝=墙端点、橙=墙高、紫=层高、绿=洞口、红=净宽）。
+点一下出现中文说明；拖动时墙的 BoxMesh 跟着走，松开后才经命令写回 SceneIR。
+
 ![3D 编辑白天](./07-edit-3d-day.png)
 
 ## 08 3D 编辑 · 暖光
 
 ![3D 编辑暖光](./08-edit-3d-warm.png)
+
+## 10 3D 编辑 · 手柄说明
+
+点墙端点后的 HUD 说明条：「墙端点：拖动改墙线」。
+
+![3D 手柄说明](./10-edit-3d-handle-tip.png)
 
 这些 PNG 由 `godot/app/capture_ui.gd` 在 Godot 4.3 `gl_compatibility` 下渲染。APK 不入库（`*.apk` gitignore）。
 相机 / 相册插件说明：[godot/android-plugin/README.md](../../godot/android-plugin/README.md)。
