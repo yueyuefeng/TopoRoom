@@ -88,6 +88,15 @@ func wall_material() -> StandardMaterial3D:
 	return _wall_mat
 
 
+func wall_material_for_kind(kind: String) -> StandardMaterial3D:
+	var key := "shear" if Tokens.is_load_bearing_kind(kind) else "masonry"
+	if _opening_mats.has("wall_%s" % key):
+		return _opening_mats["wall_%s" % key]
+	var mat := _pbr(Color(0.90, 0.72, 0.62), 0.86, 0.0) if key == "shear" else _wall_mat
+	_opening_mats["wall_%s" % key] = mat
+	return mat
+
+
 func floor_material() -> StandardMaterial3D:
 	return _floor_mat
 

@@ -33,9 +33,10 @@ should come from this Godot project + export templates.
 
 3. Import / open `godot/project.godot` (this directory).
 
-4. Play. Home: **新建方案** / **引导量房** / **Fake 一室** / **导出** /
-   **漫游检查** / **3D 编辑**. The 2D canvas draws walls and 门窗洞/垭口 from
-   SceneIR JSON, not from a triangle mesh.
+4. Play. Home is a branded workbench: **新建方案** / **拍户型图**（占位） /
+   **引导量房**, a paper 户型图 card, and chips for Fake 一室 / 导出 / 3D 编辑 /
+   漫游. The 2D canvas draws 承重/砌体 walls and 门窗洞/垭口 from SceneIR JSON,
+   not from a triangle mesh. Visual tokens live in `app/theme/`.
 
 Without the `.so`, the editor still opens; the UI shows `GDExtension 未加载`.
 
@@ -151,10 +152,11 @@ On pointer-up the host **auto_saves** SceneIR and probes StatusGate. A
 rebuild **Fault** keeps the previous solid preview and shows the error;
 dragged triangles are not kept as mm.
 
-**白天 / 暖光** toggles `godot/app/lighting.gd`: `WorldEnvironment`,
-`DirectionalLight3D` with shadows, Omni fill, and (暖光) a spot. Materials
-are `StandardMaterial3D` roughness/metallic for **gl_compatibility**
-(mobile). Lighting never writes dimensions.
+**白天 / 暖光** is a segmented control on the 3D HUD (`godot/app/lighting.gd`):
+`WorldEnvironment`, `DirectionalLight3D` with shadows, Omni fill, and (暖光) a
+spot. Materials are `StandardMaterial3D` roughness/metallic for
+**gl_compatibility** (mobile). Lighting never writes dimensions. 承重墙 uses a
+warmer plaster than 砌体/隔墙.
 
 Load a room first (画矩形四墙, Fake 一室, or **加载夹具样例** inside 3D 编辑).
 
