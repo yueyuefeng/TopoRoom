@@ -34,7 +34,7 @@ if [[ "$PLATFORM" == "android" ]]; then
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI="$ABI" \
     -DANDROID_PLATFORM=android-24 \
-    -DANDROID_STL=c++_shared
+    -DANDROID_STL=c++_static
 else
   BUILD_DIR="$ROOT/build-gdext"
   cmake -S "$SRC" -B "$BUILD_DIR" \

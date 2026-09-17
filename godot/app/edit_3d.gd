@@ -199,8 +199,8 @@ func _add_floor(walls: Array) -> void:
 		min_y = min(min_y, min(float(a.get("y", 0)), float(b.get("y", 0))))
 		max_x = max(max_x, max(float(a.get("x", 0)), float(b.get("x", 0))))
 		max_y = max(max_y, max(float(a.get("y", 0)), float(b.get("y", 0))))
-	var sx := max((max_x - min_x) / 1000.0, 0.5)
-	var sz := max((max_y - min_y) / 1000.0, 0.5)
+	var sx: float = max((max_x - min_x) / 1000.0, 0.5)
+	var sz: float = max((max_y - min_y) / 1000.0, 0.5)
 	var pos := Vector3((min_x + max_x) * 0.0005, -0.02, (min_y + max_y) * 0.0005)
 	_add_box(_solids, Vector3(sx + 0.4, 0.04, sz + 0.4), pos, Basis.IDENTITY, _lighting.floor_material(), {})
 
@@ -283,7 +283,7 @@ func _add_wall_span(f: Dictionary, t0: float, t1: float, z0: float, z1: float, m
 func _add_opening_volume(f: Dictionary, op: Dictionary) -> void:
 	var kind := str(op.get("kind", "door"))
 	var oid := str(op.get("id", ""))
-	var selected := _selected.get("pick", "") == KIND_OPENING and str(_selected.get("opening_id", "")) == oid
+	var selected: bool = str(_selected.get("pick", "")) == KIND_OPENING and str(_selected.get("opening_id", "")) == oid
 	var offset := float(op.get("offsetMm", 0))
 	var width := float(op.get("widthMm", 0))
 	var height := float(op.get("heightMm", 0))
@@ -347,8 +347,8 @@ func _build_gizmos() -> void:
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		var f := _frame(w)
-		var is_wall := _selected.get("pick", "") == KIND_WALL and f.id == sel_wall
-		var wall_hot := is_wall or sel_wall == f.id
+		var is_wall: bool = str(_selected.get("pick", "")) == KIND_WALL and f.id == sel_wall
+		var wall_hot: bool = is_wall or sel_wall == f.id
 		_add_handle(_gizmos, Vector3(f.x0 / 1000.0, f.height * 0.0005, f.y0 / 1000.0), 0.13, HANDLE_WALL_END, {
 			"pick": HANDLE_WALL_END, "wall_id": f.id, "end": "start", "x_mm": f.x0, "y_mm": f.y0,
 		}, wall_hot)
@@ -705,7 +705,7 @@ func _intersect(pos: Vector2, mask: int) -> Dictionary:
 
 func _update_hud() -> void:
 	var walls: Array = _walls()
-	var light := _lighting.preset_label() if _lighting else "—"
+	var light: String = _lighting.preset_label() if _lighting else "—"
 	var gate := Session.last_rebuild
 	var gate_s := str(gate.get("status", "—"))
 	if Session.keep_preview:
@@ -719,7 +719,7 @@ func _update_hud() -> void:
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
 		var kind := str(op.get("kind", _selected.get("kind", "")))
-		var label := {"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind)
+		var label: String = str({"door": "门洞", "window": "窗洞", "archway": "垭口"}.get(kind, kind))
 		sel = "选中 %s %s  偏移 %dmm  宽 %dmm  高 %dmm" % [
 			label,
 			str(_selected.get("opening_id", "")),
