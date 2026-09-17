@@ -61,7 +61,9 @@ exists) plus Android SDK:
 ```
 
 `TopoRoomMedia.gdap` names the plugin `TopoRoomMedia` so Godot 4.3 registers
-the v2 meta-data `org.godotengine.plugin.v2.TopoRoomMedia`.
+the v2 meta-data `org.godotengine.plugin.v2.TopoRoomMedia`. Enable it in
+`export_presets.cfg` (`plugins/TopoRoomMedia=true`). The export script also
+copies the Java into `android/build/src` so the class is always in the APK.
 
 Debug APK export (`./godot/scripts/export_android_debug.sh`) rebuilds the AAR
 first.
