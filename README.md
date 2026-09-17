@@ -17,6 +17,8 @@ Specs:
 - [docs/architecture/FINAL-toporoom-domain-model.md](./docs/architecture/FINAL-toporoom-domain-model.md)
 - [docs/architecture/ADR-001-godot-interaction-shell-host.md](./docs/architecture/ADR-001-godot-interaction-shell-host.md) (Godot host pivot)
 - [docs/architecture/ADR-002-godot-3d-command-synced-edit.md](./docs/architecture/ADR-002-godot-3d-command-synced-edit.md) (3D gizmos → C API)
+- [docs/architecture/ADR-003-floorplan-vision-no-ocr-p0.md](./docs/architecture/ADR-003-floorplan-vision-no-ocr-p0.md) (户型图识别: raster, no OCR)
+- [docs/architecture/floorplan-vision-pipeline.md](./docs/architecture/floorplan-vision-pipeline.md)
 
 ## 界面预览
 

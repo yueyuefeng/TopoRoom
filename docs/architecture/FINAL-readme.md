@@ -18,6 +18,8 @@ Also index: [domain-model readme](./FINAL-toporoom-domain-model-readme.md), [ubi
 
 PoC hardware (China sourcing, dual track — **not** a Gemini E lock): [ADR-001](../hardware/ADR-001-poc-module-selection.md), [Stage-Gate checklist](../hardware/stage-gate-poc-checklist.md).
 
+Godot host: [ADR-001 Godot InteractionShell](./ADR-001-godot-interaction-shell-host.md), [ADR-002 3D command-synced edit](./ADR-002-godot-3d-command-synced-edit.md), [ADR-003 floor-plan vision (no OCR)](./ADR-003-floorplan-vision-no-ocr-p0.md), [vision pipeline](./floorplan-vision-pipeline.md).
+
 ---
 
 ## 辩论与评审（输入归档）
