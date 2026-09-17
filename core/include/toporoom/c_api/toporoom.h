@@ -169,7 +169,11 @@ int toporoom_ios_external_depth_in_p0(void);
 
 int toporoom_release_train_matches(const char* json_text, const char* software_tag,
                                    const char* module_sku, const char* firmware,
-                                   int whitelist_version);
+                                   int whitelist_version, const char* hub_firmware);
+
+/* TopoRoom hub GATT packing (no BLE stack). out_len must be >= 4 / 12. Returns 0. */
+int toporoom_hub_pack_measure_cmd(unsigned char* out, int out_len, unsigned timeout_ms);
+int toporoom_hub_parse_length_notify_mm(const unsigned char* in, int len, double* out_mm);
 
 #ifdef __cplusplus
 }

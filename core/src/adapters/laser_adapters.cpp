@@ -1,36 +1,15 @@
 #include "toporoom/adapters/laser_adapters.hpp"
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "toporoom/adapters/capture_transport_error.hpp"
+#include "toporoom/adapters/hub_gatt_codec.hpp"
 
 namespace toporoom::adapters {
-namespace {
-
-ports::MeasureSample parse_laser_payload(const std::string& payload,
-                                         const std::string& device_id) {
-  if (payload.rfind("RF", 0) == 0) {
-    throw CaptureTransportError(CaptureTransportError::Kind::Protocol,
-                                "rf_ble is never a dimension source");
-  }
-  std::string number = payload;
-  if (payload.rfind("LEN ", 0) == 0) number = payload.substr(4);
-  ports::MeasureSample sample;
-  try {
-    sample.value_mm = std::stod(number);
-  } catch (const std::exception&) {
-    throw CaptureTransportError(CaptureTransportError::Kind::Protocol,
-                                "unparseable laser payload");
-  }
-  sample.timestamp = 1;
-  sample.source = "laser";
-  sample.instrument_id = device_id;
-  return sample;
-}
-
-}  // namespace
 
 void FakeBleLaserTransport::add_device(ports::LaserDeviceProfile profile) {
   devices_.push_back(std::move(profile));
@@ -100,12 +79,23 @@ ports::MeasureSample BluetoothLaserPort::read_length_mm() {
   if (!payload) {
     throw CaptureTransportError(CaptureTransportError::Kind::Timeout, "laser timeout");
   }
-  return parse_laser_payload(*payload, device_id_);
+  return HubGattCodec::parse_laser_payload(*payload, device_id_);
 }
 
 void BluetoothLaserPort::disconnect() {
   transport_.disconnect();
   connected_ = false;
+}
+
+ports::MeasureSample BluetoothLaserPort::measure_once(int timeout_ms) {
+  if (!connected_) {
+    throw CaptureTransportError(CaptureTransportError::Kind::NotConnected,
+                                "laser not connected");
+  }
+  const auto cmd = HubGattCodec::pack_measure_cmd(kHubOpSingle, kHubFlagRequireLaser,
+                                                  static_cast<uint16_t>(timeout_ms));
+  transport_.write_command(std::vector<uint8_t>(cmd.begin(), cmd.end()));
+  return read_length_mm();
 }
 
 void ReplayLaserPort::enqueue(ports::MeasureSample sample) {

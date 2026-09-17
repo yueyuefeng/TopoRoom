@@ -2,7 +2,14 @@
 
 Installable Kotlin app that links `toporoom_core` through JNI (`NativeCore` →
 `toporoom.h`). P0 capture is **Android-first**; debug/emulator builds use
-**Fake/Replay** so no USB depth module or Bluetooth laser is required.
+**Fake/Replay**.
+
+Hardware story (not a Gemini E lock): [ADR-001](../../docs/hardware/ADR-001-poc-module-selection.md).
+
+- Depth SKU is **pluggable**: `dabai_dcw` (Track A, ~¥788 ASIC) | `dual_rgb_uvc` (Track B ¥200-band UVC assist) | `fake`
+- Laser: TopoRoom hub GATT (`toporoom_hub_c3` FW **0.1.0**) + UART JRT/Meskernel — **both tracks**
+- IMU: phone IMU (degraded)
+- **No** ¥200 ready-made ASIC depth Type-C accessory is claimed
 
 Open this folder in Android Studio (`mobile/android/`). `assembleDebug` is the
 Gradle target.
@@ -10,11 +17,9 @@ Gradle target.
 ## Open in Android Studio
 
 1. Install Android SDK 34 + NDK (side-by-side, CMake 3.22.1) and JDK 17+.
-2. **File → Open** the folder `mobile/android/` (this directory is the Gradle
-   application module).
-3. Let Gradle sync. First native configure downloads Manifold + nlohmann via
-   CMake FetchContent (needs network).
-4. Run the `debug` variant on an emulator or device.
+2. **File → Open** the folder `mobile/android/`.
+3. Let Gradle sync (FetchContent needs network on first native configure).
+4. Run the `debug` variant.
 
 `local.properties` (not committed):
 
@@ -64,7 +69,15 @@ USB host + Bluetooth + nearby-device permissions are declared in the Manifest;
 (`BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`, `NEARBY_WIFI_DEVICES` on API 33+,
 `UsbManager.requestPermission`). No vendor SDK binaries are bundled.
 
-## Gradle from the CLI
+`0.1.0` ↔ hub **0.1.0** ↔ whitelist v1 ↔ **one of** `fake/replay`, `dabai_dcw/2460`, `dual_rgb_uvc/uvc_host`.
+
+Unlisted emulator: debug builds mark host-OK with Fake/Replay.
+
+## Fake capture loop (emulator / CI)
+
+Tap **Run Fake one-room loop** (`toporoom_debug_fake_one_room`): 4 walls, 2 Fake laser keys, door, export `room.{glb,dxf,pdf}`.
+
+## Gradle CLI
 
 ```bash
 cd mobile/android

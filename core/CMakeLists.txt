@@ -35,7 +35,9 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/export_pdf.cpp
   src/adapters/scene_ir_json.cpp
   src/adapters/laser_adapters.cpp
+  src/adapters/hub_gatt_codec.cpp
   src/adapters/depth_adapters.cpp
+  src/adapters/pluggable_depth_adapter.cpp
   src/adapters/android_whitelist.cpp
   src/adapters/imu_adapters.cpp
   src/app/laser_capture_service.cpp
@@ -56,6 +58,7 @@ find_package(Threads REQUIRED)
 target_include_directories(toporoom_core
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/toporoom-hub/include
 )
 
 target_compile_features(toporoom_core PUBLIC cxx_std_20)
@@ -137,7 +140,9 @@ if(TOPOROOM_BUILD_TESTS)
     tests/sceneir_fixture_test.cpp
     tests/c_api_test.cpp
     tests/laser_port_test.cpp
+    tests/hub_protocol_test.cpp
     tests/depth_port_test.cpp
+    tests/pluggable_depth_test.cpp
     tests/android_whitelist_test.cpp
     tests/imu_port_test.cpp
     tests/guided_room_test.cpp

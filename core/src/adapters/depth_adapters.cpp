@@ -8,13 +8,13 @@ namespace {
 ports::AccessoryProfile vendor_profile() {
   ports::AccessoryProfile profile;
   profile.device_id = "vendor_depth";
-  profile.name = "Vendor SDK depth";
+  profile.name = "Vendor SDK depth (DaBai DCW class)";
   profile.vid = "2BC5";
-  profile.pid = "0502";
-  profile.sku = "orbbec_gemini_e";
+  profile.pid = "";
+  profile.sku = "dabai_dcw";
   profile.principle = "structured_light";
   profile.power_hint = "powered_hub_recommended";
-  profile.firmware_version = "1.2.0";
+  profile.firmware_version = "2460";
   return profile;
 }
 
@@ -22,12 +22,12 @@ ports::AccessoryProfile uvc_profile() {
   ports::AccessoryProfile profile;
   profile.device_id = "uvc_depth";
   profile.name = "UVC transport";
-  profile.vid = "2BC5";
-  profile.pid = "0502";
-  profile.sku = "orbbec_gemini_e";
+  profile.vid = "";
+  profile.pid = "";
+  profile.sku = "dual_rgb_uvc";
   profile.principle = "uvc_transport";
   profile.power_hint = "UVC is transport, not a depth principle";
-  profile.firmware_version = "1.2.0";
+  profile.firmware_version = "uvc_host";
   return profile;
 }
 
@@ -79,7 +79,7 @@ std::optional<ports::Extrinsics> DepthReplayFixture::get_extrinsics_to_imu() {
   return ports::Extrinsics{{1, 0, 0, 0, 1, 0, 0, 0, 1}, {0, 0, 0}};
 }
 
-std::string DepthReplayFixture::get_firmware_version() { return "1.2.0"; }
+std::string DepthReplayFixture::get_firmware_version() { return "replay"; }
 
 void DepthReplayFixture::close() { open_ = false; }
 

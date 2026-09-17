@@ -154,6 +154,7 @@ class FakeTopoRoomBridge : TopoRoomBridge {
         moduleSku: String,
         firmware: String,
         whitelistVersion: Int,
+        hubFirmware: String,
     ) = softwareTag == "0.1.0"
 
     companion object {

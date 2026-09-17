@@ -1,6 +1,7 @@
 #include "toporoom/c_api/toporoom.h"
 
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "toporoom/adapters/android_whitelist.hpp"
+#include "toporoom/adapters/hub_gatt_codec.hpp"
 #include "toporoom/adapters/manifold_geometry_port.hpp"
 #include "toporoom/adapters/release_train.hpp"
 #include "toporoom/adapters/scene_ir_json.hpp"
@@ -717,15 +719,39 @@ int toporoom_ios_external_depth_in_p0(void) { return 0; }
 
 int toporoom_release_train_matches(const char* json_text, const char* software_tag,
                                    const char* module_sku, const char* firmware,
-                                   int whitelist_version) {
+                                   int whitelist_version, const char* hub_firmware) {
   if (!json_text || !software_tag || !module_sku || !firmware) return 0;
   try {
     const auto train = toporoom::adapters::load_release_train_json(json_text);
     return toporoom::adapters::release_train_matches(train, software_tag, module_sku,
-                                                     firmware, whitelist_version)
+                                                     firmware, whitelist_version,
+                                                     hub_firmware ? hub_firmware : "")
                ? 1
                : 0;
   } catch (...) {
     return 0;
+  }
+}
+
+int toporoom_hub_pack_measure_cmd(unsigned char* out, int out_len, unsigned timeout_ms) {
+  if (!out || out_len < static_cast<int>(toporoom::adapters::HubGattCodec::kCmdSize)) {
+    return -1;
+  }
+  const auto packed = toporoom::adapters::HubGattCodec::pack_measure_cmd(
+      toporoom::adapters::kHubOpSingle, toporoom::adapters::kHubFlagRequireLaser,
+      static_cast<uint16_t>(timeout_ms == 0 ? 1000 : timeout_ms));
+  memcpy(out, packed.data(), packed.size());
+  return 0;
+}
+
+int toporoom_hub_parse_length_notify_mm(const unsigned char* in, int len, double* out_mm) {
+  if (!in || !out_mm || len < 0) return -1;
+  try {
+    const std::string payload(reinterpret_cast<const char*>(in), static_cast<std::size_t>(len));
+    const auto sample = toporoom::adapters::HubGattCodec::parse_laser_payload(payload, "hub");
+    *out_mm = sample.value_mm;
+    return 0;
+  } catch (...) {
+    return -1;
   }
 }

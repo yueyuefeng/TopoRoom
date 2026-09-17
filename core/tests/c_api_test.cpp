@@ -126,15 +126,38 @@ TEST(CApi, IosExternalDepthOutOfP0) { EXPECT_EQ(toporoom_ios_external_depth_in_p
 
 TEST(CApi, WhitelistAndReleaseTrainJson) {
   const auto whitelist = read_fixture("android-whitelist.v1.json");
-  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "Pixel 8", 34, "orbbec_gemini_e",
-                                      "1.2.0", "powered_hub_a", "0.1.0"),
+  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "Pixel 8", 34, "dabai_dcw", "2460",
+                                      "powered_hub_a", "0.1.0"),
             1);
-  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "sdk_gphone64_x86_64", 34,
-                                      "orbbec_gemini_e", "1.2.0", "none", "0.1.0"),
+  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "sdk_gphone64_x86_64", 34, "fake",
+                                      "replay", "none", "0.1.0"),
             0);
   const auto train = read_fixture("release-train.v1.json");
-  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.1.0", "orbbec_gemini_e", "1.2.0", 1),
+  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.1.0", "fake", "replay", 1, "0.1.0"),
             1);
-  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.2.0", "orbbec_gemini_e", "1.2.0", 1),
+  EXPECT_EQ(
+      toporoom_release_train_matches(train.c_str(), "0.1.0", "dabai_dcw", "2460", 1, "0.1.0"),
+      1);
+  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.1.0", "orbbec_gemini_e", "3460", 1,
+                                           "0.1.0"),
             0);
+  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.2.0", "fake", "replay", 1, "0.1.0"),
+            0);
+}
+
+TEST(CApi, HubGattGoldenBytes) {
+  unsigned char cmd[4] = {};
+  ASSERT_EQ(toporoom_hub_pack_measure_cmd(cmd, 4, 1000), 0);
+  EXPECT_EQ(cmd[0], 0x01);
+  EXPECT_EQ(cmd[1], 0x01);
+  EXPECT_EQ(cmd[2], 0xE8);
+  EXPECT_EQ(cmd[3], 0x03);
+  const unsigned char notify[12] = {0x84, 0x03, 0x00, 0x00, 0x00, 0x01,
+                                    0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+  double mm = 0;
+  ASSERT_EQ(toporoom_hub_parse_length_notify_mm(notify, 12, &mm), 0);
+  EXPECT_EQ(mm, 900);
+  const unsigned char rf[12] = {0x84, 0x03, 0x00, 0x00, 0x00, 0x00,
+                                0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+  EXPECT_NE(toporoom_hub_parse_length_notify_mm(rf, 12, &mm), 0);
 }

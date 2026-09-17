@@ -23,7 +23,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.toporoom.core.NativeCore
 import java.io.File
-
 class MainActivity : android.app.Activity() {
     private lateinit var model: GuideViewModel
     private lateinit var homeRoot: LinearLayout
@@ -265,6 +264,53 @@ class MainActivity : android.app.Activity() {
         val onHome = s.screen == AppScreen.HOME
         homeRoot.visibility = if (onHome) View.VISIBLE else View.GONE
         guideRoot.visibility = if (onHome) View.GONE else View.VISIBLE
+    }
+
+    private fun hubScanButton(): Button {
+        val button = Button(this)
+        button.text = "Scan / connect TopoRoom hub (BLE laser)"
+        button.setOnClickListener {
+            requestCapturePermissions()
+            if (hubClient == null) hubClient = TopoRoomHubBleClient(this)
+            Thread {
+                val info = hubClient?.scanAndConnect()
+                runOnUiThread {
+                    if (info == null) {
+                        appendLog("hub: ${hubClient?.lastError ?: "failed"}")
+                    } else {
+                        appendLog("hub connected ${info.address} sku=${info.sku} fw=${info.firmware}")
+                    }
+                    render()
+                }
+            }.start()
+        }
+        return button
+    }
+
+    private fun hubMeasureButton(): Button {
+        val button = Button(this)
+        button.text = "Measure key (BLE hub laser)"
+        button.setOnClickListener {
+            val client = hubClient
+            if (client?.connectedInfo == null) {
+                appendLog("hub not connected — Fake laser still works")
+                render()
+                return@setOnClickListener
+            }
+            Thread {
+                val mm = client.measureMm()
+                runOnUiThread {
+                    if (mm == null) {
+                        appendLog("hub measure: ${client.lastError}")
+                    } else {
+                        val err = model.measureLaser(mm, client.connectedInfo?.sku ?: "toporoom_hub_c3", fake = false)
+                        if (err.isNotEmpty()) appendLog("error: $err")
+                    }
+                    render()
+                }
+            }.start()
+        }
+        return button
     }
 
     private fun action(label: String, block: () -> String): Button {

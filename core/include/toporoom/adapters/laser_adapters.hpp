@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -15,6 +16,8 @@ class BleLaserTransport {
   virtual void connect(const std::string& device_id) = 0;
   virtual std::optional<std::string> read_payload(int timeout_ms) = 0;
   virtual void disconnect() = 0;
+  /* Optional GATT write (TopoRoom measure command). Fake ignores. */
+  virtual void write_command(const std::vector<std::uint8_t>& /*bytes*/) {}
 };
 
 class FakeBleLaserTransport : public BleLaserTransport {
@@ -50,6 +53,8 @@ class BluetoothLaserPort : public ports::LaserRangefinderPort {
   ports::LaserHandle connect(const std::string& device_id) override;
   ports::MeasureSample read_length_mm() override;
   void disconnect() override;
+  /* Pack + write TopoRoom measure command, then read notify (Fake uses queued payload). */
+  ports::MeasureSample measure_once(int timeout_ms = 1000);
 
  private:
   BleLaserTransport& transport_;
