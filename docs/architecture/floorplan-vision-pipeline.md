@@ -5,6 +5,17 @@ C API runs `FloorPlanRasterAnalyzer` (not Fake 4000×3000). Pixels never become
 SceneIR millimetres directly: the analyzer emits wall centerlines + openings,
 and `FloorPlanDocument` commands write the 方案.
 
+**Scheme decision (paper trail):** [ADR-003](./ADR-003-floorplan-vision-no-ocr-p0.md)
+— P0 is raster heuristics + `stb_image` only; **no OCR library**.
+
+## Decision log
+
+| Date | Decision | Notes |
+|------|----------|--------|
+| 2026-09-17 | P0 = `FloorPlanRasterAnalyzer` geometric heuristics; **no OCR** | ADR-003. Decode with `stb_image`. No OpenCV, Tesseract, PaddleOCR, cloud API. FakeVision kept only for `fixture:photo`. |
+| 2026-09-17 | Golden fixture `apt-plan-user-01.png` | User CAD-like apartment plan. Scale = 200 mm shear-bar thickness. Room-name / mm-string OCR deferred P1. |
+| 2026-09-17 | Real gallery/camera files → raster C API | `Session.import_photo_vision` → `toporoom_vision_import_image`. Tiny Fake path unchanged. |
+
 ## Stages
 
 1. **Load** — PNG/JPEG via `stb_image` (grayscale classification on RGB).
@@ -46,6 +57,32 @@ and `FloorPlanDocument` commands write the 方案.
 C API: `toporoom_vision_import_image(doc, path, &counts, err, errlen)` runs the
 raster analyzer and writes walls/openings. Godot calls
 `TopoRoomHost.import_vision_image`.
+
+## Accuracy
+
+Not survey-grade. Laser / typed commands remain millimetre truth for critical
+edges. Vision is a topology prior that users confirm (承重 vs 砌体) before 3D.
+
+Regression floor: `--gtest_filter='FloorPlanRaster*'`
+(`core/tests/floor_plan_raster_vision_test.cpp`) reading
+`core/fixtures/vision/apt-plan-user-01.expected.json`.
+
+| Metric | Test floor (`expected.json`) | Golden SceneIR file |
+|--------|------------------------------|---------------------|
+| Shear walls | ≥ 12 | 22 |
+| Masonry walls | ≥ 8 | 20 |
+| Doors | ≥ 3 | 6 |
+| Windows | ≥ 3 | 7 |
+| Columns | ≥ 2 | in shear set |
+| Walls applied | ≥ 18 | 42 |
+| Openings applied | ≥ 4 | 13 |
+| mm/px | 12–28 | 200 mm / median black bar |
+| Plan bbox | width 7000–20000 mm, not Fake 4000 | ≈ 9600 × 8663 mm |
+| Rebuild | StatusGate `ok` | `ok` |
+
+Tests: `FixtureLoadsPng`, `GoldenApartmentHasShearMasonryDoorsWindows`,
+`ApplyAndSceneIrRoundTripRebuildOk`, `GoldenSceneIrFileRoundTrip`,
+`AdapterRejectsMissingFile`, `MissingPathCApiFails`.
 
 ## How to run
 
