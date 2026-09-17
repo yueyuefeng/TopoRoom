@@ -70,10 +70,17 @@ else()
   target_compile_options(toporoom_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+# CMake 3.22 (Android Studio side-by-side) does not accept
+# DOWNLOAD_EXTRACT_TIMESTAMP; passing it makes URL look like a path list.
+set(_toporoom_fetch_timestamp)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+  set(_toporoom_fetch_timestamp DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+endif()
+
 FetchContent_Declare(
   nlohmann_json
   URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  ${_toporoom_fetch_timestamp}
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
@@ -107,7 +114,7 @@ if(TOPOROOM_BUILD_TESTS)
   FetchContent_Declare(
     googletest
     URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    ${_toporoom_fetch_timestamp}
   )
   FetchContent_MakeAvailable(googletest)
 

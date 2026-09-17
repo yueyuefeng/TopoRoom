@@ -11,7 +11,8 @@ empty-OK `EvidencePack` sidecar, and `ReleaseTrain` JSON live in app/adapters.
 P0 editing: `FloorPlanEditService` (wall/opening/room/storey/hosted/measurement
 commands, SessionIsolate), tools `WallDraw` / `PlaceOpening` / `PlaceHostedComponent`
 / `SetClearHeight` / `SetStoreyHeight`, and `GuidedEditWorkflow` (real multi-step
-量房, not only `debug_fake_one_room`).
+量房, not only `debug_fake_one_room`). C API also create/load/save SceneIR 方案
+(`toporoom_document_save` / `load` / `from_sceneir_json`).
 P1+ ports (MEP / furnishing / cloud sync / quote) are `NotImplemented*` stubs
 returning `NotInP0` (FR-013) — not P0 Done gates.
 Domain sources must not `#include` manifold or vendor SDKs — see

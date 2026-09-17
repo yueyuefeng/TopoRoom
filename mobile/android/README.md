@@ -11,6 +11,9 @@ Hardware story (not a Gemini E lock): [ADR-001](../../docs/hardware/ADR-001-poc-
 - IMU: phone IMU (degraded)
 - **No** ¥200 ready-made ASIC depth Type-C accessory is claimed
 
+Open this folder in Android Studio (`mobile/android/`). `assembleDebug` is the
+Gradle target.
+
 ## Open in Android Studio
 
 1. Install Android SDK 34 + NDK (side-by-side, CMake 3.22.1) and JDK 17+.
@@ -24,33 +27,47 @@ Hardware story (not a Gemini E lock): [ADR-001](../../docs/hardware/ADR-001-poc-
 sdk.dir=/path/to/Android/sdk
 ```
 
-## Hardware bring-up
+## 白名单 + Fake/Replay（模拟器 / CI）
 
-Checklist: [docs/hardware/stage-gate-poc-checklist.md](../../docs/hardware/stage-gate-poc-checklist.md).
+On launch the app loads `src/main/assets/android-whitelist.v1.json`. Emulator
+models are **not** listed. **Debug** builds mark the 量房会话 host OK anyway and
+show `Fake/Replay 量房 — 模拟器/调试包，无需深度模组或蓝牙激光`.
 
-### Laser hub (both tracks)
+### Home（首页）
 
-1. Wire UART laser at 3.3 V: [firmware/toporoom-hub/PINOUT.md](../../firmware/toporoom-hub/PINOUT.md).
-2. `cd firmware/toporoom-hub && pio run -e esp32-c3 -t upload` (or `-e esp32-c3-sim`).
-3. nRF Connect: **TopoRoom Hub**, write `01 01 E8 03`, notify on length.
-4. App: **Scan / connect TopoRoom hub** → **Measure key (BLE hub laser)**.
-   **Measure key (laser Fake/Replay)** remains for emulator/CI.
-5. RF / RSSI is never `source=laser`.
+| 按钮 | 行为 |
+|------|------|
+| **新建方案** | `toporoom_document_create` + save SceneIR under `files/schemes/` |
+| **引导量房** | Step UI: 画墙 → 门窗洞/垭口 → 关键尺寸 → 重建 → 导出 |
+| **Fake 一室** | `toporoom_debug_fake_one_room` (4 walls, 2 Fake laser keys, door, export) |
+| **导出 DXF/PDF（glb 若 OK）** | Writes `room.dxf` / `room.pdf`; `room.glb` only when Status is OK |
 
-### Track A — DaBai DCW (optional ASIC depth)
+方案列表 loads saved `*.sceneir.json` plus a bundled
+`rect-room-v02-archway-clearheight.sceneir.json` sample (垭口 + 净高 + 梁).
+A 户型图 canvas draws walls and 门洞/窗洞/垭口 after edits.
 
-Phone is USB **host**. ESP32 does **not** proxy the camera.
+### Guided flow (引导量房)
 
-1. Prefer a **powered USB hub**. Confirm the listing connector (Type-C vs Micro vs pigtail).
-2. VID `2BC5`; record PID from the unit.
-3. Official OpenNI/SDK is **not** in git. See [DEPTH.md](./DEPTH.md).
-4. Depth is not millimetre-everywhere.
+Each step writes `FloorPlanDocument` through the C API, then
+`toporoom_guide_sync_from_document` observes SceneIR (same path as
+`GuidedEditWorkflow`):
 
-### Track B — dual RGB UVC assist
+1. **画墙** — rectangle 4000×3000 mm
+2. **门窗洞/垭口** — `OpeningKind` door / window / archway
+3. **关键尺寸** — Fake 激光 queue 4000 / 3000, or 手输 mm with typed-explicit
+4. **层高 / 净高 / 梁柱烟道** — storey height, room clearHeight, hosted beam/column/flue
+5. **重建 → 导出** — close 客厅, sync guide, export to app storage
 
-UVC preview is **color**, not an ASIC depth stream. `depth_fit` must stay low-confidence.
+**一键引导编辑** calls `toporoom_document_run_guided_edit` (4 walls, 2 laser
+keys, 垭口, 客厅 + 净高). That is the real edit path, not the debug Fake loop.
 
-### Whitelist + ReleaseTrain
+Exports land in `Android/data/com.toporoom.app/files/export/` (or
+`files/export/`). SceneIR 方案 files: `files/schemes/<id>.sceneir.json`.
+
+USB host + Bluetooth + nearby-device permissions are declared in the Manifest;
+**申请 USB / 蓝牙 / 附近设备权限** is runtime scaffolding
+(`BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`, `NEARBY_WIFI_DEVICES` on API 33+,
+`UsbManager.requestPermission`). No vendor SDK binaries are bundled.
 
 `0.1.0` ↔ hub **0.1.0** ↔ whitelist v1 ↔ **one of** `fake/replay`, `dabai_dcw/2460`, `dual_rgb_uvc/uvc_host`.
 
@@ -64,15 +81,47 @@ Tap **Run Fake one-room loop** (`toporoom_debug_fake_one_room`): 4 walls, 2 Fake
 
 ```bash
 cd mobile/android
-./gradlew test
-./gradlew assembleDebug   # needs SDK+NDK; not in Linux CMake CI
+./gradlew test          # JVM unit tests (GuideViewModel + SceneIrPlanParser + FakeTopoRoomBridge)
+./gradlew assembleDebug # SDK 34 + NDK 26.1.10909125 + CMake 3.22.1
 ```
+
+ViewModel tests do **not** load `libtoporoom_jni.so`; they use
+`FakeTopoRoomBridge`. Guide completion rules (`≥2 laser` or typed explicit
+with `≥2 typed`) live in C++ GoogleTest (`GuidedRoom`, `GuidedCaptureLoop`,
+`EditingWorkflows`).
+
+C++ `ctest` covers the new SceneIR save/load C API
+(`toporoom_document_save` / `load` / `from_sceneir_json`).
+
+Android Studio's CMake **3.22.1** cannot take `DOWNLOAD_EXTRACT_TIMESTAMP`
+(CMake ≥ 3.24). `core/CMakeLists.txt` only passes that flag on newer CMake so
+NDK configure can FetchContent nlohmann/json.
+
+## What ran in this Cloud Agent VM vs local Android Studio
+
+| Ran here | Needs local Android Studio / device |
+|----------|-------------------------------------|
+| `ctest` (C++ core, including C API save/load) | Install on a phone/emulator and tap through UI |
+| `./gradlew test` (JVM ViewModel + parser) | Real Bluetooth laser / USB depth (out of P0 Fake) |
+| `./gradlew assembleDebug` → APK with `libtoporoom_jni.so` for `arm64-v8a` + `x86_64` | Visual check of 户型图 canvas and exports on device |
+
+Linux GitHub Actions CI still runs GoogleTest only; it does not assemble the APK.
 
 ## Layout
 
 ```
 mobile/android/
-  DEPTH.md                      Track A/B SDK notes (no vendored blobs)
-  src/main/java/com/toporoom/hw/  DepthSku + BLE hub GATT client
-  src/main/assets/{android-whitelist.v1,release-train.v1}.json
+  build.gradle.kts              application module (AGP 8.5 / Kotlin 1.9)
+  CMakeLists.txt                libtoporoom_jni.so → ../../core
+  src/main/cpp/toporoom_jni.cpp
+  src/main/java/com/toporoom/core/NativeCore.java
+  src/main/java/com/toporoom/app/
+    MainActivity.kt             首页 + 引导量房 UI
+    GuideViewModel.kt           JNI session
+    TopoRoomBridge.kt           C API façade + JniTopoRoomBridge
+    PlanSnapshot.kt             SceneIR 0.2 → 户型图 snapshot
+    PlanCanvasView.kt           wall / opening canvas
+  src/main/assets/{android-whitelist.v1,release-train.v1,
+                   rect-room-v02-archway-clearheight.sceneir}.json
+  src/test/java/.../GuideViewModelTest.kt
 ```

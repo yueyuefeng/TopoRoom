@@ -67,9 +67,10 @@ firmware/toporoom-hub ESP32 BLE GATT + UART laser (not a USB hub)
 
 Open `mobile/android/` as a Gradle project (SDK 34 + NDK + CMake 3.22). Debug
 builds load `android-whitelist.v1.json` then **bypass** an unlisted emulator
-with Fake/Replay. Tap **Run Fake one-room loop** to draw walls, apply two
-laser keys, place a door, rebuild, and write `room.glb` / `room.dxf` /
-`room.pdf` under app storage. See [mobile/android/README.md](./mobile/android/README.md).
+with Fake/Replay. Home: **新建方案** / **Fake 一室** / **引导量房** / **导出**.
+Guided flow: 画墙 → 门窗洞/垭口 → 关键尺寸 (Fake 激光 or 手输) → 重建 → 导出
+DXF/PDF (`glb` only when Status is OK). See
+[mobile/android/README.md](./mobile/android/README.md).
 
 `./gradlew assembleDebug` needs a local Android SDK/NDK. Linux CMake CI does
 not assemble the APK; it runs GoogleTest only. JVM `GuideViewModel` tests:
@@ -113,7 +114,10 @@ nlohmann JSON (JSON stays in adapters).
    (`GuidedRoomSession`: host OK, ≥4 walls, ≥1 opening, rebuild OK, and ≥2 laser
    key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be
    empty. `release-train.v1.json` maps software tag ↔ module SKU / firmware /
-   whitelist file version.)
+   whitelist file version.) Android host (`mobile/android`) is an installable
+   Gradle app: JNI covers create/load/save 方案, wall/opening/room/hosted edits,
+   `GuidedEditWorkflow` C API, and DXF/PDF/(glb-when-OK) export. Debug builds
+   run Fake/Replay without hardware.
 6. ~~P1+ reserved ports (MEP / soft furnishing / cloud sync / auto quote).~~ **Stubs only**
    (**FR-013**: not P0 Done gates). See [P1+ reserved ports](#p1-reserved-ports-fr-013).
 7. ~~Industry Domain model (OpeningKind 门窗垭口, 层高≠净高, SceneIR 0.2).~~ **Done**

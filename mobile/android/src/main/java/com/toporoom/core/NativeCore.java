@@ -26,6 +26,40 @@ public final class NativeCore {
       String openingId, String kind, double widthMm, double heightMm, double offsetMm,
       double sillMm);
 
+  public static native String nativeMoveWall(long handle, String storeyId, String wallId,
+      double x0, double y0, double x1, double y1);
+
+  public static native String nativeResizeWall(long handle, String storeyId, String wallId,
+      double lengthMm);
+
+  public static native String nativeDeleteWall(long handle, String storeyId, String wallId);
+
+  public static native String nativeSetWallHeight(long handle, String storeyId, String wallId,
+      double heightMm);
+
+  public static native String nativeUpdateOpening(long handle, String storeyId,
+      String openingId, String kind, double widthMm, double heightMm, double offsetMm,
+      double sillMm);
+
+  public static native String nativeDeleteOpening(long handle, String storeyId,
+      String openingId);
+
+  public static native String nativeSetRoomAttributes(long handle, String storeyId,
+      String roomId, String name, String spaceType, boolean hasClearHeight,
+      double clearHeightMm);
+
+  public static native String nativeSetStoreyHeight(long handle, String storeyId,
+      double heightMm, boolean followMatchingWalls);
+
+  public static native String nativePlaceHosted(long handle, String storeyId,
+      String componentId, String kind, double zBottomMm, double depthMm, String hostWallId);
+
+  public static native String nativeUpdateHosted(long handle, String storeyId,
+      String componentId, String kind, double zBottomMm, double depthMm, String hostWallId);
+
+  public static native String nativeDeleteHosted(long handle, String storeyId,
+      String componentId);
+
   public static native String nativeSetMeasurement(long handle, String measurementId,
       double valueMm, String source, String instrumentId, String betweenCsv,
       String targetType, String targetId, String targetField);
@@ -37,7 +71,16 @@ public final class NativeCore {
 
   public static native String nativeSceneIrJson(long handle);
 
+  /** Empty on success; writes the new document handle into {@code outHandle[0]}. */
+  public static native String nativeLoadFromJson(String json, long[] outHandle);
+
+  public static native String nativeLoadFromFile(String path, long[] outHandle);
+
+  public static native String nativeSaveToFile(long handle, String path);
+
   public static native String nativeDebugFakeOneRoom(long doc, long guide, String outDir);
+
+  public static native String nativeRunGuidedEdit(long doc, long guide);
 
   public static native long nativeGuideCreate();
 
@@ -53,6 +96,9 @@ public final class NativeCore {
       boolean typedExplicit);
 
   public static native void nativeGuideNoteRebuild(long handle, boolean ok);
+
+  public static native int nativeGuideSyncFromDocument(long guide, long doc,
+      boolean rebuildOk);
 
   public static native String nativeGuidePhase(long handle);
 

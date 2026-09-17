@@ -19,3 +19,5 @@ local.properties
 .pio/
 .pioenvs/
 .piolibdeps/
+.cxx/
+

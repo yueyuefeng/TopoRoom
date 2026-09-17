@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TopoRoom</string>
+    <string name="app_name">拓间 TopoRoom</string>
+    <string name="home_new_scheme">新建方案</string>
+    <string name="home_fake_room">Fake 一室</string>
+    <string name="home_guide">引导量房</string>
+    <string name="home_export">导出</string>
+    <string name="guide_draw_walls">画墙</string>
+    <string name="guide_openings">门窗洞/垭口</string>
+    <string name="guide_keys">关键尺寸</string>
+    <string name="guide_rebuild">重建</string>
+    <string name="storey_height">层高</string>
+    <string name="clear_height">净高</string>
+    <string name="hosted_beam">梁</string>
+    <string name="hosted_column">柱</string>
+    <string name="hosted_flue">烟道</string>
+    <string name="opening_door">门洞</string>
+    <string name="opening_window">窗洞</string>
+    <string name="opening_archway">垭口</string>
 </resources>

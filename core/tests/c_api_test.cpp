@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -76,6 +77,49 @@ TEST(CApi, OpeningMeasurementGuideAndEvidence) {
   EXPECT_EQ(toporoom_evidence_empty(pack), 1);
   toporoom_evidence_destroy(pack);
   toporoom_document_destroy(doc);
+}
+
+TEST(CApi, SceneIrSaveLoadRoundTrip) {
+  TopoRoomDocument* doc = toporoom_document_create("doc_io");
+  ASSERT_NE(doc, nullptr);
+  char storey[64] = {};
+  ASSERT_EQ(toporoom_document_first_storey_id(doc, storey, sizeof(storey)), 0);
+  char err[256] = {};
+  ASSERT_EQ(toporoom_document_add_wall(doc, storey, "wall_s", 0, 0, 4000, 0, 200, 2800,
+                                       err, sizeof(err)),
+            0)
+      << err;
+  const auto path =
+      (std::filesystem::temp_directory_path() / "toporoom_doc_io.sceneir.json").string();
+  ASSERT_EQ(toporoom_document_save(doc, path.c_str(), err, sizeof(err)), 0) << err;
+  toporoom_document_destroy(doc);
+
+  TopoRoomDocument* loaded = toporoom_document_load(path.c_str(), err, sizeof(err));
+  ASSERT_NE(loaded, nullptr) << err;
+  char* json = toporoom_document_to_sceneir_json(loaded);
+  ASSERT_NE(json, nullptr);
+  EXPECT_NE(std::string(json).find("wall_s"), std::string::npos);
+  EXPECT_NE(std::string(json).find("doc_io"), std::string::npos);
+  TopoRoomDocument* from_text = toporoom_document_from_sceneir_json(json, err, sizeof(err));
+  toporoom_string_free(json);
+  ASSERT_NE(from_text, nullptr) << err;
+  char loaded_storey[64] = {};
+  ASSERT_EQ(toporoom_document_first_storey_id(from_text, loaded_storey, sizeof(loaded_storey)),
+            0);
+  EXPECT_STREQ(loaded_storey, "storey_1");
+  toporoom_document_destroy(from_text);
+  toporoom_document_destroy(loaded);
+
+  const auto fixture = std::string(TOPOROOM_FIXTURE_DIR) +
+                       "/rect-room-v02-archway-clearheight.sceneir.json";
+  TopoRoomDocument* v02 = toporoom_document_load(fixture.c_str(), err, sizeof(err));
+  ASSERT_NE(v02, nullptr) << err;
+  char* v02_json = toporoom_document_to_sceneir_json(v02);
+  ASSERT_NE(v02_json, nullptr);
+  EXPECT_NE(std::string(v02_json).find("archway"), std::string::npos);
+  EXPECT_NE(std::string(v02_json).find("clearHeightMm"), std::string::npos);
+  toporoom_string_free(v02_json);
+  toporoom_document_destroy(v02);
 }
 
 TEST(CApi, IosExternalDepthOutOfP0) { EXPECT_EQ(toporoom_ios_external_depth_in_p0(), 0); }
