@@ -1,0 +1,11 @@
+[config]
+
+name="TopoRoomMedia"
+binary_type="local"
+binary="TopoRoomMedia.release.aar"
+
+[dependencies]
+
+local=[]
+remote=[]
+custom_maven_repos=[]

@@ -4,8 +4,8 @@
 
 namespace toporoom::adapters {
 
-// Deterministic walls + WallKind for CI / Godot. Ignores pixels; keyed off any
-// image URI (including the bundled fake floor-plan fixture).
+// Deterministic walls + WallKind for CI / Godot. Requires a readable file when
+// image_uri looks like a filesystem path (empty / fixture: URIs still work).
 class FakeVisionAdapter : public ports::FloorPlanVisionPort {
  public:
   ports::VisionResult detect_walls(const ports::VisionRequest& request) override;

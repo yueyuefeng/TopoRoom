@@ -33,13 +33,15 @@ should come from this Godot project + export templates.
 
 3. Import / open `godot/project.godot` (this directory).
 
-4. Play. Home is a branded workbench: **新建方案** / **拍户型图** /
-   **引导量房**, a paper 户型图 card, and chips for Fake 一室 / 导出 / 3D 编辑 /
-   漫游. **拍户型图** imports a photo (gallery / camera picker / 示例图),
-   runs `FakeVisionAdapter`, lets you tap walls to set 承重 vs 砌体, then 拆改
+4. Play. Home is a phone-style list: **拍户型图** (system camera),
+   **从相册导入** (system gallery / Photo Picker), **引导量房**, plus a
+   current-plan card. **拍户型图** requests CAMERA, launches
+   `ACTION_IMAGE_CAPTURE`, copies the JPEG to `user://imports/`, previews it,
+   then runs `FakeVisionAdapter`. Desktop falls back to a file dialog.
+   After walls appear you can tap to set 承重 vs 隔墙, then 拆改
    (shear walls need confirm). The 2D canvas draws SceneIR JSON, not a mesh.
 
-UI 预览（首页 / 引导 / 拍户型图 / 拆改 / 3D）：
+UI 预览（首页 / 引导 / 拍户型图 / 预览 / 拆改 / 3D）：
 [docs/screenshots/README.md](../docs/screenshots/README.md).
 
 Without the `.so`, the editor still opens; the UI shows `GDExtension 未加载`.
@@ -107,8 +109,9 @@ and a local Android SDK/NDK/JDK are missing. Deliverable here is the project
    matching the Godot version (4.3.x).
 3. Build the Android `.so` files above into `godot/bin/`.
 4. Open `godot/`, confirm the Android preset in `export_presets.cfg`
-   (`com.toporoom.godot`, arm64-v8a phone APK, Gradle build). Enable x86_64
-   only after building the emulator `.so`.
+   (`com.toporoom.godot`, arm64-v8a phone APK, Gradle build, CAMERA /
+   READ_MEDIA_IMAGES). Enable x86_64 only after building the emulator `.so`.
+   Rebuild `TopoRoomMedia` AARs: `./godot/scripts/build_android_plugin.sh`.
 5. **Project → Export → Android → Export Debug APK**, or:
 
    ```bash

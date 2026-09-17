@@ -55,7 +55,7 @@ func button(text: String, variation: String, cb: Callable) -> Button:
 
 func primary(text: String, cb: Callable) -> Button:
 	var b := button(text, "PrimaryButton", cb)
-	b.custom_minimum_size = Vector2(0, 48)
+	b.custom_minimum_size = Vector2(0, 52)
 	return b
 
 
@@ -85,6 +85,106 @@ func accent_chip(text: String, cb: Callable) -> Button:
 func card(variation: String = "HeroCard") -> PanelContainer:
 	var p := PanelContainer.new()
 	p.theme_type_variation = variation
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return p
+
+
+func glyph_badge(glyph: String, fill: Color = Tokens.PRIMARY_SOFT, ink: Color = Tokens.PRIMARY) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.corner_radius_top_left = Tokens.R_MD
+	sb.corner_radius_top_right = Tokens.R_MD
+	sb.corner_radius_bottom_left = Tokens.R_MD
+	sb.corner_radius_bottom_right = Tokens.R_MD
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	p.add_theme_stylebox_override("panel", sb)
+	p.custom_minimum_size = Vector2(48, 48)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var l := label(glyph, Tokens.FONT_TITLE, ink)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	p.add_child(l)
+	return p
+
+
+func action_card(title: String, subtitle: String, glyph: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.theme_type_variation = "ActionCard"
+	b.custom_minimum_size = Vector2(0, 84)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(cb)
+	var row := hbox(Tokens.S2)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 8
+	row.offset_right = -8
+	row.offset_top = 10
+	row.offset_bottom = -10
+	row.add_child(glyph_badge(glyph))
+	var col := vbox(4)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var t := label(title, Tokens.FONT_SECTION, Tokens.TEXT)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := caption(subtitle)
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(t)
+	col.add_child(s)
+	row.add_child(col)
+	var chev := label("›", 28, Tokens.TEXT_DISABLED)
+	chev.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(chev)
+	b.add_child(row)
+	return b
+
+
+func nav_item(glyph: String, title: String, on: bool, cb: Callable) -> Button:
+	var b := Button.new()
+	b.theme_type_variation = "NavItemOn" if on else "NavItem"
+	b.custom_minimum_size = Vector2(72, 56)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(cb)
+	var col := vbox(2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.offset_top = 4
+	col.offset_bottom = -4
+	var g := label(glyph, 18, Tokens.PRIMARY if on else Tokens.TEXT_SECONDARY)
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var t := label(title, Tokens.FONT_CAPTION, Tokens.PRIMARY if on else Tokens.TEXT_SECONDARY)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(g)
+	col.add_child(t)
+	b.add_child(col)
+	return b
+
+
+func nav_bar(items: Array, selected: int, cb: Callable) -> PanelContainer:
+	var bar := PanelContainer.new()
+	bar.theme_type_variation = "NavBar"
+	var row := hbox(Tokens.S1)
+	for i in items.size():
+		var idx: int = i
+		var item: Dictionary = items[i]
+		row.add_child(nav_item(str(item.get("glyph", "")), str(item.get("title", "")), i == selected, func():
+			cb.call(idx, item)
+		))
+	bar.add_child(row)
+	return bar
+
+
+func sheet() -> PanelContainer:
+	var p := PanelContainer.new()
+	p.theme_type_variation = "SheetPanel"
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return p
 
