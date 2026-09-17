@@ -38,6 +38,17 @@ class TopoRoomHost : public RefCounted {
   Dictionary delete_wall(const String& storey_id, const String& wall_id);
   Dictionary set_wall_height(const String& storey_id, const String& wall_id,
                              double height_mm);
+  Dictionary set_wall_kind(const String& storey_id, const String& wall_id, const String& kind);
+  Dictionary demolish_wall(const String& storey_id, const String& wall_id, bool force);
+  Dictionary split_wall(const String& storey_id, const String& wall_id, double offset_mm);
+  Dictionary partial_demolish(const String& storey_id, const String& wall_id,
+                              double offset_mm, double length_mm, bool force);
+  Dictionary punch_opening(const String& storey_id, const String& wall_id,
+                           const String& opening_id, const String& kind, double width_mm,
+                           double height_mm, double offset_mm, double sill_height_mm,
+                           bool force);
+  Dictionary import_fake_vision(const String& image_uri);
+  bool vision_ml_available() const;
 
   Dictionary add_opening(const String& storey_id, const String& wall_id,
                          const String& opening_id, const String& kind, double width_mm,

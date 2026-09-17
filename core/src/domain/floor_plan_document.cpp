@@ -197,6 +197,150 @@ void FloorPlanDocument::set_wall_height(const std::string& storey_id,
   bump_semantics();
 }
 
+namespace {
+
+void assert_demolish_allowed(const Wall& wall, bool force) {
+  if (is_shear_wall(wall.kind()) && !force) {
+    throw DomainError("cannot demolish shearWall without force flag",
+                      "SHEAR_WALL_PROTECTED");
+  }
+}
+
+std::vector<Opening> openings_in_range(const Wall& wall, double t0, double t1,
+                                       double offset_shift) {
+  std::vector<Opening> kept;
+  for (const auto& opening : wall.openings()) {
+    const double a = opening.offset_along_wall().value();
+    const double b = opening.occupies_until_mm();
+    if (a + 1e-6 < t0 || b > t1 + 1e-6) continue;
+    kept.push_back(opening.with_placement(
+        opening.width(), opening.height(),
+        LengthMm::of(a - offset_shift), opening.sill_height()));
+  }
+  return kept;
+}
+
+}  // namespace
+
+Wall FloorPlanDocument::set_wall_kind(const std::string& storey_id,
+                                      const std::string& wall_id, WallKind kind) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  if (current.kind() == kind) return current;
+  Wall next = current.with_kind(kind);
+  replace_storey(storey.replace_wall(next));
+  record(WallKindChanged{id_, storey_id, wall_id, kind});
+  bump_semantics();
+  return next;
+}
+
+void FloorPlanDocument::demolish_wall(const std::string& storey_id,
+                                      const std::string& wall_id, bool force) {
+  Storey storey = require_storey(storey_id);
+  if (!storey.has_wall(wall_id)) return;
+  assert_demolish_allowed(storey.wall_by_id(wall_id), force);
+  delete_wall(storey_id, wall_id);
+}
+
+std::string FloorPlanDocument::split_wall(const std::string& storey_id,
+                                          const std::string& wall_id,
+                                          LengthMm offset_mm) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  const double len = current.length_mm().value();
+  const double t = offset_mm.value();
+  if (t < 50.0 || t > len - 50.0) {
+    throw DomainError("split offset must leave two positive wall segments",
+                      "INVALID_WALL_SPLIT");
+  }
+  const PointMm mid = PointMm::along(current.start(), current.end(), t);
+  const std::string new_id = next_id("wall");
+  // Filter openings before shrinking geometry so hosted openings cannot
+  // fail OPENING_OUT_OF_BOUNDS on the shortened first segment.
+  Wall first = current.with_openings(openings_in_range(current, 0, t, 0))
+                   .with_geometry(current.start(), mid);
+  Wall second = Wall::create([&] {
+    WallProps props;
+    props.id = new_id;
+    props.start = mid;
+    props.end = current.end();
+    props.thickness = current.thickness();
+    props.height = current.height();
+    props.kind = current.kind();
+    props.openings = openings_in_range(current, t, len, t);
+    return props;
+  }());
+  replace_storey(storey.replace_wall(first).add_wall(second));
+  record(WallSplit{id_, storey_id, wall_id, new_id});
+  record(WallGeometryChanged{id_, storey_id, wall_id});
+  record(WallAdded{id_, storey_id, new_id});
+  bump_semantics();
+  return new_id;
+}
+
+void FloorPlanDocument::partial_demolish(const std::string& storey_id,
+                                         const std::string& wall_id, LengthMm offset_mm,
+                                         LengthMm length_mm, bool force) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  assert_demolish_allowed(current, force);
+  const double len = current.length_mm().value();
+  const double t0 = offset_mm.value();
+  const double t1 = t0 + length_mm.value();
+  if (length_mm.value() <= 1.0 || t0 < -1e-6 || t1 > len + 1e-6 || t1 <= t0) {
+    throw DomainError("partial demolish range is invalid", "INVALID_DEMOLISH_RANGE");
+  }
+  if (t0 <= 1.0 && t1 >= len - 1.0) {
+    delete_wall(storey_id, wall_id);
+    return;
+  }
+  const bool keep_first = t0 >= 50.0;
+  const bool keep_second = (len - t1) >= 50.0;
+  if (!keep_first && !keep_second) {
+    delete_wall(storey_id, wall_id);
+    return;
+  }
+  Storey next = storey;
+  if (keep_first) {
+    const PointMm cut = PointMm::along(current.start(), current.end(), t0);
+    Wall first = current.with_openings(openings_in_range(current, 0, t0, 0))
+                     .with_geometry(current.start(), cut);
+    next = next.replace_wall(first);
+    record(WallGeometryChanged{id_, storey_id, wall_id});
+  } else {
+    next = next.remove_wall(wall_id);
+    record(WallRemoved{id_, storey_id, wall_id});
+  }
+  if (keep_second) {
+    const PointMm cut = PointMm::along(current.start(), current.end(), t1);
+    const std::string new_id = keep_first ? next_id("wall") : wall_id;
+    WallProps props;
+    props.id = new_id;
+    props.start = cut;
+    props.end = current.end();
+    props.thickness = current.thickness();
+    props.height = current.height();
+    props.kind = current.kind();
+    props.openings = openings_in_range(current, t1, len, t1);
+    Wall second = Wall::create(std::move(props));
+    if (keep_first) {
+      next = next.add_wall(second);
+      record(WallAdded{id_, storey_id, new_id});
+    } else {
+      next = next.add_wall(second);
+      record(WallAdded{id_, storey_id, new_id});
+    }
+  }
+  replace_storey(next);
+  bump_semantics();
+}
+
+Opening FloorPlanDocument::punch_opening(AddOpeningProps props, bool force) {
+  Storey storey = require_storey(props.storey_id);
+  assert_demolish_allowed(storey.wall_by_id(props.wall_id), force);
+  return add_opening(std::move(props));
+}
+
 Opening FloorPlanDocument::add_opening(AddOpeningProps props) {
   Storey storey = require_storey(props.storey_id);
   if (props.id) {

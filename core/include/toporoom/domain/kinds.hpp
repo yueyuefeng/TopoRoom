@@ -45,4 +45,9 @@ std::optional<HostedKind> hosted_kind_from_string(std::string_view value);
 bool is_measurement_source(std::string_view value);
 bool is_scene_ir_version_supported(std::string_view value);
 
+// 承重/剪力墙 — demolish / punch / split-out requires an explicit force flag.
+inline bool is_shear_wall(WallKind kind) noexcept {
+  return kind == WallKind::ShearWall;
+}
+
 }  // namespace toporoom::domain

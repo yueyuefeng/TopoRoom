@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "toporoom/adapters/android_whitelist.hpp"
+#include "toporoom/adapters/floor_plan_vision_adapters.hpp"
 #include "toporoom/adapters/hub_gatt_codec.hpp"
 #include "toporoom/adapters/manifold_geometry_port.hpp"
 #include "toporoom/adapters/release_train.hpp"
@@ -277,6 +278,120 @@ int toporoom_document_set_wall_height(TopoRoomDocument* doc, const char* storey_
     return write_error(errbuf, errbuf_len, ex.what());
   }
 }
+
+int toporoom_document_set_wall_kind(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, const char* kind, char* errbuf,
+                                    int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    const auto parsed = toporoom::domain::wall_kind_from_string(kind ? kind : "");
+    if (!parsed) return write_error(errbuf, errbuf_len, "unknown wall kind");
+    doc->impl.set_wall_kind(storey_id, wall_id, *parsed);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_demolish_wall(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, int force, char* errbuf,
+                                    int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.demolish_wall(storey_id, wall_id, force != 0);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_split_wall(TopoRoomDocument* doc, const char* storey_id,
+                                 const char* wall_id, double offset_mm, char* new_id_out,
+                                 int new_id_len, char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    const std::string nid = doc->impl.split_wall(
+        storey_id, wall_id, toporoom::domain::LengthMm::of(offset_mm));
+    if (new_id_out && new_id_len > 0) {
+      std::snprintf(new_id_out, static_cast<size_t>(new_id_len), "%s", nid.c_str());
+    }
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_partial_demolish(TopoRoomDocument* doc, const char* storey_id,
+                                       const char* wall_id, double offset_mm,
+                                       double length_mm, int force, char* errbuf,
+                                       int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.partial_demolish(storey_id, wall_id, toporoom::domain::LengthMm::of(offset_mm),
+                               toporoom::domain::LengthMm::of(length_mm), force != 0);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_punch_opening(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* wall_id, const char* opening_id,
+                                    const char* kind, double width_mm, double height_mm,
+                                    double offset_mm, double sill_height_mm, int force,
+                                    char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    const auto parsed = toporoom::domain::opening_kind_from_string(kind ? kind : "door");
+    if (!parsed) return write_error(errbuf, errbuf_len, "unknown opening kind");
+    toporoom::domain::AddOpeningProps props;
+    props.storey_id = storey_id;
+    props.wall_id = wall_id;
+    if (opening_id) props.id = std::string(opening_id);
+    props.kind = *parsed;
+    props.width = toporoom::domain::LengthMm::of(width_mm);
+    props.height = toporoom::domain::LengthMm::of(height_mm);
+    props.offset_along_wall = toporoom::domain::LengthMm::of(offset_mm);
+    props.sill_height = toporoom::domain::LengthMm::of(sill_height_mm);
+    doc->impl.punch_opening(std::move(props), force != 0);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_import_fake_vision(TopoRoomDocument* doc, const char* image_uri,
+                                         char* errbuf, int errbuf_len) {
+  if (!doc) return 1;
+  try {
+    toporoom::adapters::FakeVisionAdapter vision;
+    toporoom::ports::VisionRequest req;
+    req.image_uri = image_uri ? image_uri : "";
+    const auto detected = vision.detect_walls(req);
+    if (!detected.ok) {
+      return write_error(errbuf, errbuf_len,
+                         detected.error.empty() ? "vision failed" : detected.error.c_str());
+    }
+    const std::string storey = doc->impl.storeys().empty() ? "" : doc->impl.storeys()[0].id();
+    if (storey.empty()) return write_error(errbuf, errbuf_len, "no storey");
+    for (const auto& wall : detected.walls) {
+      toporoom::domain::AddWallProps props;
+      props.storey_id = storey;
+      props.id = wall.id;
+      props.start = toporoom::domain::PointMm::of(wall.start_x, wall.start_y);
+      props.end = toporoom::domain::PointMm::of(wall.end_x, wall.end_y);
+      props.thickness = toporoom::domain::LengthMm::of(wall.thickness_mm);
+      props.height = toporoom::domain::LengthMm::of(wall.height_mm);
+      props.kind = wall.kind;
+      doc->impl.add_wall(std::move(props));
+    }
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_vision_ml_available(void) { return 0; }
 
 int toporoom_document_update_opening(TopoRoomDocument* doc, const char* storey_id,
                                      const char* opening_id, const char* kind,

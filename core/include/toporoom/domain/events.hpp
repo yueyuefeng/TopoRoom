@@ -29,6 +29,22 @@ struct WallRemoved {
   std::string wall_id;
 };
 
+struct WallKindChanged {
+  static constexpr const char* kType = "WallKindChanged";
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  WallKind kind = WallKind::Masonry;
+};
+
+struct WallSplit {
+  static constexpr const char* kType = "WallSplit";
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  std::string new_wall_id;
+};
+
 struct OpeningAdded {
   static constexpr const char* kType = "OpeningAdded";
   std::string document_id;
@@ -114,10 +130,10 @@ struct FloorPlanSemanticsChanged {
 };
 
 using DomainEvent = std::variant<
-    WallAdded, WallGeometryChanged, WallRemoved, OpeningAdded, OpeningChanged,
-    OpeningRemoved, RoomClosed, RoomOpened, RoomAttributesChanged, StoreyHeightChanged,
-    HostedComponentPlaced, HostedComponentChanged, HostedComponentRemoved,
-    FloorPlanSemanticsChanged>;
+    WallAdded, WallGeometryChanged, WallRemoved, WallKindChanged, WallSplit, OpeningAdded,
+    OpeningChanged, OpeningRemoved, RoomClosed, RoomOpened, RoomAttributesChanged,
+    StoreyHeightChanged, HostedComponentPlaced, HostedComponentChanged,
+    HostedComponentRemoved, FloorPlanSemanticsChanged>;
 
 inline const char* event_type(const DomainEvent& event) {
   return std::visit([](const auto& e) { return e.kType; }, event);

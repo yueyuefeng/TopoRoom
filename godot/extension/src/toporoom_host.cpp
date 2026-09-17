@@ -179,7 +179,7 @@ Dictionary TopoRoomHost::delete_wall(const String& storey_id, const String& wall
 }
 
 Dictionary TopoRoomHost::set_wall_height(const String& storey_id, const String& wall_id,
-                                        double height_mm) {
+                                         double height_mm) {
   if (!doc_) return need_doc();
   const std::string sid = to_utf8(storey_id);
   const std::string wid = to_utf8(wall_id);
@@ -188,6 +188,82 @@ Dictionary TopoRoomHost::set_wall_height(const String& storey_id, const String& 
                                                    err, sizeof(err));
   return from_rc(rc, err);
 }
+
+Dictionary TopoRoomHost::set_wall_kind(const String& storey_id, const String& wall_id,
+                                       const String& kind) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  const std::string k = to_utf8(kind);
+  char err[512] = {};
+  const int rc =
+      toporoom_document_set_wall_kind(doc_, sid.c_str(), wid.c_str(), k.c_str(), err, sizeof(err));
+  return from_rc(rc, err);
+}
+
+Dictionary TopoRoomHost::demolish_wall(const String& storey_id, const String& wall_id,
+                                       bool force) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  char err[512] = {};
+  const int rc = toporoom_document_demolish_wall(doc_, sid.c_str(), wid.c_str(), force ? 1 : 0,
+                                                 err, sizeof(err));
+  return from_rc(rc, err);
+}
+
+Dictionary TopoRoomHost::split_wall(const String& storey_id, const String& wall_id,
+                                    double offset_mm) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  char err[512] = {};
+  char nid[128] = {};
+  const int rc = toporoom_document_split_wall(doc_, sid.c_str(), wid.c_str(), offset_mm, nid,
+                                              sizeof(nid), err, sizeof(err));
+  Dictionary d = from_rc(rc, err);
+  if (rc == 0) d["new_wall_id"] = from_utf8(nid);
+  return d;
+}
+
+Dictionary TopoRoomHost::partial_demolish(const String& storey_id, const String& wall_id,
+                                          double offset_mm, double length_mm, bool force) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  char err[512] = {};
+  const int rc = toporoom_document_partial_demolish(doc_, sid.c_str(), wid.c_str(), offset_mm,
+                                                    length_mm, force ? 1 : 0, err, sizeof(err));
+  return from_rc(rc, err);
+}
+
+Dictionary TopoRoomHost::punch_opening(const String& storey_id, const String& wall_id,
+                                       const String& opening_id, const String& kind,
+                                       double width_mm, double height_mm, double offset_mm,
+                                       double sill_height_mm, bool force) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  const std::string oid = to_utf8(opening_id);
+  const std::string k = to_utf8(kind);
+  char err[512] = {};
+  const int rc = toporoom_document_punch_opening(
+      doc_, sid.c_str(), wid.c_str(), oid.c_str(), k.c_str(), width_mm, height_mm, offset_mm,
+      sill_height_mm, force ? 1 : 0, err, sizeof(err));
+  return from_rc(rc, err);
+}
+
+Dictionary TopoRoomHost::import_fake_vision(const String& image_uri) {
+  if (!doc_) return need_doc();
+  const std::string uri = to_utf8(image_uri);
+  char err[512] = {};
+  const int rc =
+      toporoom_document_import_fake_vision(doc_, uri.empty() ? nullptr : uri.c_str(), err,
+                                           sizeof(err));
+  return from_rc(rc, err);
+}
+
+bool TopoRoomHost::vision_ml_available() const { return toporoom_vision_ml_available() != 0; }
 
 Dictionary TopoRoomHost::add_opening(const String& storey_id, const String& wall_id,
                                     const String& opening_id, const String& kind,
@@ -451,6 +527,22 @@ void TopoRoomHost::_bind_methods() {
                        &TopoRoomHost::delete_wall);
   ClassDB::bind_method(D_METHOD("set_wall_height", "storey_id", "wall_id", "height_mm"),
                        &TopoRoomHost::set_wall_height);
+  ClassDB::bind_method(D_METHOD("set_wall_kind", "storey_id", "wall_id", "kind"),
+                       &TopoRoomHost::set_wall_kind);
+  ClassDB::bind_method(D_METHOD("demolish_wall", "storey_id", "wall_id", "force"),
+                       &TopoRoomHost::demolish_wall);
+  ClassDB::bind_method(D_METHOD("split_wall", "storey_id", "wall_id", "offset_mm"),
+                       &TopoRoomHost::split_wall);
+  ClassDB::bind_method(
+      D_METHOD("partial_demolish", "storey_id", "wall_id", "offset_mm", "length_mm", "force"),
+      &TopoRoomHost::partial_demolish);
+  ClassDB::bind_method(
+      D_METHOD("punch_opening", "storey_id", "wall_id", "opening_id", "kind", "width_mm",
+               "height_mm", "offset_mm", "sill_height_mm", "force"),
+      &TopoRoomHost::punch_opening);
+  ClassDB::bind_method(D_METHOD("import_fake_vision", "image_uri"),
+                       &TopoRoomHost::import_fake_vision);
+  ClassDB::bind_method(D_METHOD("vision_ml_available"), &TopoRoomHost::vision_ml_available);
 
   ClassDB::bind_method(D_METHOD("add_opening", "storey_id", "wall_id", "opening_id", "kind",
                                  "width_mm", "height_mm", "offset_mm", "sill_height_mm"),
