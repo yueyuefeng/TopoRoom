@@ -16,4 +16,11 @@ DerivedData/
 .gradle/
 local.properties
 *.iml
+.godot/
+godot/android/
+godot/export_credentials.cfg
+*.apk
+*.aab
+*.pyc
+__pycache__/
 .cxx/

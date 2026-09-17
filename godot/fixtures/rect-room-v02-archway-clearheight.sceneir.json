@@ -1,0 +1,97 @@
+{
+  "format": "toporoom.sceneir",
+  "version": "0.2",
+  "id": "fixture_rect_room_v02",
+  "units": "mm",
+  "revision": 1,
+  "meta": { "faceDatum": "structural", "schemeLabel": "现状量房-客厅" },
+  "storeys": [
+    {
+      "id": "storey_1",
+      "elevationMm": 0,
+      "heightMm": 2800,
+      "walls": [
+        {
+          "id": "wall_n",
+          "kind": "exterior",
+          "start": { "x": 0, "y": 3000 },
+          "end": { "x": 4000, "y": 3000 },
+          "thicknessMm": 200,
+          "heightMm": 2800,
+          "openings": []
+        },
+        {
+          "id": "wall_e",
+          "kind": "exterior",
+          "start": { "x": 4000, "y": 3000 },
+          "end": { "x": 4000, "y": 0 },
+          "thicknessMm": 200,
+          "heightMm": 2800,
+          "openings": [
+            {
+              "id": "op_arch",
+              "kind": "archway",
+              "widthMm": 1200,
+              "heightMm": 2100,
+              "offsetMm": 400,
+              "sillHeightMm": 0
+            }
+          ]
+        },
+        {
+          "id": "wall_s",
+          "kind": "exterior",
+          "start": { "x": 4000, "y": 0 },
+          "end": { "x": 0, "y": 0 },
+          "thicknessMm": 200,
+          "heightMm": 2800,
+          "openings": [
+            {
+              "id": "op_door",
+              "kind": "door",
+              "widthMm": 900,
+              "heightMm": 2100,
+              "offsetMm": 800,
+              "sillHeightMm": 0
+            }
+          ]
+        },
+        {
+          "id": "wall_w",
+          "kind": "exterior",
+          "start": { "x": 0, "y": 0 },
+          "end": { "x": 0, "y": 3000 },
+          "thicknessMm": 200,
+          "heightMm": 2400,
+          "openings": []
+        }
+      ],
+      "rooms": [
+        {
+          "id": "room_living",
+          "label": "客厅",
+          "spaceType": "interior",
+          "wallIds": ["wall_n", "wall_e", "wall_s", "wall_w"],
+          "clearHeightMm": 2650
+        }
+      ],
+      "hostedComponents": [
+        {
+          "id": "hc_beam_1",
+          "kind": "beam",
+          "params": { "zBottomMm": 2400, "depthMm": 400 }
+        }
+      ]
+    }
+  ],
+  "measurements": [
+    {
+      "id": "m_door_clear_width",
+      "kind": "length",
+      "valueMm": 900,
+      "source": "laser",
+      "target": "openingWidth",
+      "openingId": "op_door"
+    }
+  ]
+}
