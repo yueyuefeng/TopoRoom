@@ -12,7 +12,7 @@ using toporoom::adapters::WhitelistQuery;
 namespace {
 
 WhitelistQuery pixel8() {
-  return {"Pixel 8", 34, "orbbec_gemini_e", "1.2.0", "powered_hub_a", "0.1.0"};
+  return {"Pixel 8", 34, "orbbec_gemini_e", "3460", "powered_hub_a", "0.1.0"};
 }
 
 }  // namespace
@@ -30,20 +30,20 @@ TEST(AndroidWhitelist, AllowsListedPhones) {
       std::string(TOPOROOM_FIXTURE_DIR) + "/android-whitelist.v1.json");
   EXPECT_TRUE(table.allows(pixel8()));
   EXPECT_TRUE(table.allows(
-      {"SM-S911B", 33, "orbbec_gemini_e", "1.2.0", "powered_hub_a", "0.1.0"}));
+      {"SM-S911B", 33, "orbbec_gemini_e", "3460", "powered_hub_a", "0.1.0"}));
   EXPECT_TRUE(table.allows(
-      {"2201123G", 33, "orbbec_gemini_e", "1.2.0", "powered_hub_a", "0.1.0"}));
+      {"2201123G", 33, "orbbec_gemini_e", "3460", "powered_hub_a", "0.1.0"}));
 }
 
 TEST(AndroidWhitelist, DeniesUnknownAndIos) {
   const auto table = AndroidWhitelist::from_file(
       std::string(TOPOROOM_FIXTURE_DIR) + "/android-whitelist.v1.json");
   EXPECT_FALSE(table.allows(
-      {"iPhone15,2", 17, "orbbec_gemini_e", "1.2.0", "powered_hub_a", "0.1.0"}));
+      {"iPhone15,2", 17, "orbbec_gemini_e", "3460", "powered_hub_a", "0.1.0"}));
   EXPECT_FALSE(table.allows(
-      {"Pixel 3", 34, "orbbec_gemini_e", "1.2.0", "powered_hub_a", "0.1.0"}));
+      {"Pixel 3", 34, "orbbec_gemini_e", "3460", "powered_hub_a", "0.1.0"}));
   EXPECT_FALSE(table.allows(
-      {"Pixel 8", 34, "unknown_sku", "1.2.0", "powered_hub_a", "0.1.0"}));
+      {"Pixel 8", 34, "unknown_sku", "3460", "powered_hub_a", "0.1.0"}));
 }
 
 TEST(AndroidWhitelist, RequiresBtAndUsbPermissions) {

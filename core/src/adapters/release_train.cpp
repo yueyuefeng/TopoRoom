@@ -14,6 +14,8 @@ ReleaseTrain load_release_train_json(const std::string& json_text) {
   train.software_tag = root.at("softwareTag").get<std::string>();
   train.module_sku = root.at("moduleSku").get<std::string>();
   train.firmware = root.at("firmware").get<std::string>();
+  train.hub_sku = root.value("hubSku", std::string{});
+  train.hub_firmware = root.value("hubFirmware", std::string{});
   train.whitelist_file = root.at("whitelistFile").get<std::string>();
   train.whitelist_version = root.at("whitelistVersion").get<int>();
   return train;
@@ -28,9 +30,13 @@ ReleaseTrain load_release_train_file(const std::string& path) {
 
 bool release_train_matches(const ReleaseTrain& train, const std::string& software_tag,
                            const std::string& module_sku, const std::string& firmware,
-                           int whitelist_version) {
-  return train.software_tag == software_tag && train.module_sku == module_sku &&
-         train.firmware == firmware && train.whitelist_version == whitelist_version;
+                           int whitelist_version, const std::string& hub_firmware) {
+  if (train.software_tag != software_tag || train.module_sku != module_sku ||
+      train.firmware != firmware || train.whitelist_version != whitelist_version) {
+    return false;
+  }
+  if (hub_firmware.empty() || train.hub_firmware.empty()) return true;
+  return train.hub_firmware == hub_firmware;
 }
 
 }  // namespace toporoom::adapters

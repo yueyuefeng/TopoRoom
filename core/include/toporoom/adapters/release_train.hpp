@@ -9,6 +9,8 @@ struct ReleaseTrain {
   std::string software_tag;
   std::string module_sku;
   std::string firmware;
+  std::string hub_sku;
+  std::string hub_firmware;
   std::string whitelist_file;
   int whitelist_version = 0;
 };
@@ -18,6 +20,6 @@ ReleaseTrain load_release_train_file(const std::string& path);
 
 bool release_train_matches(const ReleaseTrain& train, const std::string& software_tag,
                            const std::string& module_sku, const std::string& firmware,
-                           int whitelist_version);
+                           int whitelist_version, const std::string& hub_firmware = "");
 
 }  // namespace toporoom::adapters

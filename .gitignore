@@ -16,3 +16,6 @@ DerivedData/
 .gradle/
 local.properties
 *.iml
+.pio/
+.pioenvs/
+.piolibdeps/

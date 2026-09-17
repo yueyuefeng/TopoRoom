@@ -16,7 +16,7 @@ data class WhitelistQuery(
     val phoneModel: String,
     val androidApi: Int,
     val moduleSku: String = "orbbec_gemini_e",
-    val firmware: String = "1.2.0",
+    val firmware: String = "3460",
     val hubSku: String = "none",
     val appVersion: String = "0.1.0",
 )
@@ -80,6 +80,7 @@ interface TopoRoomBridge {
         moduleSku: String,
         firmware: String,
         whitelistVersion: Int,
+        hubFirmware: String,
     ): Boolean
 }
 
@@ -169,8 +170,9 @@ class JniTopoRoomBridge : TopoRoomBridge {
         moduleSku: String,
         firmware: String,
         whitelistVersion: Int,
+        hubFirmware: String,
     ) = com.toporoom.core.NativeCore.nativeReleaseTrainMatches(
-        json, softwareTag, moduleSku, firmware, whitelistVersion,
+        json, softwareTag, moduleSku, firmware, whitelistVersion, hubFirmware,
     )
 }
 
@@ -207,7 +209,7 @@ class GuideViewModel(
         storeyId = bridge.firstStoreyId(docHandle)
         val listed = bridge.whitelistAllows(whitelistJson, query)
         val trainOk = bridge.releaseTrainMatches(
-            releaseTrainJson, "0.1.0", query.moduleSku, query.firmware, 1,
+            releaseTrainJson, "0.1.0", query.moduleSku, query.firmware, 1, "0.1.0",
         )
         val hostOk = listed || debugBuild
         bridge.guideMarkHostOk(guideHandle, hostOk)
@@ -236,15 +238,19 @@ class GuideViewModel(
         return ""
     }
 
-    fun measureLaserFake(): String {
-        val mm = fakeLaserMm.removeFirstOrNull() ?: 4000.0
+    fun measureLaser(valueMm: Double, instrumentId: String, fake: Boolean): String {
         val id = "m_key_${keyCount + 1}"
-        val err = bridge.setMeasurement(docHandle, id, mm, "laser", "fake_laser", "wall_s")
+        val err = bridge.setMeasurement(docHandle, id, valueMm, "laser", instrumentId, "wall_s")
         if (err.isNotEmpty()) return err
         bridge.guideNoteKey(guideHandle, "laser", false)
         keyCount += 1
-        refresh("laser fake ${mm}mm")
+        refresh(if (fake) "laser fake ${valueMm}mm" else "laser hub ${valueMm}mm id=$instrumentId")
         return ""
+    }
+
+    fun measureLaserFake(): String {
+        val mm = fakeLaserMm.removeFirstOrNull() ?: 4000.0
+        return measureLaser(mm, "fake_laser", fake = true)
     }
 
     fun measureTyped(valueMm: Double, explicit: Boolean): String {

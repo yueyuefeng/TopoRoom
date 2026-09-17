@@ -107,6 +107,7 @@ class FakeTopoRoomBridge : TopoRoomBridge {
         moduleSku: String,
         firmware: String,
         whitelistVersion: Int,
+        hubFirmware: String,
     ) = softwareTag == "0.1.0"
 }
 
@@ -151,6 +152,17 @@ class GuideViewModelTest {
         assertEquals("", vm.addDoor())
         assertEquals("", vm.closeRebuildExport("/tmp/export"))
         assertTrue(vm.state.canExport)
+        vm.dispose()
+    }
+
+    @Test
+    fun hubLaserKeyUsesInstrumentId() {
+        val bridge = FakeTopoRoomBridge()
+        val vm = GuideViewModel(bridge, debugBuild = true)
+        vm.start("doc_1", "{}", WhitelistQuery("Pixel 8", 34), "{}")
+        assertEquals("", vm.addRectangleWalls())
+        assertEquals("", vm.measureLaser(4010.0, "toporoom_hub_c3", fake = false))
+        assertEquals(1, bridge.keys)
         vm.dispose()
     }
 }

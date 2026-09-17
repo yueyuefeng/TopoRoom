@@ -2,6 +2,7 @@
 
 #if defined(ANDROID) || defined(__ANDROID__)
 #include <jni.h>
+#include <vector>
 
 namespace {
 
@@ -270,14 +271,41 @@ Java_com_toporoom_core_NativeCore_nativeIosExternalDepthInP0(JNIEnv* /*env*/,
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_toporoom_core_NativeCore_nativeReleaseTrainMatches(
     JNIEnv* env, jclass /*clazz*/, jstring json, jstring softwareTag, jstring moduleSku,
-    jstring firmware, jint whitelistVersion) {
+    jstring firmware, jint whitelistVersion, jstring hubFirmware) {
   JUtf j(env, json);
   JUtf tag(env, softwareTag);
   JUtf sku(env, moduleSku);
   JUtf fw(env, firmware);
-  return toporoom_release_train_matches(j.c, tag.c, sku.c, fw.c, whitelistVersion)
+  JUtf hub(env, hubFirmware);
+  return toporoom_release_train_matches(j.c, tag.c, sku.c, fw.c, whitelistVersion, hub.c)
              ? JNI_TRUE
              : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_toporoom_core_NativeCore_nativeHubPackMeasureCmd(JNIEnv* env, jclass /*clazz*/,
+                                                          jint timeoutMs) {
+  unsigned char buf[4] = {};
+  if (toporoom_hub_pack_measure_cmd(buf, 4, static_cast<unsigned>(timeoutMs)) != 0) {
+    return env->NewByteArray(0);
+  }
+  jbyteArray out = env->NewByteArray(4);
+  env->SetByteArrayRegion(out, 0, 4, reinterpret_cast<const jbyte*>(buf));
+  return out;
+}
+
+extern "C" JNIEXPORT jdouble JNICALL
+Java_com_toporoom_core_NativeCore_nativeHubParseLengthNotifyMm(JNIEnv* env, jclass /*clazz*/,
+                                                               jbyteArray notify) {
+  if (!notify) return -1.0;
+  const jsize n = env->GetArrayLength(notify);
+  std::vector<unsigned char> bytes(static_cast<std::size_t>(n));
+  env->GetByteArrayRegion(notify, 0, n, reinterpret_cast<jbyte*>(bytes.data()));
+  double mm = -1;
+  if (toporoom_hub_parse_length_notify_mm(bytes.data(), static_cast<int>(n), &mm) != 0) {
+    return -1.0;
+  }
+  return mm;
 }
 
 #endif  // ANDROID

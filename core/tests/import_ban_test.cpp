@@ -25,7 +25,7 @@ bool is_domain_source(const fs::path& path) {
 
 TEST(ImportBan, DomainMustNotImportManifoldThreeOrGodot) {
   const std::regex forbidden(
-      R"(^\s*#\s*include\s*[<"][^>"]*(manifold|three|godot|nlohmann/json|orbbec|realsense|libuvc|android/bluetooth))",
+      R"(^\s*#\s*include\s*[<"][^>"]*(manifold|three|godot|nlohmann/json|orbbec|realsense|libuvc|android/bluetooth|nimble|esp_gatt))",
       std::regex::icase);
   int scanned = 0;
   for (const auto& entry :

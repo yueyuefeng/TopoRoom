@@ -19,6 +19,8 @@ import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.toporoom.core.NativeCore
+import com.toporoom.hw.OrbbecGeminiE
+import com.toporoom.hw.TopoRoomHubBleClient
 
 class MainActivity : android.app.Activity() {
     private lateinit var model: GuideViewModel
@@ -28,6 +30,7 @@ class MainActivity : android.app.Activity() {
     private lateinit var logView: TextView
     private lateinit var typedValue: EditText
     private lateinit var typedExplicit: CheckBox
+    private var hubClient: TopoRoomHubBleClient? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +60,8 @@ class MainActivity : android.app.Activity() {
         root.addView(permissionButton())
         root.addView(action("Draw walls (rectangle)") { model.addRectangleWalls() })
         root.addView(action("Measure key (laser Fake/Replay)") { model.measureLaserFake() })
+        root.addView(hubScanButton())
+        root.addView(hubMeasureButton())
         root.addView(typedValue)
         root.addView(typedExplicit)
         root.addView(action("Measure key (typed)") {
@@ -80,6 +85,7 @@ class MainActivity : android.app.Activity() {
     }
 
     override fun onDestroy() {
+        hubClient?.disconnect()
         model.dispose()
         super.onDestroy()
     }
@@ -106,6 +112,53 @@ class MainActivity : android.app.Activity() {
         return button
     }
 
+    private fun hubScanButton(): Button {
+        val button = Button(this)
+        button.text = "Scan / connect TopoRoom hub (BLE laser)"
+        button.setOnClickListener {
+            requestCapturePermissions()
+            if (hubClient == null) hubClient = TopoRoomHubBleClient(this)
+            Thread {
+                val info = hubClient?.scanAndConnect()
+                runOnUiThread {
+                    if (info == null) {
+                        appendLog("hub: ${hubClient?.lastError ?: "failed"}")
+                    } else {
+                        appendLog("hub connected ${info.address} sku=${info.sku} fw=${info.firmware}")
+                    }
+                    render()
+                }
+            }.start()
+        }
+        return button
+    }
+
+    private fun hubMeasureButton(): Button {
+        val button = Button(this)
+        button.text = "Measure key (BLE hub laser)"
+        button.setOnClickListener {
+            val client = hubClient
+            if (client?.connectedInfo == null) {
+                appendLog("hub not connected — Fake laser still works")
+                render()
+                return@setOnClickListener
+            }
+            Thread {
+                val mm = client.measureMm()
+                runOnUiThread {
+                    if (mm == null) {
+                        appendLog("hub measure: ${client.lastError}")
+                    } else {
+                        val err = model.measureLaser(mm, client.connectedInfo?.sku ?: "toporoom_hub_c3", fake = false)
+                        if (err.isNotEmpty()) appendLog("error: $err")
+                    }
+                    render()
+                }
+            }.start()
+        }
+        return button
+    }
+
     private fun action(label: String, block: () -> String): Button {
         val button = Button(this)
         button.text = label
@@ -123,8 +176,9 @@ class MainActivity : android.app.Activity() {
         reasonView.text = if (s.blockingReason.isEmpty()) "ready" else s.blockingReason
         bannerView.text = when {
             s.usingFakeCapture ->
-                "Fake/Replay capture — emulator/debug, no hardware. Depth: Android-first."
-            s.whitelistOk -> "Host on Android whitelist v1"
+                "Fake/Replay capture — emulator/debug, no hardware. Depth SKU ${OrbbecGeminiE.SKU}."
+            s.whitelistOk ->
+                "Host on Android whitelist v1 · ${OrbbecGeminiE.SKU} FW ${OrbbecGeminiE.FIRMWARE}"
             else -> "Host not listed — capture blocked (debug builds bypass with Fake adapters)"
         }
         logView.text = s.log

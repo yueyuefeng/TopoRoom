@@ -7,14 +7,14 @@ adapter libraries that implement ports in `core/include/toporoom/ports`.
 |---------|------|--------|
 | manifold native | GeometryPort | **P0 done** — `ManifoldGeometryPort`: CrossSection → Extrude → Boolean; only adapter that may include manifold (`elalish/manifold` v3.5.3) |
 | manifold WASM | GeometryPort | Optional desktop/web worker later; not a TS domain |
-| Bluetooth laser | LaserRangefinderPort | **P0 done (CI fake)** — `BluetoothLaserPort` + `FakeBleLaserTransport` / `ReplayLaserPort`; typed fallback `TypedLaserPort`; `source=laser\|typed`. No real BT in CI |
-| vendor SDK depth | DepthStreamPort | **P0 stub + replay** — `VendorSdkDepthAdapter` (primary). Hardware absent in CI; inject `DepthReplayFixture` |
-| UVC depth | DepthStreamPort | **P0 stub + replay** — `UvcDepthAdapter`; principle=`uvc_transport` (UVC ≠ depth principle) |
-| phone IMU | ImuPort | **P0 stub** — `ModuleImuAdapter` / `PhoneImuAdapter` (degraded) / `MissingImuAdapter` (annotate-only) |
+| Bluetooth laser | LaserRangefinderPort | **P0 + hub GATT** — `BluetoothLaserPort` + `HubGattCodec` (golden bytes) + `FakeBleLaserTransport` / `ReplayLaserPort`; Android `TopoRoomHubBleClient` talks to ESP32 hub. Typed fallback `TypedLaserPort`. RF ranging is never a ruler |
+| vendor SDK depth | DepthStreamPort | **`OrbbecGeminiEDepthAdapter`** (SKU `orbbec_gemini_e`, FW 3460, VID 2BC5 PID 065C). CI: replay fixture. Official Orbbec AAR via `mobile/android/ORBBEC.md` — not vendored |
+| UVC depth | DepthStreamPort | **Stub** — `OrbbecGeminiEUvcStub` / `UvcDepthAdapter`; principle=`uvc_transport`. Not a Stage-Gate pass |
+| phone IMU | ImuPort | **P0** — `PhoneImuAdapter` (degraded). Gemini E has no module IMU. Hub BMI270 is a register stub |
 | DXF / PDF / .glb export | Deliverables | **P0 done** — `export_dxf` / `export_pdf` / `export_glb`; mm→m only in glb; StatusGate rejects Fault. Godot 4 sample in `godot/` is read-only |
 | EvidencePack | Sidecar | **P0 stub** — attach/detach metadata; may be empty; never SceneIR (I1 / I5) |
-| ReleaseTrain | Mapping | **P0 stub** — `core/fixtures/release-train.v1.json` software tag ↔ module SKU / firmware / whitelist file version |
-| Android app | Host | **P0 shell** — Gradle + JNI; Fake/Replay in debug; USB/BT permission scaffolding |
+| ReleaseTrain | Mapping | software `0.1.0` ↔ `orbbec_gemini_e` 3460 ↔ hub FW `0.1.0` ↔ whitelist v1 |
+| Android app | Host | Gradle + JNI; Fake/Replay in debug; BLE hub client + USB Gemini E filter |
 | iOS app | Host | **P0 shell** — SwiftUI + ObjC++; typed / Fake loop; no external depth |
 | MEP | MepPort | **P1+ stub** — points/polylines placeholder; `NotImplementedMepAdapter` → `NotInP0` (FR-013 / FR-105) |
 | soft furnishing | FurnishingLibraryPort | **P1+ stub** — catalog/place; `NotImplementedFurnishingAdapter` → `NotInP0` (FR-013 / FR-106) |
