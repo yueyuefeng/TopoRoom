@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Orbbec Gemini E — VID 0x2BC5 PID 0x065C (decimal 11205 / 1628) -->
-    <usb-device vendor-id="11205" product-id="1628" />
+    <!-- Orbbec VID 0x2BC5 (DaBai DCW class). PID not frozen — confirm on unit. -->
+    <usb-device vendor-id="11205" />
+    <!-- Track B generic UVC dual-RGB dongles -->
+    <usb-device />
 </resources>

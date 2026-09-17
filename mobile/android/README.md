@@ -2,22 +2,21 @@
 
 Installable Kotlin app that links `toporoom_core` through JNI (`NativeCore` →
 `toporoom.h`). P0 capture is **Android-first**; debug/emulator builds use
-**Fake/Replay** so no USB depth module or Bluetooth laser is required.
+**Fake/Replay**.
 
-Locked PoC SKU (see [docs/hardware/ADR-001-poc-module-selection.md](../../docs/hardware/ADR-001-poc-module-selection.md)):
+Hardware story (not a Gemini E lock): [ADR-001](../../docs/hardware/ADR-001-poc-module-selection.md).
 
-- Depth: **Orbbec Gemini E** (`orbbec_gemini_e`, FW **3460**, VID `2BC5` PID `065C`)
-- Laser: TopoRoom hub GATT (`toporoom_hub_c3` FW **0.1.0`) bridging a UART JRT/Meskernel module
-- IMU: phone IMU (degraded). Gemini E has no onboard IMU.
+- Depth SKU is **pluggable**: `dabai_dcw` (Track A, ~¥788 ASIC) | `dual_rgb_uvc` (Track B ¥200-band UVC assist) | `fake`
+- Laser: TopoRoom hub GATT (`toporoom_hub_c3` FW **0.1.0**) + UART JRT/Meskernel — **both tracks**
+- IMU: phone IMU (degraded)
+- **No** ¥200 ready-made ASIC depth Type-C accessory is claimed
 
 ## Open in Android Studio
 
 1. Install Android SDK 34 + NDK (side-by-side, CMake 3.22.1) and JDK 17+.
-2. **File → Open** the folder `mobile/android/` (this directory is the Gradle
-   application module).
-3. Let Gradle sync. First native configure downloads Manifold + nlohmann via
-   CMake FetchContent (needs network).
-4. Run the `debug` variant on an emulator or device.
+2. **File → Open** the folder `mobile/android/`.
+3. Let Gradle sync (FetchContent needs network on first native configure).
+4. Run the `debug` variant.
 
 `local.properties` (not committed):
 
@@ -25,94 +24,55 @@ Locked PoC SKU (see [docs/hardware/ADR-001-poc-module-selection.md](../../docs/h
 sdk.dir=/path/to/Android/sdk
 ```
 
-## Hardware bring-up (Stage-Gate)
+## Hardware bring-up
 
 Checklist: [docs/hardware/stage-gate-poc-checklist.md](../../docs/hardware/stage-gate-poc-checklist.md).
 
-### 1. Depth — Gemini E on phone USB Host
+### Laser hub (both tracks)
 
-Gemini E is a **USB device**. The phone is the **USB host** (OTG). The ESP32
-hub does **not** proxy this camera.
+1. Wire UART laser at 3.3 V: [firmware/toporoom-hub/PINOUT.md](../../firmware/toporoom-hub/PINOUT.md).
+2. `cd firmware/toporoom-hub && pio run -e esp32-c3 -t upload` (or `-e esp32-c3-sim`).
+3. nRF Connect: **TopoRoom Hub**, write `01 01 E8 03`, notify on length.
+4. App: **Scan / connect TopoRoom hub** → **Measure key (BLE hub laser)**.
+   **Measure key (laser Fake/Replay)** remains for emulator/CI.
+5. RF / RSSI is never `source=laser`.
 
-1. Prefer a **powered USB 2/3 hub** between phone and Gemini E (`hubSku=powered_hub_a`).
-   Naked OTG (`hubSku=none`) only if that phone survives a 30-minute stream.
-2. Grant **USB Host** when the attach dialog appears (filter VID/PID `2BC5`/`065C`).
-3. Official Orbbec AAR is **not** in this repo. Follow [ORBBEC.md](./ORBBEC.md)
-   to link it, then `OrbbecGeminiEDepthAdapter` can be wired. Until then the
-   C++ adapter throws “SDK not linked” and debug Fake/Replay still works.
-4. Do not treat depth as millimetre-everywhere. Laser (or explicit typed) is
-   the critical-edge source.
+### Track A — DaBai DCW (optional ASIC depth)
 
-### 2. Laser — flash the companion hub, then GATT
+Phone is USB **host**. ESP32 does **not** proxy the camera.
 
-1. Wire JRT M88B / Meskernel LDL-T UART at 3.3 V per
-   [firmware/toporoom-hub/PINOUT.md](../../firmware/toporoom-hub/PINOUT.md).
-2. `cd firmware/toporoom-hub && pio run -e esp32-c3 -t upload`
-   (no laser module yet: `-e esp32-c3-sim`).
-3. nRF Connect: device **TopoRoom Hub**, service `a100`, write `01 01 E8 03`
-   on measure, enable notify on length. See
-   [firmware/toporoom-hub/PROTOCOL.md](../../firmware/toporoom-hub/PROTOCOL.md).
-4. In the app: grant Bluetooth → **Scan / connect TopoRoom hub** →
-   **Measure key (BLE hub laser)**. **Measure key (laser Fake/Replay)** remains
-   for emulator/CI.
-5. RF / RSSI is never stored as `source=laser`.
+1. Prefer a **powered USB hub**. Confirm the listing connector (Type-C vs Micro vs pigtail).
+2. VID `2BC5`; record PID from the unit.
+3. Official OpenNI/SDK is **not** in git. See [DEPTH.md](./DEPTH.md).
+4. Depth is not millimetre-everywhere.
 
-### 3. Whitelist + ReleaseTrain
+### Track B — dual RGB UVC assist
 
-Launch loads `src/main/assets/android-whitelist.v1.json` and
-`release-train.v1.json`:
+UVC preview is **color**, not an ASIC depth stream. `depth_fit` must stay low-confidence.
 
-`0.1.0` ↔ `orbbec_gemini_e` **3460** ↔ hub **0.1.0** ↔ whitelist v1.
+### Whitelist + ReleaseTrain
+
+`0.1.0` ↔ hub **0.1.0** ↔ whitelist v1 ↔ **one of** `fake/replay`, `dabai_dcw/2460`, `dual_rgb_uvc/uvc_host`.
 
 Unlisted emulator: debug builds mark host-OK with Fake/Replay.
 
 ## Fake capture loop (emulator / CI)
 
-On launch the app loads `src/main/assets/android-whitelist.v1.json`. Emulator
-models are **not** listed. **Debug** builds mark the guide host OK anyway and
-show `Fake/Replay capture — emulator/debug, no hardware`.
+Tap **Run Fake one-room loop** (`toporoom_debug_fake_one_room`): 4 walls, 2 Fake laser keys, door, export `room.{glb,dxf,pdf}`.
 
-Tap **Run Fake one-room loop**. That calls `toporoom_debug_fake_one_room`:
-
-1. four exterior walls (4000×3000 mm)
-2. two **laser** key edges (queued Fake lengths 4000 / 3000)
-3. one door opening
-4. close room
-5. export `room.glb`, `room.dxf`, `room.pdf` to app storage
-   (`Android/data/com.toporoom.app/files/export/` or `files/export/`)
-
-Step-by-step buttons (draw walls → laser Fake or typed explicit → door →
-rebuild/export) drive the same C++ `GuidedRoomSession` via JNI.
-
-USB host + Bluetooth permissions are declared in the Manifest;
-**Request USB host / Bluetooth permissions** is runtime scaffolding
-(`BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`, `UsbManager.requestPermission`).
-No vendor SDK binaries are bundled.
-
-## Gradle from the CLI
+## Gradle CLI
 
 ```bash
 cd mobile/android
-./gradlew test          # JVM unit tests (GuideViewModel + FakeTopoRoomBridge + GATT codec)
-./gradlew assembleDebug # needs SDK + NDK; not run in the Linux CMake CI
+./gradlew test
+./gradlew assembleDebug   # needs SDK+NDK; not in Linux CMake CI
 ```
-
-ViewModel tests do **not** load `libtoporoom_jni.so`; they use
-`FakeTopoRoomBridge`. Guide completion rules (`≥2 laser` or typed explicit
-with `≥2 typed`) live in C++ GoogleTest (`GuidedRoom`, `GuidedCaptureLoop`).
 
 ## Layout
 
 ```
 mobile/android/
-  build.gradle.kts              application module (AGP 8.5 / Kotlin 1.9)
-  CMakeLists.txt                libtoporoom_jni.so → ../../core
-  ORBBEC.md                     how to link the official Orbbec AAR
-  src/main/cpp/toporoom_jni.cpp
-  src/main/java/com/toporoom/core/NativeCore.java
-  src/main/java/com/toporoom/app/{MainActivity,GuideViewModel}.kt
-  src/main/java/com/toporoom/hw/  Gemini E constants + BLE hub GATT client
+  DEPTH.md                      Track A/B SDK notes (no vendored blobs)
+  src/main/java/com/toporoom/hw/  DepthSku + BLE hub GATT client
   src/main/assets/{android-whitelist.v1,release-train.v1}.json
-  src/test/java/.../GuideViewModelTest.kt
-  src/test/java/com/toporoom/hw/HubGattCodecTest.kt
 ```

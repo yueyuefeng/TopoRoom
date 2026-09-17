@@ -19,7 +19,7 @@ import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.toporoom.core.NativeCore
-import com.toporoom.hw.OrbbecGeminiE
+import com.toporoom.hw.DepthSku
 import com.toporoom.hw.TopoRoomHubBleClient
 
 class MainActivity : android.app.Activity() {
@@ -176,9 +176,9 @@ class MainActivity : android.app.Activity() {
         reasonView.text = if (s.blockingReason.isEmpty()) "ready" else s.blockingReason
         bannerView.text = when {
             s.usingFakeCapture ->
-                "Fake/Replay capture — emulator/debug, no hardware. Depth SKU ${OrbbecGeminiE.SKU}."
+                "Fake/Replay — emulator/debug. Depth SKU pluggable: fake | dabai_dcw | dual_rgb_uvc."
             s.whitelistOk ->
-                "Host on Android whitelist v1 · ${OrbbecGeminiE.SKU} FW ${OrbbecGeminiE.FIRMWARE}"
+                "Host on Android whitelist v1 · SKU ${DepthSku.FAKE.id}/${DepthSku.DABAI_DCW.id}/${DepthSku.DUAL_RGB_UVC.id}"
             else -> "Host not listed — capture blocked (debug builds bypass with Fake adapters)"
         }
         logView.text = s.log

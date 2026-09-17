@@ -1,8 +1,16 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace toporoom::adapters {
+
+struct ReleaseTrainTrack {
+  std::string id;
+  std::string module_sku;
+  std::string firmware;
+  std::string note;
+};
 
 struct ReleaseTrain {
   int version = 0;
@@ -13,6 +21,7 @@ struct ReleaseTrain {
   std::string hub_firmware;
   std::string whitelist_file;
   int whitelist_version = 0;
+  std::vector<ReleaseTrainTrack> tracks;
 };
 
 ReleaseTrain load_release_train_json(const std::string& json_text);

@@ -108,7 +108,7 @@ nlohmann JSON (JSON stays in adapters).
 3. ~~Bluetooth `LaserRangefinderPort` + typed fallback (`source=laser|typed`).~~ **Done**
    (CI: `FakeBleLaserTransport` / `ReplayLaserPort`. Device: TopoRoom hub GATT.)
 4. ~~`DepthStreamPort` VendorSdk + UVC + replay fixture; Android whitelist.~~ **Done**
-   (`orbbec_gemini_e` FW 3460; UVC stub only. Official Orbbec AAR not vendored.)
+   (Pluggable `dabai_dcw` \| `dual_rgb_uvc` \| `fake`. No Gemini E lock. No ¥200 ASIC Type-C claim.)
 5. ~~JNI/NDK + Swift UI: guided capture, runtime permission prompts, USB/BT UX.~~ **Done**
    (`GuidedRoomSession`: host OK, ≥4 walls, ≥1 opening, rebuild OK, and ≥2 laser
    key edges **or** typed explicit with ≥2 typed. `EvidencePack` sidecar may be

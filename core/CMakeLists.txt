@@ -37,7 +37,7 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/laser_adapters.cpp
   src/adapters/hub_gatt_codec.cpp
   src/adapters/depth_adapters.cpp
-  src/adapters/orbbec_gemini_e_adapter.cpp
+  src/adapters/pluggable_depth_adapter.cpp
   src/adapters/android_whitelist.cpp
   src/adapters/imu_adapters.cpp
   src/app/laser_capture_service.cpp
@@ -135,7 +135,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/laser_port_test.cpp
     tests/hub_protocol_test.cpp
     tests/depth_port_test.cpp
-    tests/orbbec_gemini_e_test.cpp
+    tests/pluggable_depth_test.cpp
     tests/android_whitelist_test.cpp
     tests/imu_port_test.cpp
     tests/guided_room_test.cpp

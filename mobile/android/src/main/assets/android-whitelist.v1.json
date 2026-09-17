@@ -2,7 +2,7 @@
   "version": 1,
   "platform": "android",
   "iosExternalDepth": "out_of_p0",
-  "note": "iOS external Type-C depth is out of P0. Bluetooth is transport only. Depth SKU orbbec_gemini_e FW 3460. Companion BLE hub toporoom_hub_c3 FW 0.1.0 is not a USB hub. hubSku is the USB power path (powered_hub_a vs none).",
+  "note": "iOS external depth is out of P0. Bluetooth is transport only. Depth SKUs are pluggable: dabai_dcw (Track A, FW 2460), dual_rgb_uvc (Track B, uvc_host), fake (CI). Companion BLE hub toporoom_hub_c3 FW 0.1.0 is not a USB hub. hubSku is the USB power path.",
   "companionHubSku": "toporoom_hub_c3",
   "companionHubFirmware": "0.1.0",
   "requiredPermissions": [
@@ -15,8 +15,8 @@
     {
       "phoneModel": "Pixel 8",
       "androidApi": 34,
-      "moduleSku": "orbbec_gemini_e",
-      "firmware": "3460",
+      "moduleSku": "dabai_dcw",
+      "firmware": "2460",
       "hubSku": "powered_hub_a",
       "appVersion": "0.1.0",
       "usbHost": true,
@@ -26,8 +26,19 @@
     {
       "phoneModel": "Pixel 8",
       "androidApi": 34,
-      "moduleSku": "orbbec_gemini_e",
-      "firmware": "3460",
+      "moduleSku": "dual_rgb_uvc",
+      "firmware": "uvc_host",
+      "hubSku": "none",
+      "appVersion": "0.1.0",
+      "usbHost": true,
+      "otg": true,
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "USB_HOST", "USB_DEVICE"]
+    },
+    {
+      "phoneModel": "Pixel 8",
+      "androidApi": 34,
+      "moduleSku": "fake",
+      "firmware": "replay",
       "hubSku": "none",
       "appVersion": "0.1.0",
       "usbHost": true,
@@ -37,8 +48,8 @@
     {
       "phoneModel": "SM-S911B",
       "androidApi": 33,
-      "moduleSku": "orbbec_gemini_e",
-      "firmware": "3460",
+      "moduleSku": "dabai_dcw",
+      "firmware": "2460",
       "hubSku": "powered_hub_a",
       "appVersion": "0.1.0",
       "usbHost": true,
@@ -48,8 +59,8 @@
     {
       "phoneModel": "2201123G",
       "androidApi": 33,
-      "moduleSku": "orbbec_gemini_e",
-      "firmware": "3460",
+      "moduleSku": "dabai_dcw",
+      "firmware": "2460",
       "hubSku": "powered_hub_a",
       "appVersion": "0.1.0",
       "usbHost": true,

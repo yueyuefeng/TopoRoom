@@ -15,8 +15,8 @@ data class GuideUiState(
 data class WhitelistQuery(
     val phoneModel: String,
     val androidApi: Int,
-    val moduleSku: String = "orbbec_gemini_e",
-    val firmware: String = "3460",
+    val moduleSku: String = "fake",
+    val firmware: String = "replay",
     val hubSku: String = "none",
     val appVersion: String = "0.1.0",
 )

@@ -1,8 +1,8 @@
 # TopoRoom hub pinout
 
-The ESP32 is a **BLE + UART companion**. It does **not** carry Gemini E USB
-traffic. Plug Gemini E into the **phone** (OTG) or a **powered USB hub** on
-the phone.
+The ESP32 is a **BLE + UART companion**. It does **not** carry phone USB
+video. Plug Track A (DaBai DCW) or Track B (dual-RGB UVC) into the **phone**
+(OTG) or a **powered USB hub**.
 
 Laser UART is 3.3 V TTL. Confirm the OEM module voltage before wiring 5 V.
 
@@ -15,7 +15,7 @@ Laser UART is 3.3 V TTL. Confirm the OEM module voltage before wiring 5 V.
 | Laser EN / MOSFET gate | **6** | out | Active high; optional. Leave unconnected if the module is always on. |
 | I2C SDA (BMI270 stub) | **8** | i2c | P0 unused; future IMU |
 | I2C SCL (BMI270 stub) | **9** | i2c | |
-| USB-CDC serial | USB | debug | Logs only. **Not** Gemini E. |
+| USB-CDC serial | USB | debug | Logs only. **Not** the depth camera. |
 
 Default baud: **19200 8N1** (`LASER_UART_BAUD`). Meskernel sheets also list 115200 — override in `platformio.ini`.
 
@@ -36,13 +36,13 @@ Do not connect USB-UART 5 V adapters to the module VCC.
 Distance scale: `LASER_DIST_SCALE` (default **1** = millimetres). Some OEM
 firmwares report 0.1 mm; set scale to `10` if golden UART frames look 10× high.
 
-## Phone-side USB (Gemini E)
+## Phone-side USB (not this MCU)
 
-| Item | Value |
-|------|-------|
-| Role | Phone = USB **Host**; Gemini E = USB **Device** |
-| VID/PID | `0x2BC5` / `0x065C` |
-| Power | USB 2.0, ~2.3 W avg. Prefer a **powered USB hub**. |
+| Item | Track A DaBai DCW | Track B dual RGB UVC |
+|------|-------------------|----------------------|
+| Role | Phone = USB **Host**; camera = **Device** | Same |
+| VID | Orbbec `0x2BC5` (PID: record on unit) | Vendor-specific UVC |
+| Power | USB 2.0, ~2.3 W class; prefer **powered hub** | Usually lighter |
 
 ## BMI270 stub (future)
 

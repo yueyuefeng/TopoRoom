@@ -3,9 +3,9 @@
 PlatformIO firmware for **ESP32-C3** (default) or **ESP32-S3**: BLE GATT
 laser profile + UART driver for a JRT M88B / Meskernel LDL-T class module.
 
-This MCU is **not** on the Gemini E USB path. Phone OTG (or a powered USB
-hub) hosts the depth camera. See [PINOUT.md](./PINOUT.md) and
-[PROTOCOL.md](./PROTOCOL.md).
+This MCU is **not** on the USB depth path. Phone OTG (or a powered USB hub)
+hosts Track A DaBai DCW or Track B dual-RGB UVC. See [PINOUT.md](./PINOUT.md)
+and [PROTOCOL.md](./PROTOCOL.md).
 
 SKU `toporoom_hub_c3` · FW **0.1.0** · ReleaseTrain binds this semver.
 

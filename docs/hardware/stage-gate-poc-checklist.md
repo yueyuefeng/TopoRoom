@@ -1,106 +1,113 @@
-# Stage-Gate PoC checklist — Gemini E + TopoRoom hub
+# Stage-Gate PoC checklist — dual track (DaBai DCW **or** ¥200 laser+UVC)
 
-Locked SKUs: see [ADR-001](./ADR-001-poc-module-selection.md). **Fail any hardware gate → change SKU / phone; do not open moulds** (NFR-007).
+See [ADR-001](./ADR-001-poc-module-selection.md). **No Gemini E lock.**  
+**Fail a hardware gate → change SKU / phone / track; do not open moulds.**
 
-Software tag under test: **0.1.0**  
-Depth: **`orbbec_gemini_e` FW 3460** (VID `0x2BC5` PID `0x065C`)  
-Companion hub: **`toporoom_hub_c3` FW 0.1.0**  
-Whitelist file: `core/fixtures/android-whitelist.v1.json` (copied to the Android app assets)
+Software tag: **0.1.0**  
+Hub (both tracks): **`toporoom_hub_c3` FW 0.1.0**  
+Whitelist: `core/fixtures/android-whitelist.v1.json`
 
-## What this gate is (and is not)
+Pick **one** depth track before the review:
 
-| In | Out |
-|----|-----|
-| ≥30 min depth **preview stream** on a **listed** phone | “Depth is millimetre-accurate everywhere” |
-| Guided one-room capture | Custom enclosure / certification |
-| **≥2** SceneIR key edges with `source=laser` (or explicit `typed`) | RF BLE proximity as a ruler |
-| Export DXF + PDF; `.glb` only if Status is OK | iOS external depth |
-| Documented OTG vs powered-hub behaviour | EVT tooling |
+| Track | `moduleSku` | Firmware token | ASIC depth stream? |
+|-------|-------------|----------------|--------------------|
+| **A** | `dabai_dcw` | `2460` | Yes (OpenNI / SDK v1) |
+| **B** | `dual_rgb_uvc` | `uvc_host` | **No** — UVC assist only |
+| CI | `fake` | `replay` | Replay |
 
-CI Fake/Replay passing is **necessary** and **not sufficient** for this gate.
+Do **not** claim a ¥200 Type-C ASIC depth accessory. Depth is never millimetre-everywhere; **laser** (or explicit `typed`) is the critical-edge source.
 
-## Gate A — Kit + identity
+CI Fake/Replay is **necessary** and **not sufficient** for a hardware Go.
 
-- [ ] Gemini E enumerates as USB device on the phone (`dmesg` / Android USB Host: VID **2BC5** PID **065C**).
-- [ ] App loads whitelist v1 + ReleaseTrain; listed phone shows **Host on Android whitelist** (not Fake/Replay banner).
-- [ ] `ReleaseTrain` matches: software `0.1.0` + `orbbec_gemini_e` + FW `3460` + hub FW `0.1.0` + whitelist version `1`.
-- [ ] Unlisted phone is **experimental / Fake** in debug, never advertised as certified.
-- [ ] Hub firmware reports SKU `toporoom_hub_c3` and semver `0.1.0` over GATT (nRF Connect or app).
+## Gate 0 — Identity (both tracks)
 
-## Gate B — Power / OTG (USB2)
+- [ ] App loads whitelist v1 + ReleaseTrain; listed combo matches **this** track’s SKU/FW + hub `0.1.0`.
+- [ ] Unlisted phone is experimental / Fake in debug, never “certified”.
+- [ ] Hub GATT: name **TopoRoom Hub**, SKU `toporoom_hub_c3`, semver `0.1.0`.
+- [ ] Operator can still complete guided capture with **Fake laser** on emulator.
 
-Record **phone model, API, cable, hub SKU** for each row. Naked OTG is allowed only if it survives Gate C.
+## Gate L — Hub GATT + laser (both tracks — this is the millimetre gate)
 
-| Phone (example whitelist) | `hubSku=none` (naked OTG) | `hubSku=powered_hub_a` | Result |
-|---------------------------|---------------------------|-------------------------|--------|
+RF / RSSI fail.
+
+- [ ] Flash `firmware/toporoom-hub` (`esp32-c3` or `esp32-c3-sim`).
+- [ ] nRF Connect: service `a100`; write `01 01 E8 03`; length notify `source=laser`.
+- [ ] App: two guided keys with `source=laser` and `instrumentId=toporoom_hub_c3` (or Fake in CI).
+
+## Track A gates — DaBai DCW (~¥800 ASIC)
+
+VendorSdk / OpenNI path. Dual-RGB UVC does **not** pass Track A.
+
+### A1 Kit
+
+- [ ] Module is a named **DaBai DCW** (or recorded substitute DaBai DW/DCW2 with quote). Street class **~¥788**, **not ¥200**.
+- [ ] USB VID **2BC5**; PID recorded from the unit (not assumed `065C`).
+- [ ] Connector recorded (Type-C / Micro / pigtail). Cable SKU recorded.
+- [ ] Camera FW class **2460** (or the number the SDK reports) written into session meta.
+
+### A2 Power / OTG
+
+| Phone | `hubSku=none` | `hubSku=powered_hub_a` | Result |
+|-------|---------------|------------------------|--------|
 | Pixel 8 / API 34 | | | |
-| SM-S911B (Galaxy S23) / API 33 | | | |
-| 2201123G (Xiaomi 12) / API 33 | | | |
+| SM-S911B / API 33 | | | |
+| 2201123G / API 33 | | | |
 
-Notes to capture:
+- [ ] Brown-out / USB drop notes. Default assumption: **powered hub**.
 
-- [ ] Brown-out, thermal throttle, or USB disconnect during stream.
-- [ ] Whether a **powered hub** is mandatory (default assumption: **yes**).
-- [ ] Cable length / C-C vs hub C-A. Do not mix unlisted cables into a “pass”.
+### A3 Stream (≥30 min)
 
-## Gate C — Depth stream (≥30 min)
+- [ ] Official OpenNI/Orbbec bits linked per `mobile/android/DEPTH.md` (not committed blobs).
+- [ ] Depth **preview** starts; unplug surfaces a transport error.
+- [ ] **≥30 min** continuous stream on **≥1** whitelist phone.
+- [ ] Operator does **not** treat depth picks as construction mm.
 
-VendorSdk path only for pass/fail. UVC stub does **not** count.
+If the SDK is not linked, Track A is **open**. Hub/GATT work can proceed.
 
-- [ ] Official Orbbec Android AAR linked per `mobile/android/ORBBEC.md` (not a random blob in git).
-- [ ] Depth preview starts; disconnect surfaces a transport error (not a silent freeze).
-- [ ] **Continuous stream ≥ 30 minutes** on **at least one** whitelist phone without process death or USB drop.
-- [ ] Firmware string read from the device is recorded (expect **3460** class).
-- [ ] Operator does **not** treat depth point-picks as construction millimetres.
+### A4 Guided + export
 
-If the AAR is not yet linked, this gate is **open**. Firmware/GATT work can proceed; **PoC is not closed**.
+- [ ] Guided room; **≥2** `source=laser` (or explicit typed) keys; ≥1 opening; rebuild.
+- [ ] DXF+PDF; `.glb` only if Status OK.
 
-## Gate D — Hub GATT + laser (critical edges)
+## Track B gates — ¥200 band (laser + UVC assist)
 
-RF / RSSI / iBeacon-style ranging is an automatic fail.
+Passing Track B is **not** passing Track A. Do not write “we have a depth camera” in the Go memo.
 
-- [ ] Flash `firmware/toporoom-hub` (PlatformIO `esp32-c3` or `esp32-s3`).
-- [ ] nRF Connect (or equivalent) sees:
-  - Device name **TopoRoom Hub**
-  - Service `0000a100-7e90-4c4a-9b1e-746f706f726d`
-  - Device Information Service (`180A`) SKU/FW
-  - Length characteristic **Notify**
-- [ ] Write measure command golden bytes `01 01 E8 03` → notify `length_mm` with `source=laser`.
-- [ ] UART laser (or `esp32-c3-sim` for radio-only bring-up) never labels RF as length.
-- [ ] App **Fake laser still works** on emulator/debug without a hub.
-- [ ] On a real hub: two guided key edges written with `source=laser` and `instrumentId` = hub SKU.
+### B1 Kit (stay honest about ¥)
 
-## Gate E — Guided room + export
+- [ ] Dual-RGB (or single) **UVC** module street price recorded (**~¥80–200**).
+- [ ] Laser+hub prices recorded. Combined kit may be **~¥200–420**; still call UVC the ¥200 **camera** line, not an ASIC depth dongle.
+- [ ] No VL53L5CX claimed as room depth.
 
-- [ ] Guided session: walls → **≥2 laser (or explicit typed)** keys → ≥1 opening → rebuild.
-- [ ] SceneIR measurements show `laser` (preferred) or `typed` with the explicit flag.
-- [ ] Export **DXF + PDF** always when generated.
-- [ ] **`.glb` only when Status is OK**; Fault rejects structural solid.
-- [ ] Godot 4 can open the `.glb` (read-only). Optional if the operator has Godot; not a firmware fail.
+### B2 UVC assist (optional for Go, required if SKU is `dual_rgb_uvc`)
 
-## Gate F — IMU degrade labelling
+- [ ] Android sees a UVC device (USB Host permission).
+- [ ] Preview is **color** (or dual color). App labels it **not ASIC depth**.
+- [ ] Any `depth_fit` measurement is **low-confidence** in UI; must not overwrite `laser`/`typed`.
+- [ ] 30-minute **UVC color** preview may be recorded as a power/USB note; it does **not** replace Track A’s depth-stream gate.
 
-- [ ] P0 uses **phone IMU**; UI/log mentions module IMU missing / degraded.
-- [ ] Hub BMI270 stub does not pretend to be a calibrated body IMU.
+### B3 Guided + export (this **is** the Track B product gate)
 
-## Gate G — Paperwork to close PoC
+- [ ] Guided room on whitelist or debug-Fake host.
+- [ ] **≥2 laser** keys (hub GATT or Fake in lab with a recorded exception).
+- [ ] DXF+PDF; `.glb` if Status OK.
+- [ ] SceneIR shows laser/typed; `depth_fit` if present is visibly low-confidence.
 
-- [ ] Filled table in Gate B (3 phones × hub/no-hub as required by FINAL §7.2).
-- [ ] Problem list (USB drops, SDK crashes, UART dialects) with owner.
-- [ ] This checklist signed with software tag, camera FW, hub FW, whitelist file version.
-- [ ] **Go / No-Go:** No-Go means **another SKU or phone**, not tooling.
+## Gate I — IMU
 
-## Operator script (happy path)
+- [ ] Phone IMU; degraded label. Hub BMI270 stub is not a body IMU.
 
-1. Powered USB hub → phone Host port; Gemini E on a hub downstream port; hub self-powered.
-2. Flash ESP32; laser UART 3.3 V; EN GPIO as in `firmware/toporoom-hub/PINOUT.md`.
-3. Install debug or release APK; grant USB Host + Bluetooth.
-4. Confirm whitelist host-OK; connect **TopoRoom Hub**; take two laser keys on a rectangular room.
-5. Start depth preview; leave streaming **30 min** while filling the power table.
-6. Finish guided capture; export; attach logs + SceneIR JSON to the evidence folder (EvidencePack may stay empty).
+## Gate P — Paperwork
 
-## Talk-track red lines (repeat at the review)
+- [ ] Track letter **A or B** on the cover.
+- [ ] Quotes / screenshots for the camera line (¥788 vs ¥200 class).
+- [ ] Problem list. **Go / No-Go** per track.
+- [ ] No-Go on “need ASIC depth at ¥200” → **Track A**, not a fictional SKU.
 
-- Depth is for **layout / fit**, not promised millimetres.
-- Laser (or explicit typed) is the **critical-edge** source.
-- Supported phones = **published whitelist only**.
+## Talk-track red lines
+
+- No “¥200 Type-C ASIC depth phone dongle” without a named listing.
+- No “Gemini E locked”.
+- No millimetre-everywhere depth.
+- Laser (or explicit typed) for critical edges.
+- Supported phones = whitelist only.

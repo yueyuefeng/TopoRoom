@@ -1,6 +1,7 @@
 package com.toporoom.hw
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,14 +40,17 @@ class HubGattCodecTest {
     }
 }
 
-class OrbbecGeminiETest {
+class DepthSkuTest {
     @Test
-    fun skuLockedAndSdkNotVendored() {
-        assertEquals("orbbec_gemini_e", OrbbecGeminiE.SKU)
-        assertEquals(0x2BC5, OrbbecGeminiE.VID)
-        assertEquals(0x065C, OrbbecGeminiE.PID)
-        assertEquals("3460", OrbbecGeminiE.FIRMWARE)
-        assertTrue(!OrbbecGeminiE.sdkLinked())
-        assertTrue(OrbbecGeminiE.openHint().contains("ORBBEC.md"))
+    fun pluggableSkusNoGeminiLock() {
+        assertEquals("dabai_dcw", DepthSku.DABAI_DCW.id)
+        assertEquals("2460", DepthSku.DABAI_DCW.firmware)
+        assertTrue(DepthSku.DABAI_DCW.asicDepth)
+        assertEquals("dual_rgb_uvc", DepthSku.DUAL_RGB_UVC.id)
+        assertTrue(DepthSku.DUAL_RGB_UVC.depthFitLowConfidence)
+        assertFalse(DepthSku.DUAL_RGB_UVC.asicDepth)
+        assertEquals("fake", DepthSku.FAKE.id)
+        assertNull(DepthSku.fromId("orbbec_gemini_e"))
+        assertTrue(DepthSku.openHint(DepthSku.DABAI_DCW).contains("¥788"))
     }
 }

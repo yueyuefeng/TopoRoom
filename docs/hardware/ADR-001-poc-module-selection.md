@@ -1,80 +1,97 @@
-# ADR-001 — PoC module selection (cheapest P0-compliant path)
+# ADR-001 — China sourcing and the ¥200 budget (PoC tracks)
 
-- **Status:** Accepted (locked for Stage-Gate PoC)
-- **Date:** 2026-09-17
-- **Context:** FINAL hardware spec requires an off-the-shelf Type-C depth module + Bluetooth **laser** (RF BLE ranging is never a ruler) + Android whitelist. User selected the **cheapest P0-compliant** kit. This ADR freezes SKUs so software `ReleaseTrain` and hub firmware can bind.
+- **Status:** Accepted for research conclusion; **no single depth SKU is locked**
+- **Date:** 2026-09-17 (supersedes the Gemini E lock)
+- **Context:** P0 wants a cheap Type-C depth accessory + Bluetooth **laser** (RF BLE ranging is never a ruler) + Android whitelist. The user rejected an imported Gemini E / RealSense pricing narrative and asked for **China-made modules around ¥200 RMB**.
 
-## Decision
+## Decision (dual track — not a Gemini E lock)
 
-| Role | Locked SKU | Why |
-|------|------------|-----|
-| Depth | **Orbbec Gemini E** (`orbbec_gemini_e`) | Cheapest **USB-C** module with an official Android SDK path (Orbbec SDK v1 / OpenNI wrapper, camera FW **3460**). Phone is USB **host** (OTG); Gemini E is the USB **device**. |
-| Laser | **JRT M88B / Meskernel LDL-T class** UART OEM module, bridged by **TopoRoom hub** | Time-of-flight **laser** millimetres, not RF proximity. Cheap UART modules have no stable public BLE GATT; the ESP32 hub owns the TopoRoom GATT profile. |
-| Companion hub | **ESP32-C3** (S3 alt) `toporoom_hub_c3` FW **0.1.0** | BLE GATT + UART laser (+ BMI270 register stub). **Not** a USB hub and **not** on the Gemini E data path. |
-| IMU | **Phone IMU** (P0) | Gemini E has **no** onboard IMU. Hub may stub BMI270 later. UI must mark degrade. |
-| Depth adapter | **VendorSdk primary** (`OrbbecGeminiEDepthAdapter`) | UVC is a **transport stub only** if a later firmware exposes it. UVC ≠ depth principle. |
+There is **no evidence** of a ready-made **ASIC depth** Type-C phone accessory on the open China market at **~¥200**. Claiming that product exists is forbidden until a named SKU, shop listing, and USB identity are attached.
 
-**ReleaseTrain bind:** software tag `0.1.0` ↔ `orbbec_gemini_e` FW `3460` ↔ hub FW `0.1.0` ↔ `android-whitelist.v1.json`.
+| Track | Depth SKU | Street (CNY, ballpark, not a PO) | What you actually get | When to use |
+|-------|-----------|----------------------------------|------------------------|-------------|
+| **A — ASIC depth** | **`dabai_dcw`** 奥比中光 DaBai DCW | **~¥788** (Taobao listing class; confirm live quote) | USB **2.0** structured-light camera with on-module ASIC; Android **OpenNI / Orbbec SDK v1** path; FW class **2460**; **no IMU** | Must have a productized depth **stream** on a whitelist phone |
+| **B — ¥200 band** | **`dual_rgb_uvc`** (+ laser hub) | Dual-RGB UVC dongle **~¥80–200**; VL53L5CX breakouts **~¥20–80** | **No** on-module depth ASIC. UVC = two color sensors (or one). Tiny ToF = **8×8 zones**, I2C, not a room camera | Stay near ¥200; **laser** is the millimetre source; `depth_fit` is **low-confidence assist only** |
+| **CI** | **`fake`** | ¥0 | Replay fixture | Emulator / GoogleTest |
 
-## Alternatives considered
+**Always (both tracks):** ESP32 companion hub `toporoom_hub_c3` FW **0.1.0** bridging a JRT M88B / Meskernel LDL-T class **UART laser** onto TopoRoom BLE GATT. Laser (or explicit `typed`) is the critical-edge source.
 
-| Option | Interface | Onboard IMU | Android SDK | Street BOM (CNY, **ballpark** 2026, not a quote) | Why not P0-cheapest |
-|--------|-----------|-------------|-------------|----------------------|---------------------|
-| **Gemini E (locked)** | USB-C, **USB 2.0**, ~2.3 W avg / <5 W peak | **No** | Orbbec SDK **v1** (Gemini E listed, FW 3460). **Not** on Orbbec SDK v2 Android support matrix. | Module **~800–2500** | Selected. |
-| Astra Mini S Type-A | USB-**A**; needs OTG adapter / gender + extra cable SKU | No | Legacy OpenNI; Type-A on modern phones is a whitelist and mechanical failure magnet | Module **~400–1200** + adapter | Headline cheaper, **not cheaper in system cost** (adapter, support, USB-A host quirks). Type-A is a PoC tax. |
-| Astra 2 | USB-C, USB 3 capable | **Yes** | SDK v1 + v2 “recommended for new designs” | Module **~2500–5000** | Better IMU/USB3 headroom; **over the cheapest-P0 budget**. Revisit if Gemini E fails Stage-Gate power/SDK. |
+**ReleaseTrain:** software `0.1.0` ↔ hub FW `0.1.0` ↔ whitelist v1 ↔ **one of** `{dabai_dcw / 2460, dual_rgb_uvc / uvc_host, fake / replay}`.
 
-Laser alternatives:
+Gemini E (~**¥1.3k** retail class) and other Orbbec SKUs above DaBai DCW are **out of the cheapest China path**. Orbbec (奥比中光) **is** Shenzhen Chinese; price, not nationality, is why Gemini E is not selected.
 
-| Option | Notes |
-|--------|--------|
-| Consumer BLE laser (Bosch / Mileseey / similar) | Often **closed** GATT; pairing UX varies; RF-looking “measure” apps must not be confused with laser. Higher unit cost. |
-| UART OEM (JRT M88B / Meskernel LDL-T) + ESP32 GATT | **Locked.** We own the profile, golden bytes, and `source=laser` path. ~80–250 CNY module + ~20–50 CNY MCU. |
-| Phone AR / depth-only edges | Forbidden as critical-edge millimetres (NFR-003 / talk-track red line). |
+## What ¥200 can and cannot buy
 
-## BOM ballpark (PoC kit, not a purchase order)
+Open-market China (Taobao / 立创 / 模块城, 2026 ballpark). Quotes move; this table is **research, not inventory**.
 
-Amounts are order-of-magnitude **CNY** for one engineering kit. Confirm with a quote before EVT.
+| What shows up near ¥200 | Typical interface | On-module depth ASIC? | Plug Type-C → Android **depth stream**? | Notes |
+|-------------------------|-------------------|------------------------|------------------------------------------|-------|
+| Dual RGB / “双目 USB” UVC dongle | USB-A, sometimes C pigtail; **UVC color** | **No** | **No** (color/UVC only unless the **phone** runs stereo — not a P0 productized depth camera) | Track B assist |
+| Single UVC webcam | USB-A/C | No | No | Useless as depth |
+| VL53L5CX / VL53L1X ToF breakout | I2C / UART, not Type-C depth | Tiny ToF **8×8** (or 1-zone) | **No** | Ranging toy / obstacle; not 户型 |
+| Unlabelled “3D相机 <¥200” | Mixed | Usually **no**; ask for ASIC + SDK | Do not assume | Reject without datasheet + Android SDK |
+| **DaBai DCW** | USB **2.0** (confirm **connector** on the listing: Type-C vs Micro vs pigtail) | **Yes** (奥比 ASIC / OpenNI) | Closest **China** productized path; **not ¥200** | Track A, ~¥788 |
+| DaBai / DaBai DW / DCW2 | USB 2.0 | Yes | Same class, often **more** than DCW | Optional if DCW is OOS |
+| Gemini E | USB-C USB2 | Yes | Yes on SDK **v1** (FW 3460) | **~¥1.3k** — rejected for this budget |
+| Astra Mini S Type-A | USB-A | Yes | Adapter tax | Not ¥200; Type-A is a support tax |
+| Intel RealSense | USB-C, import | Yes | Yes | Import narrative rejected |
 
-| Line | Qty | Ballpark CNY | Notes |
-|------|-----|--------------|-------|
-| Orbbec Gemini E (USB-C dongle/module) | 1 | 800–2500 | USB 2.0; no IMU |
-| JRT M88B or Meskernel LDL-T UART laser | 1 | 80–250 | Class 2; do not stare into beam |
-| ESP32-C3 DevKit (or S3) | 1 | 20–50 | Companion hub only |
-| Powered USB **2.0/3.0** hub + short C-C / C-A cable | 1 | 40–150 | Treat as **default** for ≥30 min stream |
-| Dupont / 3.3 V level to laser UART | 1 | 5–20 | Laser is usually 3.3 V TTL; check OEM sheet |
-| Whitelist Android phones (Pixel 8, Galaxy S23, Xiaomi 12, …) | 3 | pool | Host; not in accessory BOM |
-| **Kit total (accessories)** | | **~1000–3000** | vs Astra 2 kit **~3000–6000+** |
+**Hard statement:** a ¥200 **ready-made ASIC depth Type-C phone accessory** is **not** documented here. Track B must not be marketed as one.
 
-Open-mould enclosure, certification, and custom flex are **out of PoC**. Fail Stage-Gate → change SKU; **do not tool**.
+## Track A — DaBai DCW (~¥800) if ASIC depth is mandatory
 
-## USB roles (do not confuse the two “hubs”)
+- Maker: 奥比中光 (Shenzhen). USB 2.0 structured light; official pages: work distance **0.2–2.5 m**, relative precision on the order of **~1% @ 1 m** (not millimetres), avg power **&lt;2.3 W**, **IMU not supported**.
+- Host path: Android **OpenNI2** (`openni2.3.jar` + `liborbbec*.so`) or Orbbec SDK **v1**. **Not** assumed on SDK v2 Android “new design” lists. Do not vendor AARs in git (`mobile/android/DEPTH.md`).
+- USB: VID **0x2BC5**. PID is **not** frozen here (do not copy Gemini E `065C`). Record `lsusb` / Android UsbDevice on first unit.
+- Connector: **confirm the SKU photo**. USB 2.0 ≠ Type-C. If the listing is Micro-B or a board-level pigtail, budget an OTG cable SKU.
+- Depth is **layout / fit**, never construction millimetres.
+
+## Track B — ¥200 band: laser + UVC assist
+
+BOM intuition (one kit, ballpark CNY):
+
+| Line | ¥ | Role |
+|------|---|------|
+| Dual-RGB UVC module | 80–200 | Assist only; `principle=uvc_transport` |
+| JRT/Meskernel UART laser | 80–150 | **Critical edges** `source=laser` |
+| ESP32-C3 DevKit | 20–50 | GATT hub, not USB video |
+| Dupont / 3.3 V | 5–20 | Laser UART |
+| **UVC+laser+hub** | **~200–420** | Still **below** DaBai ~788; UVC piece alone can sit in ¥200 |
+| Phone | pool | Host IMU (degraded) |
+
+Rules:
+
+- SceneIR key edges: **`laser` or explicit `typed`**. Never silent `depth_fit` as a promised millimetre.
+- If Track B writes `depth_fit`, UI **must** show **low confidence** (UVC stereo / sparse ToF is not an ASIC depth camera).
+- VL53L5CX is **not** a substitute for a depth dongle.
+- RF BLE / RSSI is never a ruler.
+
+## USB roles (both tracks)
 
 ```
 Whitelist Android phone (USB Host + BLE Central)
-  ├─ USB OTG / powered USB hub ── USB-C ── Gemini E  (USB Device, VID 2BC5 PID 065C)
-  └─ BLE ── TopoRoom hub ESP32 ── UART ── JRT/Meskernel laser
-                 │
-                 └─ optional I2C BMI270 (stub; P0 unused)
+  ├─ USB OTG / powered hub ── USB device ── Track A: DaBai DCW
+  │                                      or Track B: dual-RGB UVC
+  └─ BLE ── TopoRoom hub ESP32 ── UART ── laser (critical mm)
 ```
 
-- **Gemini E** enumerates on the **phone**. The ESP32 does **not** proxy USB video.
-- **Powered USB hub** = current budget for USB2 depth. Separate SKU (`powered_hub_a` vs `none` for phones that survive naked OTG).
-- **TopoRoom hub** = BLE identity + laser millimetres. Firmware stays BLE+UART.
+The ESP32 does **not** proxy USB video. Powered USB hub is the default for Track A USB2 current; Track B UVC is usually lighter.
 
-## Risks (accepted for PoC)
+## Software mapping
 
-1. **No onboard IMU.** Gravity align is **phone IMU**, marked degraded. Hub BMI270 is a register stub only.
-2. **USB 2.0 power.** ~2.3 W average on a phone OTG port browns out, throttles, or drops the camera. Default fixture is a **powered hub**. `hubSku=none` is only for phones that pass the 30-minute gate without it.
-3. **Android whitelist.** Gemini E is on **SDK v1** (min FW 3460), not the v2 Android “new design” list. Some Android 10 images need the historic `targetSdk 27` USB-camera workaround — document per phone, do not claim “any USB-C phone”.
-4. **Depth is not a millimetre ruler.** Vendor precision is on the order of **~1% at 1 m** (and worse at 2 m), range **0.2–2.5 m**. Critical edges **must** be laser (or explicit `typed`). Do not market “mm everywhere”.
-5. **UVC secondary is a stub.** Do not assume Gemini E exposes a stable UVC depth stream; VendorSdk is the only PoC path.
-6. **OEM UART dialects.** JRT/Meskernel frames are documented with golden bytes; baud and distance scale are compile-time. A different OEM firmware can still speak “almost” the same frame — PoC must log raw UART on first bring-up.
-7. **Laser safety.** Class 2 handheld; never treat RF RSSI as length.
+Pluggable `DepthStreamPort` SKU: `dabai_dcw` | `dual_rgb_uvc` | `fake`.
+No Gemini E AAR wiring as a PoC gate. Domain stays free of vendor USB/BLE includes.
+
+## Risks
+
+1. **¥200 ≠ ASIC depth.** Saying otherwise is a talk-track fail.
+2. **DaBai still USB2 + no IMU + ~1% depth.** Phone IMU degraded; laser remains P0 for keys.
+3. **Android whitelist** still required; OpenNI USB Host is picky.
+4. **Connector lottery** on China USB2 modules.
+5. **OEM UART dialects** on the laser — golden bytes in hub protocol.
 
 ## Consequences
 
-- Adapters: `OrbbecGeminiEDepthAdapter` (VendorSdk skeleton + JNI stubs, no vendored proprietary AAR) and `BluetoothLaserPort` / Android `TopoRoomHubBleClient` targeting the TopoRoom GATT profile.
-- Domain stays free of Orbbec and BLE includes.
-- Fake/Replay laser and depth remain for CI and emulator.
-- If Stage-Gate fails on SDK/power, the fallback SKU to evaluate is **Astra 2** (not Mini S Type-A).
+- Stage-Gate is **per track** (see `stage-gate-poc-checklist.md`).
+- Fail Track A on price → Track B, not “find a mythical ¥200 ASIC Type-C cam”.
+- Fail Track B on “must have depth preview like a RealSense” → pay for DaBai DCW, not Gemini E, unless a **cheaper named** China ASIC SKU is evidenced.

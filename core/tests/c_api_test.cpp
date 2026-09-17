@@ -82,18 +82,22 @@ TEST(CApi, IosExternalDepthOutOfP0) { EXPECT_EQ(toporoom_ios_external_depth_in_p
 
 TEST(CApi, WhitelistAndReleaseTrainJson) {
   const auto whitelist = read_fixture("android-whitelist.v1.json");
-  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "Pixel 8", 34, "orbbec_gemini_e",
-                                      "3460", "powered_hub_a", "0.1.0"),
+  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "Pixel 8", 34, "dabai_dcw", "2460",
+                                      "powered_hub_a", "0.1.0"),
             1);
-  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "sdk_gphone64_x86_64", 34,
-                                      "orbbec_gemini_e", "3460", "none", "0.1.0"),
+  EXPECT_EQ(toporoom_whitelist_allows(whitelist.c_str(), "sdk_gphone64_x86_64", 34, "fake",
+                                      "replay", "none", "0.1.0"),
             0);
   const auto train = read_fixture("release-train.v1.json");
+  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.1.0", "fake", "replay", 1, "0.1.0"),
+            1);
+  EXPECT_EQ(
+      toporoom_release_train_matches(train.c_str(), "0.1.0", "dabai_dcw", "2460", 1, "0.1.0"),
+      1);
   EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.1.0", "orbbec_gemini_e", "3460", 1,
                                            "0.1.0"),
-            1);
-  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.2.0", "orbbec_gemini_e", "3460", 1,
-                                           "0.1.0"),
+            0);
+  EXPECT_EQ(toporoom_release_train_matches(train.c_str(), "0.2.0", "fake", "replay", 1, "0.1.0"),
             0);
 }
 
