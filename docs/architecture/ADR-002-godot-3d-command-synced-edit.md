@@ -31,18 +31,21 @@ layer: allowed freely; they must not write dimensions.
 
 ## Sync rules
 
-1. **Gizmo commit** (pointer up) issues an existing C API command through
+1. **Live drag preview** (pointer move) mutates a **local copy** of SceneIR and
+   rebuilds lightweight `BoxMesh` extrusions every motion so walls follow the
+   finger. This preview is not millimetre truth and does not call C API.
+2. **Gizmo commit** (pointer up) issues an existing C API command through
    `Session` → `TopoRoomHost`. The 3D scene does not call Domain itself and
    does not call `add_wall` / `set_measurement` except via that host façade.
-2. After a successful command, InteractionShell **`auto_save`s SceneIR**
+3. After a successful command, InteractionShell **`auto_save`s SceneIR**
    JSON under `user://schemes/`.
-3. After edit, probe `rebuild_status` (StatusGate):
+4. After edit, probe `rebuild_status` (StatusGate):
    - **OK** — discard the previous solid preview; rebuild `MeshInstance3D`
      from the current SceneIR.
    - **Fault** — **keep the previous solid preview** and show the StatusGate
      message in the HUD. Do not silently accept the dragged mesh as truth.
      SceneIR still holds the command result (Domain is source of truth).
-4. 2D 户型图 remains a SceneIR view. Button **3D 编辑** (next to **漫游**)
+5. 2D 户型图 remains a SceneIR view. Button **3D 编辑** (next to **漫游**)
    opens the edit viewport.
 
 ## Lighting package
@@ -80,5 +83,11 @@ lights, shadows, and materials are VisualizationDerivative.
 
 - `godot/app/edit_3d.tscn` generates wall/opening/room meshes from SceneIR.
 - Handles: wall endpoints, opening offset/width, storey/wall height.
+  Distinct colors plus hover/press highlight; tap shows a short Chinese tip
+  (e.g. 「墙端点：拖动改墙线」). A HUD legend and first-time coach mark
+  explain that the spheres are draggable.
+- During drag, BoxMesh walls/openings (and on-canvas mm) update every motion
+  from a duplicated SceneIR snapshot. StatusGate / `auto_save` still run only
+  on pointer-up.
 - Selected 门洞/窗洞/垭口 get emissive feedback.
 - Android export notes in `godot/README.md` are unchanged (templates + NDK).
