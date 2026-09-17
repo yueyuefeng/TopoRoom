@@ -16,8 +16,10 @@
 #include "toporoom/app/evidence_pack.hpp"
 #include "toporoom/app/export_app_service.hpp"
 #include "toporoom/app/guided_room_session.hpp"
+#include "toporoom/app/status_gate.hpp"
 #include "toporoom/domain/floor_plan_document.hpp"
 #include "toporoom/domain/kinds.hpp"
+#include "toporoom/ports/geometry_port.hpp"
 
 struct TopoRoomDocument {
   toporoom::domain::FloorPlanDocument impl;
@@ -120,6 +122,12 @@ TopoRoomDocument* toporoom_document_create(const char* id) {
 }
 
 void toporoom_document_destroy(TopoRoomDocument* doc) { delete doc; }
+
+int toporoom_document_id(const TopoRoomDocument* doc, char* out, int out_len) {
+  if (!doc || !out || out_len <= 0) return 1;
+  std::snprintf(out, static_cast<std::size_t>(out_len), "%s", doc->impl.id().c_str());
+  return 0;
+}
 
 int toporoom_document_first_storey_id(TopoRoomDocument* doc, char* out, int out_len) {
   if (!doc || !out || out_len <= 0) return 1;
@@ -449,6 +457,36 @@ int toporoom_document_save(TopoRoomDocument* doc, const char* path, char* errbuf
     }
     return 0;
   } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_rebuild_status(TopoRoomDocument* doc, char* status_out, int status_len,
+                                     char* errbuf, int errbuf_len) {
+  if (!doc || !status_out || status_len <= 0) return 1;
+  try {
+    toporoom::adapters::ManifoldGeometryPort geometry;
+    const auto scene = doc->impl.to_scene_ir();
+    toporoom::ports::BuildRequest request;
+    request.document_rev = scene.revision;
+    request.rebuild_generation = 1;
+    request.dirty = true;
+    request.semantics = toporoom::ports::semantics_from_scene_ir(scene);
+    const auto rebuilt = geometry.rebuild(request);
+    if (!rebuilt.ok) {
+      std::snprintf(status_out, static_cast<std::size_t>(status_len), "fault");
+      return write_error(errbuf, errbuf_len, rebuilt.fault.message.c_str());
+    }
+    toporoom::app::StatusGate gate;
+    gate.assert_exportable(rebuilt);
+    std::snprintf(status_out, static_cast<std::size_t>(status_len), "ok");
+    if (errbuf && errbuf_len > 0) errbuf[0] = '\0';
+    return 0;
+  } catch (const toporoom::app::ExportRejectedError& ex) {
+    std::snprintf(status_out, static_cast<std::size_t>(status_len), "fault");
+    return write_error(errbuf, errbuf_len, ex.what());
+  } catch (const std::exception& ex) {
+    std::snprintf(status_out, static_cast<std::size_t>(status_len), "fault");
     return write_error(errbuf, errbuf_len, ex.what());
   }
 }
