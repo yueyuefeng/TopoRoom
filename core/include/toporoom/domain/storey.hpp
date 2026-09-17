@@ -37,14 +37,20 @@ class Storey {
 
   Storey add_wall(const Wall& wall) const;
   const Wall& wall_by_id(const std::string& wall_id) const;
+  bool has_wall(const std::string& wall_id) const noexcept;
   Storey host_opening(const std::string& wall_id, const Opening& opening) const;
   Storey replace_wall(const Wall& wall) const;
+  Storey remove_wall(const std::string& wall_id) const;
+  Storey remove_opening(const std::string& opening_id) const;
   // O1 / D10: default walls whose height matched the previous 层高 follow; others stay.
   Storey with_height(LengthMm height, bool follow_matching_walls = true) const;
   Storey close_room(const Room& room) const;
   Storey close_room(const std::string& id, const std::vector<std::string>& wall_ids) const;
   Storey replace_room(const Room& room) const;
   Storey place_hosted_component(HostedComponent component) const;
+  Storey replace_hosted_component(HostedComponent component) const;
+  Storey remove_hosted_component(const std::string& component_id) const;
+  const HostedComponent* hosted_by_id(const std::string& component_id) const noexcept;
 
  private:
   explicit Storey(StoreyProps props);

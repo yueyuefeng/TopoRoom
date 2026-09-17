@@ -31,6 +31,9 @@ class Opening {
   LengthMm sill_height() const noexcept { return sill_height_; }
 
   Opening with_width(LengthMm width) const;
+  Opening with_kind(OpeningKind kind) const;
+  Opening with_placement(LengthMm width, LengthMm height, LengthMm offset_along_wall,
+                         LengthMm sill_height) const;
   double occupies_until_mm() const noexcept {
     return offset_along_wall_.value() + width_.value();
   }

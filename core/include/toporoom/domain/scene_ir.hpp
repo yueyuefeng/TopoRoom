@@ -51,6 +51,7 @@ struct SceneIRHostedComponent {
   HostedKind kind = HostedKind::Beam;
   double z_bottom_mm = 0;
   double depth_mm = 0;
+  std::optional<std::string> host_wall_id;
 };
 
 struct SceneIRStorey {

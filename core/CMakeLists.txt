@@ -20,6 +20,9 @@ set(TOPOROOM_CORE_SOURCES
   src/app/add_wall_handler.cpp
   src/app/add_opening_handler.cpp
   src/app/set_measurement_handler.cpp
+  src/app/floor_plan_edit_service.cpp
+  src/app/editing_tools.cpp
+  src/app/guided_edit_workflow.cpp
   src/app/rebuild_policy.cpp
   src/app/status_gate.cpp
   src/app/export_app_service.cpp
@@ -136,6 +139,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/release_train_test.cpp
     tests/p1_stubs_test.cpp
     tests/domain_model_v02_test.cpp
+    tests/editing_workflows_test.cpp
   )
 
   target_link_libraries(toporoom_tests

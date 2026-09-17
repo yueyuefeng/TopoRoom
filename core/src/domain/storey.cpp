@@ -53,6 +53,13 @@ const Wall& Storey::wall_by_id(const std::string& wall_id) const {
   throw DomainError("Wall " + wall_id + " not found", "WALL_NOT_FOUND");
 }
 
+bool Storey::has_wall(const std::string& wall_id) const noexcept {
+  for (const auto& wall : walls_) {
+    if (wall.id() == wall_id) return true;
+  }
+  return false;
+}
+
 Storey Storey::host_opening(const std::string& wall_id, const Opening& opening) const {
   return replace_wall(wall_by_id(wall_id).host_opening(opening));
 }
@@ -73,6 +80,44 @@ Storey Storey::replace_wall(const Wall& wall) const {
     throw DomainError("Wall " + wall.id() + " not found", "WALL_NOT_FOUND");
   }
   return Storey(std::move(props));
+}
+
+Storey Storey::remove_wall(const std::string& wall_id) const {
+  wall_by_id(wall_id);
+  auto props = snapshot();
+  props.walls.clear();
+  for (const auto& wall : walls_) {
+    if (wall.id() != wall_id) props.walls.push_back(wall);
+  }
+  std::vector<Room> rooms;
+  for (const auto& room : rooms_) {
+    bool uses_wall = false;
+    for (const auto& id : room.wall_ids()) {
+      if (id == wall_id) {
+        uses_wall = true;
+        break;
+      }
+    }
+    if (!uses_wall) rooms.push_back(room);
+  }
+  props.rooms = std::move(rooms);
+  std::vector<HostedComponent> hosted;
+  for (const auto& component : hosted_components_) {
+    if (component.host_wall_id && *component.host_wall_id == wall_id) continue;
+    hosted.push_back(component);
+  }
+  props.hosted_components = std::move(hosted);
+  return Storey(std::move(props));
+}
+
+Storey Storey::remove_opening(const std::string& opening_id) const {
+  for (const auto& wall : walls_) {
+    for (const auto& opening : wall.openings()) {
+      if (opening.id() != opening_id) continue;
+      return replace_wall(wall.without_opening(opening_id));
+    }
+  }
+  throw DomainError("Opening " + opening_id + " not found", "OPENING_NOT_FOUND");
 }
 
 Storey Storey::with_height(LengthMm height, bool follow_matching_walls) const {
@@ -133,9 +178,59 @@ Storey Storey::place_hosted_component(HostedComponent component) const {
                         "DUPLICATE_HOSTED");
     }
   }
+  if (component.host_wall_id) {
+    wall_by_id(*component.host_wall_id);
+  }
   auto props = snapshot();
   props.hosted_components.push_back(std::move(component));
   return Storey(std::move(props));
+}
+
+Storey Storey::replace_hosted_component(HostedComponent component) const {
+  if (component.host_wall_id) {
+    wall_by_id(*component.host_wall_id);
+  }
+  auto props = snapshot();
+  props.hosted_components.clear();
+  bool found = false;
+  for (const auto& existing : hosted_components_) {
+    if (existing.id == component.id) {
+      props.hosted_components.push_back(component);
+      found = true;
+    } else {
+      props.hosted_components.push_back(existing);
+    }
+  }
+  if (!found) {
+    throw DomainError("HostedComponent " + component.id + " not found",
+                      "HOSTED_NOT_FOUND");
+  }
+  return Storey(std::move(props));
+}
+
+Storey Storey::remove_hosted_component(const std::string& component_id) const {
+  auto props = snapshot();
+  props.hosted_components.clear();
+  bool found = false;
+  for (const auto& existing : hosted_components_) {
+    if (existing.id == component_id) {
+      found = true;
+      continue;
+    }
+    props.hosted_components.push_back(existing);
+  }
+  if (!found) {
+    throw DomainError("HostedComponent " + component_id + " not found",
+                      "HOSTED_NOT_FOUND");
+  }
+  return Storey(std::move(props));
+}
+
+const HostedComponent* Storey::hosted_by_id(const std::string& component_id) const noexcept {
+  for (const auto& existing : hosted_components_) {
+    if (existing.id == component_id) return &existing;
+  }
+  return nullptr;
 }
 
 void Storey::assert_closed_loop(const std::vector<std::string>& wall_ids) const {
