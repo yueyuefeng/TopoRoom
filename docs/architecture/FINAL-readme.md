@@ -39,7 +39,7 @@ PoC hardware (China sourcing, dual track — **not** a Gemini E lock): [ADR-001]
 1. **SceneIR** = 唯一真相  
 2. **瘦 P0**（无 MEP/软装/云/报价阻断）  
 3. **激光**进 P0 关键尺寸；禁射频主测  
-4. **Godot mesh/glb 只读**（UI 可作 InteractionShell；禁三角网写回，见 [ADR-001](./ADR-001-godot-interaction-shell-host.md)）  
+4. **Godot `.glb` 只读；3D 编辑必须命令写回 SceneIR**（禁三角网当尺寸，见 [ADR-001](./ADR-001-godot-interaction-shell-host.md) / [ADR-002](./ADR-002-godot-3d-command-synced-edit.md)）  
 5. **禁 GS/视频写回尺寸**  
 6. **Android 白名单 + 外购 Type-C 深度**
 

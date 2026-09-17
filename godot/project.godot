@@ -1,13 +1,13 @@
 ; 拓间 TopoRoom — Godot 4 InteractionShell / Visualization host.
-; Edits: Godot UI → GDExtension (toporoom.gdextension) → C API → FloorPlanDocument (SceneIR).
-; .glb roam is read-only (I7 mesh / I8 VisualizationDerivative). Do not
-; write dimensions back from triangles or Godot nodes.
+; Edits: Godot UI / 3D gizmos → GDExtension (toporoom.gdextension) → C API → FloorPlanDocument (SceneIR).
+; .glb roam is read-only (I7 mesh / I8 VisualizationDerivative). 3D edit
+; meshes are previews; millimetres come only from commands (ADR-002).
 config_version=5
 
 [application]
 
 config/name="拓间 TopoRoom"
-config/description="户型图量房宿主：命令编辑 SceneIR，glb 只读漫游"
+config/description="户型图量房宿主：命令编辑 SceneIR，3D 手柄写回，glb 只读漫游"
 run/main_scene="res://app/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
