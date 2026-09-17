@@ -78,6 +78,23 @@ int toporoom_document_punch_opening(TopoRoomDocument* doc, const char* storey_id
 int toporoom_document_import_fake_vision(TopoRoomDocument* doc, const char* image_uri,
                                          char* errbuf, int errbuf_len);
 
+typedef struct TopoRoomVisionCounts {
+  int wall_count;
+  int opening_count;
+  int shear_count;
+  int masonry_count;
+  int door_count;
+  int window_count;
+  double mm_per_px;
+} TopoRoomVisionCounts;
+
+/*
+ * Raster analyzer on a PNG/JPEG path → add_wall / add_opening on the first storey.
+ * counts may be NULL. Returns 0 on success.
+ */
+int toporoom_vision_import_image(TopoRoomDocument* doc, const char* path,
+                                 TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len);
+
 /* Always 0 until on-device ML is linked. */
 int toporoom_vision_ml_available(void);
 

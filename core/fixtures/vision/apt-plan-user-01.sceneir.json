@@ -1,0 +1,764 @@
+{
+  "format": "toporoom.sceneir",
+  "id": "doc_apt_plan_user_01",
+  "measurements": [],
+  "revision": 97,
+  "storeys": [
+    {
+      "elevationMm": 0.0,
+      "heightMm": 2800.0,
+      "id": "storey_1",
+      "rooms": [],
+      "walls": [
+        {
+          "end": {
+            "x": 9383.333333333334,
+            "y": 4696.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s0",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 9383.333333333334,
+            "y": 1113.3333333333335
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 3833.3333333333335,
+            "y": 5080.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s1",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 383.33333333333337,
+            "y": 5080.0
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 3175.0,
+            "y": 3646.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s2",
+          "kind": "shearWall",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w3",
+              "kind": "window",
+              "offsetMm": 0.0,
+              "sillHeightMm": 900.0,
+              "widthMm": 600.0
+            },
+            {
+              "heightMm": 2100.0,
+              "id": "op_d2",
+              "kind": "door",
+              "offsetMm": 1583.3333333333335,
+              "sillHeightMm": 0.0,
+              "widthMm": 1466.6666666666665
+            }
+          ],
+          "start": {
+            "x": 3175.0,
+            "y": 596.6666666666667
+          },
+          "thicknessMm": 166.66666666666669
+        },
+        {
+          "end": {
+            "x": 5016.666666666667,
+            "y": 6705.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s3",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 3083.3333333333335,
+            "y": 6705.0
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 6758.333333333334,
+            "y": 6513.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s4",
+          "kind": "shearWall",
+          "openings": [
+            {
+              "heightMm": 2100.0,
+              "id": "op_d5",
+              "kind": "door",
+              "offsetMm": 0.0,
+              "sillHeightMm": 0.0,
+              "widthMm": 833.3333333333335
+            }
+          ],
+          "start": {
+            "x": 6758.333333333334,
+            "y": 4480.0
+          },
+          "thicknessMm": 166.66666666666669
+        },
+        {
+          "end": {
+            "x": 750.0,
+            "y": 1196.6666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s5",
+          "kind": "shearWall",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w6",
+              "kind": "window",
+              "offsetMm": 0.0,
+              "sillHeightMm": 900.0,
+              "widthMm": 560.0
+            }
+          ],
+          "start": {
+            "x": 750.0,
+            "y": 596.6666666666667
+          },
+          "thicknessMm": 550.0
+        },
+        {
+          "end": {
+            "x": 8066.666666666667,
+            "y": 8571.666666666668
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s6",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 6483.333333333334,
+            "y": 8571.666666666668
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 9383.333333333334,
+            "y": 8663.333333333334
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s7",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 9383.333333333334,
+            "y": 7130.0
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 6850.000000000001,
+            "y": 1196.6666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s8",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 6850.000000000001,
+            "y": 413.33333333333337
+          },
+          "thicknessMm": 316.6666666666667
+        },
+        {
+          "end": {
+            "x": 4941.666666666667,
+            "y": 1213.3333333333335
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s9",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 4941.666666666667,
+            "y": 413.33333333333337
+          },
+          "thicknessMm": 300.0
+        },
+        {
+          "end": {
+            "x": 1033.3333333333335,
+            "y": 3555.0000000000005
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s10",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 0.0,
+            "y": 3555.0000000000005
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 6566.666666666667,
+            "y": 7196.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s11",
+          "kind": "shearWall",
+          "openings": [
+            {
+              "heightMm": 2100.0,
+              "id": "op_d4",
+              "kind": "door",
+              "offsetMm": 83.33333333333394,
+              "sillHeightMm": 0.0,
+              "widthMm": 800.0
+            }
+          ],
+          "start": {
+            "x": 6566.666666666667,
+            "y": 6313.333333333333
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 3850.0000000000005,
+            "y": 3555.0000000000005
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s12",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 3083.3333333333335,
+            "y": 3555.0000000000005
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 7133.333333333334,
+            "y": 6405.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s13",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 6483.333333333334,
+            "y": 6405.0
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 3750.0000000000005,
+            "y": 5163.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s14",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 3750.0000000000005,
+            "y": 4480.0
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 6566.666666666667,
+            "y": 8663.333333333334
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s15",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 6566.666666666667,
+            "y": 7996.666666666667
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 7991.666666666667,
+            "y": 8663.333333333334
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s16",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 7991.666666666667,
+            "y": 7996.666666666667
+          },
+          "thicknessMm": 166.66666666666669
+        },
+        {
+          "end": {
+            "x": 6650.000000000001,
+            "y": 6705.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s17",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 6100.0,
+            "y": 6705.0
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 9466.666666666668,
+            "y": 1221.6666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s18",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 8966.666666666668,
+            "y": 1221.6666666666667
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 525.0,
+            "y": 5163.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s19",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 525.0,
+            "y": 4880.0
+          },
+          "thicknessMm": 266.6666666666667
+        },
+        {
+          "end": {
+            "x": 9466.666666666668,
+            "y": 8571.666666666668
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s20",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 9150.0,
+            "y": 8571.666666666668
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 3850.0000000000005,
+            "y": 6563.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_s21",
+          "kind": "shearWall",
+          "openings": [],
+          "start": {
+            "x": 3616.666666666667,
+            "y": 6563.333333333333
+          },
+          "thicknessMm": 160.0
+        },
+        {
+          "end": {
+            "x": 5050.0,
+            "y": 3646.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m0",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 2100.0,
+              "id": "op_d3",
+              "kind": "door",
+              "offsetMm": 883.3333333333339,
+              "sillHeightMm": 0.0,
+              "widthMm": 1533.333333333333
+            }
+          ],
+          "start": {
+            "x": 5050.0,
+            "y": 1230.0
+          },
+          "thicknessMm": 83.33333333333334
+        },
+        {
+          "end": {
+            "x": 6816.666666666667,
+            "y": 3646.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m1",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 6816.666666666667,
+            "y": 1230.0
+          },
+          "thicknessMm": 83.33333333333334
+        },
+        {
+          "end": {
+            "x": 5550.0,
+            "y": 6796.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m2",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 2100.0,
+              "id": "op_d1",
+              "kind": "door",
+              "offsetMm": 0.0,
+              "sillHeightMm": 0.0,
+              "widthMm": 1516.666666666667
+            }
+          ],
+          "start": {
+            "x": 5550.0,
+            "y": 4480.0
+          },
+          "thicknessMm": 83.33333333333334
+        },
+        {
+          "end": {
+            "x": 2416.666666666667,
+            "y": 3605.0000000000005
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m3",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 1050.0,
+            "y": 3605.0000000000005
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 5650.0,
+            "y": 6705.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m4",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 2100.0,
+              "id": "op_d0",
+              "kind": "door",
+              "offsetMm": 40.0,
+              "sillHeightMm": 0.0,
+              "widthMm": 560.0
+            }
+          ],
+          "start": {
+            "x": 5050.0,
+            "y": 6705.0
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 6850.000000000001,
+            "y": 3605.0000000000005
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m5",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 5816.666666666667,
+            "y": 3605.0000000000005
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 9600.0,
+            "y": 5546.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m6",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 9050.0,
+            "y": 5546.666666666667
+          },
+          "thicknessMm": 183.33333333333334
+        },
+        {
+          "end": {
+            "x": 4766.666666666667,
+            "y": 4521.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m7",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 3850.0000000000005,
+            "y": 4521.666666666667
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 366.6666666666667,
+            "y": 5071.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m8",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 0.0,
+            "y": 5071.666666666667
+          },
+          "thicknessMm": 200.0
+        },
+        {
+          "end": {
+            "x": 8125.000000000001,
+            "y": 8663.333333333334
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m9",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 8125.000000000001,
+            "y": 7713.333333333334
+          },
+          "thicknessMm": 80.0
+        },
+        {
+          "end": {
+            "x": 7633.333333333334,
+            "y": 6355.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m10",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 7150.000000000001,
+            "y": 6355.0
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 9600.0,
+            "y": 6488.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m11",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w2",
+              "kind": "window",
+              "offsetMm": 36.666666666667,
+              "sillHeightMm": 900.0,
+              "widthMm": 426.66666666666606
+            }
+          ],
+          "start": {
+            "x": 9133.333333333334,
+            "y": 6488.333333333333
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 2383.3333333333335,
+            "y": 4963.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m12",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 2383.3333333333335,
+            "y": 4430.0
+          },
+          "thicknessMm": 83.33333333333334
+        },
+        {
+          "end": {
+            "x": 4283.333333333334,
+            "y": 3605.0000000000005
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m13",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 3883.3333333333335,
+            "y": 3605.0000000000005
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 6650.000000000001,
+            "y": 4521.666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m14",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 6283.333333333334,
+            "y": 4521.666666666667
+          },
+          "thicknessMm": 100.0
+        },
+        {
+          "end": {
+            "x": 6383.333333333334,
+            "y": 6580.0
+          },
+          "heightMm": 2800.0,
+          "id": "wall_m15",
+          "kind": "masonry",
+          "openings": [],
+          "start": {
+            "x": 6383.333333333334,
+            "y": 5930.0
+          },
+          "thicknessMm": 80.0
+        },
+        {
+          "end": {
+            "x": 9383.333333333334,
+            "y": 1176.6666666666667
+          },
+          "heightMm": 2800.0,
+          "id": "wall_open_0",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w0",
+              "kind": "window",
+              "offsetMm": 80.0,
+              "sillHeightMm": 900.0,
+              "widthMm": 1016.6666666666667
+            }
+          ],
+          "start": {
+            "x": 9383.333333333334,
+            "y": 0.0
+          },
+          "thicknessMm": 120.0
+        },
+        {
+          "end": {
+            "x": 9125.0,
+            "y": 5710.000000000001
+          },
+          "heightMm": 2800.0,
+          "id": "wall_open_1",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w1",
+              "kind": "window",
+              "offsetMm": 80.00000000000023,
+              "sillHeightMm": 900.0,
+              "widthMm": 1116.666666666667
+            }
+          ],
+          "start": {
+            "x": 9125.0,
+            "y": 4433.333333333334
+          },
+          "thicknessMm": 120.0
+        },
+        {
+          "end": {
+            "x": 9583.333333333334,
+            "y": 6693.333333333333
+          },
+          "heightMm": 2800.0,
+          "id": "wall_open_2",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w5",
+              "kind": "window",
+              "offsetMm": 80.0,
+              "sillHeightMm": 900.0,
+              "widthMm": 1150.0
+            }
+          ],
+          "start": {
+            "x": 9583.333333333334,
+            "y": 5383.333333333333
+          },
+          "thicknessMm": 120.0
+        },
+        {
+          "end": {
+            "x": 9230.0,
+            "y": 8563.333333333334
+          },
+          "heightMm": 2800.0,
+          "id": "wall_open_3",
+          "kind": "masonry",
+          "openings": [
+            {
+              "heightMm": 1400.0,
+              "id": "op_w7",
+              "kind": "window",
+              "offsetMm": 79.99999999999955,
+              "sillHeightMm": 900.0,
+              "widthMm": 1083.333333333333
+            }
+          ],
+          "start": {
+            "x": 7986.666666666668,
+            "y": 8563.333333333334
+          },
+          "thicknessMm": 120.0
+        }
+      ]
+    }
+  ],
+  "units": "mm",
+  "version": "0.2"
+}

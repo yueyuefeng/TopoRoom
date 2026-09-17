@@ -41,6 +41,8 @@ ports::VisionResult FakeVisionAdapter::detect_walls(const ports::VisionRequest& 
       {"wall_w", 0, 0, 0, 3000, 200, 2800, domain::WallKind::ShearWall},
       {"wall_p", 2000, 0, 2000, 3000, 120, 2800, domain::WallKind::Masonry},
   };
+  out.shear_count = 4;
+  out.masonry_count = 1;
   return out;
 }
 

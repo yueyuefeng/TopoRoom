@@ -20,6 +20,7 @@ var preview_sceneir_json: String = ""
 var photo_intent: String = ""  # camera | gallery | pick
 var last_import_path: String = ""
 var last_import_uri: String = ""
+var last_vision: Dictionary = {}
 
 func _ready() -> void:
 	if ClassDB.class_exists("TopoRoomHost"):
@@ -392,7 +393,67 @@ func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	auto_save()
 	preview_sceneir_json = sceneir_json()
 	screen = "photo"
+	last_vision = {
+		"adapter": "fake",
+		"wall_count": 5,
+		"opening_count": 0,
+		"shear_count": 4,
+		"masonry_count": 1,
+		"door_count": 0,
+		"window_count": 0,
+	}
 	return _ok("已识别墙体：四边承重 + 一道隔墙。尺寸仍以量房命令为准。")
+
+
+func import_photo_vision(image_uri: String) -> String:
+	if host == null:
+		return _fail("no core")
+	if image_uri.is_empty() or image_uri.begins_with("fixture:"):
+		return import_photo_fake(image_uri if not image_uri.is_empty() else "fixture:photo")
+	var stored: String = store_imported_image(image_uri)
+	if stored.is_empty():
+		return _fail("无法保存照片")
+	var id: String = "doc_vision_%d" % Time.get_ticks_msec()
+	var created: Dictionary = host.create_document(id)
+	if not created.get("ok", false):
+		return _fail(str(created.get("error", "create")))
+	opening_serial = 0
+	key_serial = 0
+	glb_ok = false
+	last_glb_path = ""
+	keep_preview = false
+	last_vision = {}
+	guide_mark_host_ok(true)
+	var d: Dictionary = host.import_vision_image(stored)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "vision")))
+	last_vision = d
+	host.guide_note_wall()
+	if int(d.get("opening_count", 0)) > 0:
+		host.guide_note_opening()
+	host.guide_sync_from_document(false)
+	auto_save()
+	preview_sceneir_json = sceneir_json()
+	screen = "photo"
+	var probe: Dictionary = rebuild_probe()
+	last_rebuild = probe
+	if bool(probe.get("ok", false)):
+		keep_preview = false
+		var out := export_dir()
+		DirAccess.make_dir_recursive_absolute(out)
+		var glb_path := out.path_join("room.glb")
+		var g: Dictionary = host.export_document("glb", glb_path)
+		if bool(g.get("ok", false)):
+			glb_ok = true
+			last_glb_path = glb_path
+			last_export_dir = out
+			host.guide_note_rebuild(true)
+			host.guide_sync_from_document(true)
+	var shear := int(d.get("shear_count", 0))
+	var mason := int(d.get("masonry_count", 0))
+	var doors := int(d.get("door_count", 0))
+	var windows := int(d.get("window_count", 0))
+	return _ok("已识别承重 %d、砌体 %d、门 %d、窗 %d。可改类型后进入 3D。" % [shear, mason, doors, windows])
 
 
 func move_shared_vertex(old_x: float, old_y: float, new_x: float, new_y: float) -> String:
