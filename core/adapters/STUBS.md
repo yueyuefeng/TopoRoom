@@ -20,6 +20,7 @@ adapter libraries that implement ports in `core/include/toporoom/ports`.
 | soft furnishing | FurnishingLibraryPort | **P1+ stub** — catalog/place; `NotImplementedFurnishingAdapter` → `NotInP0` (FR-013 / FR-106) |
 | cloud sync | CloudSyncPort | **P1+ stub** — push/pull document; `NotImplementedCloudSyncAdapter` → `NotInP0` (FR-013 / FR-108) |
 | auto quoting | TakeoffQuotePort | **P1+ stub** — `NotImplementedQuoteAdapter` → `NotInP0` (FR-013 / FR-107) |
+| HostedComponent | Domain | **P0 model / not a Done gate** — beam/column/flue; SceneIR optional array |
 
 RF BLE ranging is never a dimension source. P0 Done does **not** require the
-P1+ ports above.
+P1+ ports above. P0 drawing type is **户型图** (not 平面布置图).

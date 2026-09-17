@@ -15,6 +15,14 @@ ExportOutcome ExportAppService::export_scene_graph(const domain::SceneIR& scene)
   request.semantics = ports::semantics_from_scene_ir(scene);
   const auto rebuilt = geometry_.rebuild(request);
   ExportOutcome outcome;
+  if (!rebuilt.ok) {
+    // O2: Fault rejects structural solid / glb mesh; semantic 户型图 DXF (and PDF) still emit.
+    outcome.ok = false;
+    outcome.fault = rebuilt.fault;
+    outcome.dxf = adapters::export_dxf(scene);
+    outcome.pdf = adapters::export_pdf(scene);
+    return outcome;
+  }
   try {
     outcome.meshes = gate_.assert_exportable(rebuilt);
     outcome.graph = adapters::export_scene_graph(scene, outcome.meshes);
@@ -26,6 +34,8 @@ ExportOutcome ExportAppService::export_scene_graph(const domain::SceneIR& scene)
   } catch (const ExportRejectedError& error) {
     outcome.ok = false;
     outcome.fault = error.fault();
+    outcome.dxf = adapters::export_dxf(scene);
+    outcome.pdf = adapters::export_pdf(scene);
   }
   return outcome;
 }

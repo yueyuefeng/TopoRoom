@@ -12,6 +12,9 @@
 |------|------|------|
 | **A. 软硬件需求** | [FINAL-toporoom-hw-sw-requirements.md](./FINAL-toporoom-hw-sw-requirements.md) | 定位/In-Out、FR/NFR、硬件 BOM 与门径、精度 SLA 与话术红线、SceneIR 要点、里程碑、开放问题、表决表 |
 | **B. 软件架构** | [FINAL-toporoom-software-architecture.md](./FINAL-toporoom-software-architecture.md) | 不变量、BC 全景、组件/内部/序列/集成/部署/数据流 **ASCII 图**、端口契约、gotbot×manifold、P0 包结构 |
+| **C. Domain 模型** | [FINAL-toporoom-domain-model.md](./FINAL-toporoom-domain-model.md) | 行业 UL、OpeningKind 门窗垭口、层高≠净高、SceneIR 0.2 additive、BC 别名 |
+
+Also index: [domain-model readme](./FINAL-toporoom-domain-model-readme.md), [ubiquitous language](./toporoom-industry-ubiquitous-language.md), [debate-domain/04](./debate-domain/04-ddd-strategist.md).
 
 ---
 

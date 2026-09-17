@@ -66,7 +66,7 @@ std::vector<std::uint8_t> export_pdf(const domain::SceneIR& scene) {
 
   std::ostringstream content;
   content << "BT /F1 14 Tf " << kMargin << " " << (kPageH - 36)
-          << " Td (TopoRoom floor plan mm) Tj ET\n";
+          << " Td (TopoRoom unit plan mm) Tj ET\n";
 
   auto draw_line = [&](double x1, double y1, double x2, double y2, double width) {
     content << width << " w " << mapx(x1) << " " << mapy(y1) << " m " << mapx(x2) << " "

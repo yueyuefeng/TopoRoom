@@ -14,11 +14,23 @@ Storey::Storey(StoreyProps props)
       elevation_(props.elevation),
       height_(props.height),
       walls_(std::move(props.walls)),
-      rooms_(std::move(props.rooms)) {}
+      rooms_(std::move(props.rooms)),
+      hosted_components_(std::move(props.hosted_components)) {}
+
+StoreyProps Storey::snapshot() const {
+  StoreyProps props;
+  props.id = id_;
+  props.elevation = elevation_;
+  props.height = height_;
+  props.walls = walls_;
+  props.rooms = rooms_;
+  props.hosted_components = hosted_components_;
+  return props;
+}
 
 Storey Storey::create(StoreyProps props) {
   if (props.height.value() <= 0) {
-    throw DomainError("Storey height must be positive", "INVALID_STOREY");
+    throw DomainError("Storey height (层高) must be positive", "INVALID_STOREY");
   }
   return Storey(std::move(props));
 }
@@ -29,13 +41,8 @@ Storey Storey::add_wall(const Wall& wall) const {
       throw DomainError("Wall " + wall.id() + " already exists", "DUPLICATE_WALL");
     }
   }
-  StoreyProps props;
-  props.id = id_;
-  props.elevation = elevation_;
-  props.height = height_;
-  props.walls = walls_;
+  auto props = snapshot();
   props.walls.push_back(wall);
-  props.rooms = rooms_;
   return Storey(std::move(props));
 }
 
@@ -51,11 +58,8 @@ Storey Storey::host_opening(const std::string& wall_id, const Opening& opening) 
 }
 
 Storey Storey::replace_wall(const Wall& wall) const {
-  StoreyProps props;
-  props.id = id_;
-  props.elevation = elevation_;
-  props.height = height_;
-  props.rooms = rooms_;
+  auto props = snapshot();
+  props.walls.clear();
   bool found = false;
   for (const auto& existing : walls_) {
     if (existing.id() == wall.id()) {
@@ -71,31 +75,66 @@ Storey Storey::replace_wall(const Wall& wall) const {
   return Storey(std::move(props));
 }
 
-Storey Storey::with_height(LengthMm height) const {
-  StoreyProps props;
-  props.id = id_;
-  props.elevation = elevation_;
+Storey Storey::with_height(LengthMm height, bool follow_matching_walls) const {
+  auto props = snapshot();
   props.height = height;
-  props.walls = walls_;
-  props.rooms = rooms_;
+  if (follow_matching_walls) {
+    props.walls.clear();
+    for (const auto& wall : walls_) {
+      if (wall.height().value() == height_.value()) {
+        props.walls.push_back(wall.with_height(height));
+      } else {
+        props.walls.push_back(wall);
+      }
+    }
+  }
   return Storey::create(std::move(props));
+}
+
+Storey Storey::close_room(const Room& room) const {
+  for (const auto& existing : rooms_) {
+    if (existing.id() == room.id()) {
+      throw DomainError("Room " + room.id() + " already exists", "DUPLICATE_ROOM");
+    }
+  }
+  assert_closed_loop(room.wall_ids());
+  auto props = snapshot();
+  props.rooms.push_back(room);
+  return Storey(std::move(props));
 }
 
 Storey Storey::close_room(const std::string& id,
                           const std::vector<std::string>& wall_ids) const {
-  for (const auto& room : rooms_) {
-    if (room.id() == id) {
-      throw DomainError("Room " + id + " already exists", "DUPLICATE_ROOM");
+  return close_room(Room(id, wall_ids));
+}
+
+Storey Storey::replace_room(const Room& room) const {
+  auto props = snapshot();
+  props.rooms.clear();
+  bool found = false;
+  for (const auto& existing : rooms_) {
+    if (existing.id() == room.id()) {
+      props.rooms.push_back(room);
+      found = true;
+    } else {
+      props.rooms.push_back(existing);
     }
   }
-  assert_closed_loop(wall_ids);
-  StoreyProps props;
-  props.id = id_;
-  props.elevation = elevation_;
-  props.height = height_;
-  props.walls = walls_;
-  props.rooms = rooms_;
-  props.rooms.emplace_back(id, wall_ids);
+  if (!found) {
+    throw DomainError("Room " + room.id() + " not found", "ROOM_NOT_FOUND");
+  }
+  return Storey(std::move(props));
+}
+
+Storey Storey::place_hosted_component(HostedComponent component) const {
+  for (const auto& existing : hosted_components_) {
+    if (existing.id == component.id) {
+      throw DomainError("HostedComponent " + component.id + " already exists",
+                        "DUPLICATE_HOSTED");
+    }
+  }
+  auto props = snapshot();
+  props.hosted_components.push_back(std::move(component));
   return Storey(std::move(props));
 }
 

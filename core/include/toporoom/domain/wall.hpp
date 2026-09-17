@@ -35,6 +35,7 @@ class Wall {
 
   Wall host_opening(const Opening& opening) const;
   Wall replace_opening(const Opening& opening) const;
+  Wall with_height(LengthMm height) const;
 
  private:
   Wall(WallProps props, std::vector<Opening> openings);
