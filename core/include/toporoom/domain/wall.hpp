@@ -35,10 +35,16 @@ class Wall {
 
   Wall host_opening(const Opening& opening) const;
   Wall replace_opening(const Opening& opening) const;
+  Wall without_opening(const std::string& opening_id) const;
   Wall with_height(LengthMm height) const;
+  Wall with_geometry(PointMm start, PointMm end) const;
+
+  bool same_as(PointMm start, PointMm end, LengthMm thickness, LengthMm height,
+               WallKind kind) const noexcept;
 
  private:
   Wall(WallProps props, std::vector<Opening> openings);
+  WallProps snapshot() const;
   void assert_opening_fits(const Opening& opening) const;
 
   std::string id_;

@@ -14,6 +14,18 @@ Wall::Wall(WallProps props, std::vector<Opening> openings)
       openings_(std::move(openings)),
       length_mm_(LengthMm::of(props.start.distance_to(props.end))) {}
 
+WallProps Wall::snapshot() const {
+  WallProps props;
+  props.id = id_;
+  props.start = start_;
+  props.end = end_;
+  props.thickness = thickness_;
+  props.height = height_;
+  props.kind = kind_;
+  props.openings = openings_;
+  return props;
+}
+
 Wall Wall::create(WallProps props) {
   const double length = props.start.distance_to(props.end);
   if (length <= 0) {
@@ -41,22 +53,16 @@ Wall Wall::host_opening(const Opening& opening) const {
                         "DUPLICATE_OPENING");
     }
   }
-  std::vector<Opening> openings = openings_;
-  openings.push_back(opening);
-  WallProps props;
-  props.id = id_;
-  props.start = start_;
-  props.end = end_;
-  props.thickness = thickness_;
-  props.height = height_;
-  props.kind = kind_;
+  auto props = snapshot();
+  props.openings.push_back(opening);
+  auto openings = props.openings;
   return Wall(std::move(props), std::move(openings));
 }
 
 Wall Wall::replace_opening(const Opening& opening) const {
-  std::vector<Opening> next = openings_;
+  auto props = snapshot();
   bool found = false;
-  for (auto& candidate : next) {
+  for (auto& candidate : props.openings) {
     if (candidate.id() == opening.id()) {
       candidate = opening;
       found = true;
@@ -67,28 +73,47 @@ Wall Wall::replace_opening(const Opening& opening) const {
     throw DomainError("Opening " + opening.id() + " is not hosted on wall " + id_,
                       "OPENING_NOT_FOUND");
   }
-  assert_opening_fits(opening);
-  WallProps props;
-  props.id = id_;
-  props.start = start_;
-  props.end = end_;
-  props.thickness = thickness_;
-  props.height = height_;
-  props.kind = kind_;
-  props.openings = next;
-  return Wall(std::move(props), std::move(next));
+  return Wall::create(std::move(props));
+}
+
+Wall Wall::without_opening(const std::string& opening_id) const {
+  auto props = snapshot();
+  std::vector<Opening> kept;
+  kept.reserve(props.openings.size());
+  bool found = false;
+  for (const auto& opening : props.openings) {
+    if (opening.id() == opening_id) {
+      found = true;
+      continue;
+    }
+    kept.push_back(opening);
+  }
+  if (!found) {
+    throw DomainError("Opening " + opening_id + " is not hosted on wall " + id_,
+                      "OPENING_NOT_FOUND");
+  }
+  props.openings = std::move(kept);
+  return Wall::create(std::move(props));
 }
 
 Wall Wall::with_height(LengthMm height) const {
-  WallProps props;
-  props.id = id_;
-  props.start = start_;
-  props.end = end_;
-  props.thickness = thickness_;
+  auto props = snapshot();
   props.height = height;
-  props.kind = kind_;
-  props.openings = openings_;
   return Wall::create(std::move(props));
+}
+
+Wall Wall::with_geometry(PointMm start, PointMm end) const {
+  auto props = snapshot();
+  props.start = start;
+  props.end = end;
+  return Wall::create(std::move(props));
+}
+
+bool Wall::same_as(PointMm start, PointMm end, LengthMm thickness, LengthMm height,
+                   WallKind kind) const noexcept {
+  return start_.equals(start) && end_.equals(end) &&
+         thickness_.value() == thickness.value() && height_.value() == height.value() &&
+         kind_ == kind;
 }
 
 void Wall::assert_opening_fits(const Opening& opening) const {

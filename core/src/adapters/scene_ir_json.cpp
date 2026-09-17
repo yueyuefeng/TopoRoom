@@ -203,6 +203,9 @@ domain::SceneIR load_scene_ir_json(const std::string& json_text) {
           hc.z_bottom_mm = hc_j.value("zBottomMm", 0.0);
           hc.depth_mm = hc_j.value("depthMm", 0.0);
         }
+        if (hc_j.contains("hostWallId") && !hc_j["hostWallId"].is_null()) {
+          hc.host_wall_id = hc_j.at("hostWallId").get<std::string>();
+        }
         storey.hosted_components.push_back(std::move(hc));
       }
     }
@@ -259,9 +262,11 @@ std::string scene_ir_to_json(const domain::SceneIR& scene) {
     }
     nlohmann::json hosted = nlohmann::json::array();
     for (const auto& hc : storey.hosted_components) {
-      hosted.push_back({{"id", hc.id},
-                        {"kind", domain::to_string(hc.kind)},
-                        {"params", {{"zBottomMm", hc.z_bottom_mm}, {"depthMm", hc.depth_mm}}}});
+      nlohmann::json hj = {{"id", hc.id},
+                           {"kind", domain::to_string(hc.kind)},
+                           {"params", {{"zBottomMm", hc.z_bottom_mm}, {"depthMm", hc.depth_mm}}}};
+      if (hc.host_wall_id) hj["hostWallId"] = *hc.host_wall_id;
+      hosted.push_back(std::move(hj));
     }
     nlohmann::json storey_j = {{"id", storey.id},
                                {"elevationMm", storey.elevation_mm},

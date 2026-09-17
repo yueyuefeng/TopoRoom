@@ -23,13 +23,29 @@ Opening Opening::create(OpeningProps props) {
 }
 
 Opening Opening::with_width(LengthMm width) const {
+  return with_placement(width, height_, offset_along_wall_, sill_height_);
+}
+
+Opening Opening::with_kind(OpeningKind kind) const {
+  OpeningProps props;
+  props.id = id_;
+  props.kind = kind;
+  props.width = width_;
+  props.height = height_;
+  props.offset_along_wall = offset_along_wall_;
+  props.sill_height = sill_height_;
+  return Opening::create(std::move(props));
+}
+
+Opening Opening::with_placement(LengthMm width, LengthMm height, LengthMm offset_along_wall,
+                                LengthMm sill_height) const {
   OpeningProps props;
   props.id = id_;
   props.kind = kind_;
   props.width = width;
-  props.height = height_;
-  props.offset_along_wall = offset_along_wall_;
-  props.sill_height = sill_height_;
+  props.height = height;
+  props.offset_along_wall = offset_along_wall;
+  props.sill_height = sill_height;
   return Opening::create(std::move(props));
 }
 

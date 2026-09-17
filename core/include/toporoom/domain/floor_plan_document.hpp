@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "toporoom/domain/events.hpp"
@@ -75,6 +76,7 @@ struct PlaceHostedComponentProps {
   HostedKind kind = HostedKind::Beam;
   double z_bottom_mm = 0;
   double depth_mm = 0;
+  std::optional<std::string> host_wall_id;
 };
 
 class FloorPlanDocument {
@@ -95,13 +97,33 @@ class FloorPlanDocument {
   }
 
   Wall add_wall(AddWallProps props);
+  Wall move_wall(const std::string& storey_id, const std::string& wall_id, PointMm start,
+                 PointMm end);
+  Wall resize_wall(const std::string& storey_id, const std::string& wall_id,
+                   LengthMm length_mm);
+  void delete_wall(const std::string& storey_id, const std::string& wall_id);
+  void set_wall_height(const std::string& storey_id, const std::string& wall_id,
+                       LengthMm height_mm);
   Opening add_opening(AddOpeningProps props);
+  Opening update_opening(const std::string& storey_id, const std::string& opening_id,
+                         OpeningKind kind, LengthMm width, LengthMm height,
+                         LengthMm offset_along_wall, LengthMm sill_height);
+  void delete_opening(const std::string& storey_id, const std::string& opening_id);
   void close_room(CloseRoomProps props);
+  void set_room_attributes(const std::string& storey_id, const std::string& room_id,
+                           std::string name, SpaceType space_type,
+                           std::optional<LengthMm> clear_height);
   void set_room_clear_height(const std::string& storey_id, const std::string& room_id,
                              LengthMm clear_height_mm);
   void set_storey_height(const std::string& storey_id, LengthMm height_mm,
                          bool follow_matching_walls = true);
   HostedComponent place_hosted_component(PlaceHostedComponentProps props);
+  HostedComponent update_hosted_component(const std::string& storey_id,
+                                          const std::string& component_id, HostedKind kind,
+                                          double z_bottom_mm, double depth_mm,
+                                          std::optional<std::string> host_wall_id);
+  void delete_hosted_component(const std::string& storey_id,
+                               const std::string& component_id);
   Measurement set_measurement(SetMeasurementProps props);
   SceneIR to_scene_ir() const;
   std::vector<DomainEvent> pull_domain_events();
@@ -116,6 +138,8 @@ class FloorPlanDocument {
   void apply_storey_height(const std::string& storey_id, LengthMm height_mm,
                            bool follow_matching_walls);
   void resize_opening(const std::string& opening_id, LengthMm width);
+  std::pair<std::string, Wall> find_opening_host(const std::string& storey_id,
+                                                 const std::string& opening_id) const;
   Storey& require_storey(const std::string& storey_id);
   const Storey& require_storey(const std::string& storey_id) const;
   void replace_storey(Storey storey);

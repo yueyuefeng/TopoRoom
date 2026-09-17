@@ -117,9 +117,33 @@ nlohmann JSON (JSON stays in adapters).
 7. ~~Industry Domain model (OpeningKind 门窗垭口, 层高≠净高, SceneIR 0.2).~~ **Done**
    `GuidedRoomSession` = 量房会话 (`CaptureSession`). P0 drawing = 户型图.
    Fault still emits semantic DXF; glb structural solid is rejected.
+8. ~~Business + editing workflows (commands, tools, guided multi-step).~~ **Done**
+   See [Edit commands](#edit-commands).
 
 `measurements[].source ∈ { laser, typed, depth_fit }`. `depth_fit` must not
 silently overwrite `laser` or `typed`. RF BLE ranging is never a ruler.
+
+## Edit commands
+
+Application service `FloorPlanEditService` writes the 方案 (`FloorPlanDocument`)
+serially per `documentId` (`SessionIsolate`). Tools gather parameters
+(`ParamGatheringFSM` + `ToolRegistry`) then commit those commands.
+
+| Command | Tool id | Notes |
+|---------|---------|-------|
+| Add / Move / Resize / Delete **Wall** | `WallDrawTool` | Resize keeps start, scales end |
+| Add / Update / Delete **Opening** | `PlaceOpening` | `OpeningKind` door\|window\|**archway** (垭口) required |
+| Close room + set name / `SpaceType` / optional **clearHeightMm** (净高) | `SetClearHeight` | 层高 is `Storey.height`, not 净高 |
+| Change **Storey** 层高 | `SetStoreyHeight` | Default matching walls follow; `set_wall_height` overrides |
+| Add / Update / Delete **HostedComponent** | `PlaceHostedComponent` | beam\|column\|flue (梁/柱/烟道); optional `hostWallId` |
+| SetMeasurement | (capture / typed) | source laser\|typed\|depth_fit on key edges |
+
+`GuidedEditWorkflow` drives a real multi-step 量房 path (4 walls, ≥2 laser or
+typed-explicit keys, ≥1 opening, rebuild OK) instead of only
+`toporoom_debug_fake_one_room`. C API mirrors the document edits plus
+`toporoom_document_run_guided_edit` / `toporoom_guide_sync_from_document`.
+
+P0 drawing = **户型图**. Fault still emits semantic-line DXF/PDF and rejects glb solids.
 
 ## P1+ reserved ports (FR-013)
 

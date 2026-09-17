@@ -5,6 +5,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -213,6 +214,172 @@ int toporoom_document_close_room(TopoRoomDocument* doc, const char* storey_id,
   }
 }
 
+int toporoom_document_move_wall(TopoRoomDocument* doc, const char* storey_id,
+                                const char* wall_id, double x0, double y0, double x1,
+                                double y1, char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.move_wall(storey_id, wall_id, toporoom::domain::PointMm::of(x0, y0),
+                        toporoom::domain::PointMm::of(x1, y1));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_resize_wall(TopoRoomDocument* doc, const char* storey_id,
+                                  const char* wall_id, double length_mm, char* errbuf,
+                                  int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.resize_wall(storey_id, wall_id, toporoom::domain::LengthMm::of(length_mm));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_delete_wall(TopoRoomDocument* doc, const char* storey_id,
+                                  const char* wall_id, char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.delete_wall(storey_id, wall_id);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_set_wall_height(TopoRoomDocument* doc, const char* storey_id,
+                                      const char* wall_id, double height_mm, char* errbuf,
+                                      int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.set_wall_height(storey_id, wall_id,
+                              toporoom::domain::LengthMm::of(height_mm));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_update_opening(TopoRoomDocument* doc, const char* storey_id,
+                                     const char* opening_id, const char* kind,
+                                     double width_mm, double height_mm, double offset_mm,
+                                     double sill_height_mm, char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !opening_id) return 1;
+  try {
+    const auto parsed = toporoom::domain::opening_kind_from_string(kind ? kind : "");
+    if (!parsed) return write_error(errbuf, errbuf_len, "OpeningKind required: door|window|archway");
+    doc->impl.update_opening(storey_id, opening_id, *parsed,
+                             toporoom::domain::LengthMm::of(width_mm),
+                             toporoom::domain::LengthMm::of(height_mm),
+                             toporoom::domain::LengthMm::of(offset_mm),
+                             toporoom::domain::LengthMm::of(sill_height_mm));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_delete_opening(TopoRoomDocument* doc, const char* storey_id,
+                                     const char* opening_id, char* errbuf,
+                                     int errbuf_len) {
+  if (!doc || !storey_id || !opening_id) return 1;
+  try {
+    doc->impl.delete_opening(storey_id, opening_id);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_set_room_attributes(TopoRoomDocument* doc, const char* storey_id,
+                                          const char* room_id, const char* name,
+                                          const char* space_type, int has_clear_height,
+                                          double clear_height_mm, char* errbuf,
+                                          int errbuf_len) {
+  if (!doc || !storey_id || !room_id) return 1;
+  try {
+    const auto parsed =
+        toporoom::domain::space_type_from_string(space_type ? space_type : "interior");
+    if (!parsed) return write_error(errbuf, errbuf_len, "unknown space type");
+    std::optional<toporoom::domain::LengthMm> clear;
+    if (has_clear_height) clear = toporoom::domain::LengthMm::of(clear_height_mm);
+    doc->impl.set_room_attributes(storey_id, room_id, name ? name : "", *parsed, clear);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_set_storey_height(TopoRoomDocument* doc, const char* storey_id,
+                                        double height_mm, int follow_matching_walls,
+                                        char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id) return 1;
+  try {
+    doc->impl.set_storey_height(storey_id, toporoom::domain::LengthMm::of(height_mm),
+                                follow_matching_walls != 0);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_place_hosted(TopoRoomDocument* doc, const char* storey_id,
+                                   const char* component_id, const char* kind,
+                                   double z_bottom_mm, double depth_mm,
+                                   const char* host_wall_id, char* errbuf,
+                                   int errbuf_len) {
+  if (!doc || !storey_id) return 1;
+  try {
+    const auto parsed = toporoom::domain::hosted_kind_from_string(kind ? kind : "");
+    if (!parsed) return write_error(errbuf, errbuf_len, "HostedKind required: beam|column|flue");
+    toporoom::domain::PlaceHostedComponentProps props;
+    props.storey_id = storey_id;
+    if (component_id && *component_id) props.id = std::string(component_id);
+    props.kind = *parsed;
+    props.z_bottom_mm = z_bottom_mm;
+    props.depth_mm = depth_mm;
+    if (host_wall_id && *host_wall_id) props.host_wall_id = std::string(host_wall_id);
+    doc->impl.place_hosted_component(std::move(props));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_update_hosted(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* component_id, const char* kind,
+                                    double z_bottom_mm, double depth_mm,
+                                    const char* host_wall_id, char* errbuf,
+                                    int errbuf_len) {
+  if (!doc || !storey_id || !component_id) return 1;
+  try {
+    const auto parsed = toporoom::domain::hosted_kind_from_string(kind ? kind : "");
+    if (!parsed) return write_error(errbuf, errbuf_len, "HostedKind required: beam|column|flue");
+    std::optional<std::string> host;
+    if (host_wall_id && *host_wall_id) host = std::string(host_wall_id);
+    doc->impl.update_hosted_component(storey_id, component_id, *parsed, z_bottom_mm,
+                                      depth_mm, host);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_delete_hosted(TopoRoomDocument* doc, const char* storey_id,
+                                    const char* component_id, char* errbuf,
+                                    int errbuf_len) {
+  if (!doc || !storey_id || !component_id) return 1;
+  try {
+    doc->impl.delete_hosted_component(storey_id, component_id);
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
 int toporoom_document_export(TopoRoomDocument* doc, const char* format, const char* path,
                              char* errbuf, int errbuf_len) {
   if (!doc) return 1;
@@ -363,6 +530,82 @@ const char* toporoom_guide_blocking_reason(const TopoRoomGuide* guide) {
   if (!guide) return "no guide";
   guide->reason_cache = guide->session.blocking_reason();
   return guide->reason_cache.c_str();
+}
+
+int toporoom_guide_sync_from_document(TopoRoomGuide* guide, TopoRoomDocument* doc,
+                                      int rebuild_ok) {
+  if (!guide || !doc) return 1;
+  guide->session.observe_scene(doc->impl.to_scene_ir(), rebuild_ok != 0);
+  return 0;
+}
+
+int toporoom_document_run_guided_edit(TopoRoomDocument* doc, TopoRoomGuide* guide,
+                                      char* errbuf, int errbuf_len) {
+  if (!doc) return 1;
+  if (!doc->impl.storeys().empty() && !doc->impl.storeys()[0].walls().empty()) {
+    return write_error(errbuf, errbuf_len, "document already has walls");
+  }
+  try {
+    const std::string storey_id = doc->impl.storeys()[0].id();
+    auto add_wall = [&](const char* id, double x0, double y0, double x1, double y1) {
+      toporoom::domain::AddWallProps props;
+      props.storey_id = storey_id;
+      props.id = id;
+      props.start = toporoom::domain::PointMm::of(x0, y0);
+      props.end = toporoom::domain::PointMm::of(x1, y1);
+      props.thickness = toporoom::domain::LengthMm::of(200);
+      props.height = toporoom::domain::LengthMm::of(2800);
+      props.kind = toporoom::domain::WallKind::Exterior;
+      doc->impl.add_wall(std::move(props));
+    };
+    add_wall("wall_n", 0, 3000, 4000, 3000);
+    add_wall("wall_e", 4000, 3000, 4000, 0);
+    add_wall("wall_s", 4000, 0, 0, 0);
+    add_wall("wall_w", 0, 0, 0, 3000);
+
+    toporoom::domain::AddOpeningProps opening;
+    opening.storey_id = storey_id;
+    opening.wall_id = "wall_s";
+    opening.id = "op_arch";
+    opening.kind = toporoom::domain::OpeningKind::Archway;
+    opening.width = toporoom::domain::LengthMm::of(1200);
+    opening.height = toporoom::domain::LengthMm::of(2100);
+    opening.offset_along_wall = toporoom::domain::LengthMm::of(800);
+    doc->impl.add_opening(std::move(opening));
+
+    toporoom::domain::SetMeasurementProps m_s;
+    m_s.id = "m_key_s";
+    m_s.value = toporoom::domain::LengthMm::of(4000);
+    m_s.source = toporoom::domain::MeasurementSource::Laser;
+    m_s.instrument_id = "laser";
+    m_s.between = {"wall_s"};
+    doc->impl.set_measurement(m_s);
+
+    toporoom::domain::SetMeasurementProps m_e;
+    m_e.id = "m_key_e";
+    m_e.value = toporoom::domain::LengthMm::of(3000);
+    m_e.source = toporoom::domain::MeasurementSource::Laser;
+    m_e.instrument_id = "laser";
+    m_e.between = {"wall_e"};
+    doc->impl.set_measurement(m_e);
+
+    toporoom::domain::CloseRoomProps room;
+    room.storey_id = storey_id;
+    room.id = "room_1";
+    room.name = "客厅";
+    room.space_type = toporoom::domain::SpaceType::Interior;
+    room.clear_height = toporoom::domain::LengthMm::of(2650);
+    room.wall_ids = {"wall_n", "wall_e", "wall_s", "wall_w"};
+    doc->impl.close_room(std::move(room));
+
+    if (guide) {
+      guide->session.mark_host_ok(true);
+      guide->session.observe_scene(doc->impl.to_scene_ir(), true);
+    }
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
 }
 
 TopoRoomEvidence* toporoom_evidence_create(const char* document_id) {

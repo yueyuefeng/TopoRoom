@@ -35,6 +35,15 @@ class Room {
     return Room(id_, wall_ids_, std::move(name), space_type_, clear_height_);
   }
 
+  Room with_space_type(SpaceType space_type) const {
+    return Room(id_, wall_ids_, name_, space_type, clear_height_);
+  }
+
+  Room with_attributes(std::string name, SpaceType space_type,
+                       std::optional<LengthMm> clear_height) const {
+    return Room(id_, wall_ids_, std::move(name), space_type, clear_height);
+  }
+
  private:
   std::string id_;
   std::vector<std::string> wall_ids_;

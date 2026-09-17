@@ -100,7 +100,8 @@ FloorPlanDocument FloorPlanDocument::from_scene_ir(const SceneIR& scene) {
     }
     for (const auto& hosted : storey_ir.hosted_components) {
       storey_props.hosted_components.push_back(
-          HostedComponent{hosted.id, hosted.kind, hosted.z_bottom_mm, hosted.depth_mm});
+          HostedComponent{hosted.id, hosted.kind, hosted.z_bottom_mm, hosted.depth_mm,
+                          hosted.host_wall_id});
     }
     storeys.push_back(Storey::create(std::move(storey_props)));
   }
@@ -111,6 +112,14 @@ FloorPlanDocument FloorPlanDocument::from_scene_ir(const SceneIR& scene) {
 
 Wall FloorPlanDocument::add_wall(AddWallProps props) {
   Storey storey = require_storey(props.storey_id);
+  if (props.id && storey.has_wall(*props.id)) {
+    const Wall& existing = storey.wall_by_id(*props.id);
+    if (existing.same_as(props.start, props.end, props.thickness, props.height,
+                         props.kind)) {
+      return existing;
+    }
+    throw DomainError("Wall " + *props.id + " already exists", "DUPLICATE_WALL");
+  }
   WallProps wall_props;
   wall_props.id = props.id.value_or(next_id("wall"));
   wall_props.start = props.start;
@@ -125,8 +134,87 @@ Wall FloorPlanDocument::add_wall(AddWallProps props) {
   return wall;
 }
 
+Wall FloorPlanDocument::move_wall(const std::string& storey_id, const std::string& wall_id,
+                                  PointMm start, PointMm end) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  if (current.start().equals(start) && current.end().equals(end)) return current;
+  Wall next = current.with_geometry(start, end);
+  replace_storey(storey.replace_wall(next));
+  record(WallGeometryChanged{id_, storey_id, wall_id});
+  bump_semantics();
+  return next;
+}
+
+Wall FloorPlanDocument::resize_wall(const std::string& storey_id, const std::string& wall_id,
+                                    LengthMm length_mm) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  const double old_len = current.length_mm().value();
+  if (old_len <= 0) {
+    throw DomainError("Wall length must be positive", "INVALID_WALL");
+  }
+  const double scale = length_mm.value() / old_len;
+  const PointMm start = current.start();
+  const PointMm end = current.end();
+  const PointMm next_end = PointMm::of(start.x() + (end.x() - start.x()) * scale,
+                                       start.y() + (end.y() - start.y()) * scale);
+  return move_wall(storey_id, wall_id, start, next_end);
+}
+
+void FloorPlanDocument::delete_wall(const std::string& storey_id, const std::string& wall_id) {
+  Storey storey = require_storey(storey_id);
+  if (!storey.has_wall(wall_id)) return;
+  const Wall doomed = storey.wall_by_id(wall_id);
+  for (const auto& opening : doomed.openings()) {
+    record(OpeningRemoved{id_, storey_id, wall_id, opening.id()});
+  }
+  for (const auto& hosted : storey.hosted_components()) {
+    if (hosted.host_wall_id && *hosted.host_wall_id == wall_id) {
+      record(HostedComponentRemoved{id_, storey_id, hosted.id});
+    }
+  }
+  for (const auto& room : storey.rooms()) {
+    for (const auto& id : room.wall_ids()) {
+      if (id == wall_id) {
+        record(RoomOpened{id_, storey_id, room.id()});
+        break;
+      }
+    }
+  }
+  replace_storey(storey.remove_wall(wall_id));
+  record(WallRemoved{id_, storey_id, wall_id});
+  bump_semantics();
+}
+
+void FloorPlanDocument::set_wall_height(const std::string& storey_id,
+                                        const std::string& wall_id, LengthMm height_mm) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  if (current.height().value() == height_mm.value()) return;
+  replace_storey(storey.replace_wall(current.with_height(height_mm)));
+  record(WallGeometryChanged{id_, storey_id, wall_id});
+  bump_semantics();
+}
+
 Opening FloorPlanDocument::add_opening(AddOpeningProps props) {
   Storey storey = require_storey(props.storey_id);
+  if (props.id) {
+    for (const auto& wall : storey.walls()) {
+      for (const auto& existing : wall.openings()) {
+        if (existing.id() != *props.id) continue;
+        if (wall.id() == props.wall_id && existing.kind() == props.kind &&
+            existing.width().value() == props.width.value() &&
+            existing.height().value() == props.height.value() &&
+            existing.offset_along_wall().value() == props.offset_along_wall.value() &&
+            existing.sill_height().value() == props.sill_height.value()) {
+          return existing;
+        }
+        throw DomainError("Opening " + *props.id + " already exists",
+                          "DUPLICATE_OPENING");
+      }
+    }
+  }
   OpeningProps opening_props;
   opening_props.id = props.id.value_or(next_id("opening"));
   opening_props.kind = props.kind;
@@ -141,6 +229,47 @@ Opening FloorPlanDocument::add_opening(AddOpeningProps props) {
   return opening;
 }
 
+Opening FloorPlanDocument::update_opening(const std::string& storey_id,
+                                          const std::string& opening_id, OpeningKind kind,
+                                          LengthMm width, LengthMm height,
+                                          LengthMm offset_along_wall,
+                                          LengthMm sill_height) {
+  auto [wall_id, wall] = find_opening_host(storey_id, opening_id);
+  Storey storey = require_storey(storey_id);
+  Opening updated = wall.openings().front();
+  for (const auto& opening : wall.openings()) {
+    if (opening.id() == opening_id) {
+      updated = opening.with_kind(kind).with_placement(width, height, offset_along_wall,
+                                                       sill_height);
+      break;
+    }
+  }
+  replace_storey(storey.replace_wall(wall.replace_opening(updated)));
+  record(OpeningChanged{id_, storey_id, wall_id, opening_id, kind});
+  bump_semantics();
+  return updated;
+}
+
+void FloorPlanDocument::delete_opening(const std::string& storey_id,
+                                       const std::string& opening_id) {
+  Storey storey = require_storey(storey_id);
+  std::string wall_id;
+  bool found = false;
+  for (const auto& wall : storey.walls()) {
+    for (const auto& opening : wall.openings()) {
+      if (opening.id() != opening_id) continue;
+      wall_id = wall.id();
+      found = true;
+      break;
+    }
+    if (found) break;
+  }
+  if (!found) return;
+  replace_storey(storey.remove_opening(opening_id));
+  record(OpeningRemoved{id_, storey_id, wall_id, opening_id});
+  bump_semantics();
+}
+
 void FloorPlanDocument::close_room(CloseRoomProps props) {
   Storey storey = require_storey(props.storey_id);
   Room room(props.id, props.wall_ids, props.name, props.space_type, props.clear_height);
@@ -149,22 +278,33 @@ void FloorPlanDocument::close_room(CloseRoomProps props) {
   bump_semantics();
 }
 
+void FloorPlanDocument::set_room_attributes(const std::string& storey_id,
+                                            const std::string& room_id, std::string name,
+                                            SpaceType space_type,
+                                            std::optional<LengthMm> clear_height) {
+  Storey storey = require_storey(storey_id);
+  for (const auto& room : storey.rooms()) {
+    if (room.id() != room_id) continue;
+    replace_storey(storey.replace_room(
+        room.with_attributes(std::move(name), space_type, clear_height)));
+    record(RoomAttributesChanged{id_, storey_id, room_id});
+    bump_semantics();
+    return;
+  }
+  throw DomainError("Room " + room_id + " not found", "ROOM_NOT_FOUND");
+}
+
 void FloorPlanDocument::set_room_clear_height(const std::string& storey_id,
                                               const std::string& room_id,
                                               LengthMm clear_height_mm) {
   Storey storey = require_storey(storey_id);
-  bool found = false;
   for (const auto& room : storey.rooms()) {
     if (room.id() != room_id) continue;
-    replace_storey(storey.replace_room(room.with_clear_height(clear_height_mm)));
-    record(RoomAttributesChanged{id_, storey_id, room_id});
-    bump_semantics();
-    found = true;
-    break;
+    set_room_attributes(storey_id, room_id, room.name(), room.space_type(),
+                        clear_height_mm);
+    return;
   }
-  if (!found) {
-    throw DomainError("Room " + room_id + " not found", "ROOM_NOT_FOUND");
-  }
+  throw DomainError("Room " + room_id + " not found", "ROOM_NOT_FOUND");
 }
 
 void FloorPlanDocument::set_storey_height(const std::string& storey_id, LengthMm height_mm,
@@ -182,15 +322,52 @@ void FloorPlanDocument::apply_storey_height(const std::string& storey_id, Length
 
 HostedComponent FloorPlanDocument::place_hosted_component(PlaceHostedComponentProps props) {
   Storey storey = require_storey(props.storey_id);
+  if (props.id) {
+    if (const auto* existing = storey.hosted_by_id(*props.id)) {
+      if (existing->kind == props.kind && existing->z_bottom_mm == props.z_bottom_mm &&
+          existing->depth_mm == props.depth_mm &&
+          existing->host_wall_id == props.host_wall_id) {
+        return *existing;
+      }
+      throw DomainError("HostedComponent " + *props.id + " already exists",
+                        "DUPLICATE_HOSTED");
+    }
+  }
   HostedComponent component;
   component.id = props.id.value_or(next_id("hc"));
   component.kind = props.kind;
   component.z_bottom_mm = props.z_bottom_mm;
   component.depth_mm = props.depth_mm;
+  component.host_wall_id = props.host_wall_id;
   replace_storey(storey.place_hosted_component(component));
   record(HostedComponentPlaced{id_, props.storey_id, component.id, component.kind});
   bump_semantics();
   return component;
+}
+
+HostedComponent FloorPlanDocument::update_hosted_component(
+    const std::string& storey_id, const std::string& component_id, HostedKind kind,
+    double z_bottom_mm, double depth_mm, std::optional<std::string> host_wall_id) {
+  Storey storey = require_storey(storey_id);
+  HostedComponent component;
+  component.id = component_id;
+  component.kind = kind;
+  component.z_bottom_mm = z_bottom_mm;
+  component.depth_mm = depth_mm;
+  component.host_wall_id = std::move(host_wall_id);
+  replace_storey(storey.replace_hosted_component(component));
+  record(HostedComponentChanged{id_, storey_id, component_id, kind});
+  bump_semantics();
+  return component;
+}
+
+void FloorPlanDocument::delete_hosted_component(const std::string& storey_id,
+                                                const std::string& component_id) {
+  Storey storey = require_storey(storey_id);
+  if (!storey.hosted_by_id(component_id)) return;
+  replace_storey(storey.remove_hosted_component(component_id));
+  record(HostedComponentRemoved{id_, storey_id, component_id});
+  bump_semantics();
 }
 
 Measurement FloorPlanDocument::set_measurement(SetMeasurementProps props) {
@@ -268,7 +445,7 @@ SceneIR FloorPlanDocument::to_scene_ir() const {
     for (const auto& hosted : storey.hosted_components()) {
       storey_ir.hosted_components.push_back(
           SceneIRHostedComponent{hosted.id, hosted.kind, hosted.z_bottom_mm,
-                                 hosted.depth_mm});
+                                 hosted.depth_mm, hosted.host_wall_id});
     }
     scene.storeys.push_back(std::move(storey_ir));
   }
@@ -304,6 +481,17 @@ void FloorPlanDocument::resize_opening(const std::string& opening_id, LengthMm w
         replace_storey(storey.replace_wall(wall.replace_opening(opening.with_width(width))));
         return;
       }
+    }
+  }
+  throw DomainError("Opening " + opening_id + " not found", "OPENING_NOT_FOUND");
+}
+
+std::pair<std::string, Wall> FloorPlanDocument::find_opening_host(
+    const std::string& storey_id, const std::string& opening_id) const {
+  const Storey& storey = require_storey(storey_id);
+  for (const auto& wall : storey.walls()) {
+    for (const auto& opening : wall.openings()) {
+      if (opening.id() == opening_id) return {wall.id(), wall};
     }
   }
   throw DomainError("Opening " + opening_id + " not found", "OPENING_NOT_FOUND");

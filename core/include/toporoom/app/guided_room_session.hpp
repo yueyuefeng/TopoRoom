@@ -3,6 +3,7 @@
 #include <string>
 
 #include "toporoom/domain/kinds.hpp"
+#include "toporoom/domain/scene_ir.hpp"
 
 namespace toporoom::app {
 
@@ -44,6 +45,9 @@ class GuidedRoomSession {
   void note_opening();
   void note_key_measurement(domain::MeasurementSource source, bool typed_explicit);
   void note_rebuild(bool ok);
+
+  // Replace counters from the 方案 document (量房会话 observes FloorPlanDocument).
+  void observe_scene(const domain::SceneIR& scene, bool rebuild_ok);
 
   GuidePhase phase() const;
   bool can_export() const;

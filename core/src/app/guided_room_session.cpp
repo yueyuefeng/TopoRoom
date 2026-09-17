@@ -20,6 +20,31 @@ void GuidedRoomSession::note_key_measurement(domain::MeasurementSource source,
 
 void GuidedRoomSession::note_rebuild(bool ok) { rebuild_ok_ = ok; }
 
+void GuidedRoomSession::observe_scene(const domain::SceneIR& scene, bool rebuild_ok) {
+  walls_ = 0;
+  openings_ = 0;
+  laser_keys_ = 0;
+  typed_keys_ = 0;
+  for (const auto& storey : scene.storeys) {
+    walls_ += static_cast<int>(storey.walls.size());
+    for (const auto& wall : storey.walls) {
+      openings_ += static_cast<int>(wall.openings.size());
+    }
+  }
+  for (const auto& measurement : scene.measurements) {
+    const bool key = !measurement.between.empty() ||
+                     (measurement.target && (measurement.target->field == "edge" ||
+                                             measurement.target->entity_type == "edge"));
+    if (!key) continue;
+    if (measurement.source == domain::MeasurementSource::Laser) {
+      ++laser_keys_;
+    } else if (measurement.source == domain::MeasurementSource::Typed) {
+      ++typed_keys_;
+    }
+  }
+  rebuild_ok_ = rebuild_ok;
+}
+
 bool GuidedRoomSession::keys_satisfied() const {
   return laser_keys_ >= 2 || (typed_explicit_ && typed_keys_ >= 2);
 }
