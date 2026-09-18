@@ -29,6 +29,9 @@ var ruler_flags: Dictionary = {
 	"opening": true,
 	"grid": true,
 	"dims_3d": false,
+	"column": false,
+	"plumbing": false,
+	"thickness": false,
 }
 var opening_swing: Dictionary = {}
 var extrude_from_2d := false

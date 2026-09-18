@@ -5,8 +5,11 @@ extends Control
 func _ready() -> void:
 	var out_dir := "/opt/cursor/artifacts"
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	for step in ["calibrate", "review_walls", "library", "lwh", "fab", "place_3d"]:
+	if Session.coach_seen.has("library"):
+		Session.coach_seen.erase("library")
+	for step in ["calibrate", "review_walls", "lwh", "fab", "place_3d"]:
 		Session.mark_coach(step)
+	# Leave "library" unmarked so the blue long-press coach is visible (S4).
 	var fixture := FileAccess.get_file_as_string("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
 	var main: Control = preload("res://app/main.tscn").instantiate()
 	add_child(main)
@@ -45,8 +48,18 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
 	await _shot(out_dir.path_join("toporoom-ui-photo-preview.png"))
+	if photo.has_method("_show_calibrate"):
+		photo._show_calibrate(demo_path)
+		await get_tree().process_frame
+		await get_tree().create_timer(0.3).timeout
+		if photo._calibrate and photo._calibrate.has_method("preview_loupe"):
+			photo._calibrate.preview_loupe()
+			await get_tree().process_frame
+		await _shot(out_dir.path_join("toporoom-ui-calibrate.png"))
 	if Session.has_core():
 		Session.import_photo_fake("fixture:photo")
+		if photo._calibrate:
+			photo._calibrate.visible = false
 		if photo.has_method("_show_review"):
 			photo._show_review()
 		await get_tree().process_frame
@@ -55,12 +68,18 @@ func _ready() -> void:
 			photo._snack.visible = false
 		if photo._coach:
 			photo._coach.visible = false
-		photo._canvas.selected_id = "wall_s"
+		photo._canvas.selected_id = "wall_n"
 		photo._canvas.queue_redraw()
 		photo._refresh_selection()
 		await get_tree().process_frame
 		await get_tree().create_timer(0.25).timeout
 		await _shot(out_dir.path_join("toporoom-ui-photo-review.png"))
+		var cpos: Vector2 = photo._canvas.size * Vector2(0.5, 0.42)
+		photo._canvas.set_drop_preview("door", cpos)
+		await get_tree().process_frame
+		await get_tree().create_timer(0.2).timeout
+		await _shot(out_dir.path_join("toporoom-ui-library-drag.png"))
+		photo._canvas.clear_drop_preview()
 		if photo.has_method("_show_demolish"):
 			photo._show_demolish()
 		photo._canvas.selected_id = "wall_p"
@@ -81,18 +100,47 @@ func _ready() -> void:
 		photo.visible = false
 	if is_instance_valid(main):
 		main.visible = false
+	var edit: Node3D = null
 	if Session.has_core():
 		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
-		var edit: Node3D = preload("res://app/edit_3d.tscn").instantiate()
+		Session.set_ruler("dims_3d", false)
+		edit = preload("res://app/edit_3d.tscn").instantiate()
 		add_child(edit)
 		await get_tree().process_frame
 		await get_tree().process_frame
+		if edit.has_method("_sync_dims_from_prefs"):
+			edit._sync_dims_from_prefs()
 		await get_tree().create_timer(0.8).timeout
 		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		Session.set_ruler("dims_3d", true)
+		if edit.has_method("_sync_dims_from_prefs"):
+			edit._sync_dims_from_prefs()
+		if edit.has_method("_open_ruler"):
+			edit._open_ruler()
+			await get_tree().process_frame
+			await get_tree().create_timer(0.25).timeout
+			await _shot(out_dir.path_join("toporoom-ui-ruler.png"))
+			if edit._ruler:
+				edit._ruler.visible = false
+		Session.set_ruler("dims_3d", true)
+		if edit.has_method("_sync_dims_from_prefs"):
+			edit._sync_dims_from_prefs()
+		await get_tree().process_frame
+		await get_tree().create_timer(0.25).timeout
+		await _shot(out_dir.path_join("toporoom-ui-dims.png"))
 		if edit.has_node("Lighting") and edit.get_node("Lighting").has_method("apply_preset"):
 			edit.get_node("Lighting").apply_preset("warm")
 			await get_tree().create_timer(0.35).timeout
 			await _shot(out_dir.path_join("toporoom-ui-edit-3d-warm.png"))
+	if is_instance_valid(edit):
+		edit.queue_free()
+		edit = null
+		await get_tree().process_frame
+	var elev: Control = preload("res://app/elevation_index.tscn").instantiate()
+	add_child(elev)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	await _shot(out_dir.path_join("toporoom-ui-elevation.png"))
 	print("UI screenshots written to ", out_dir)
 	get_tree().quit()
 

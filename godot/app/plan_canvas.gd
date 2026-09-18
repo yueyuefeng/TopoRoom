@@ -5,11 +5,12 @@ signal wall_clicked(wall_id)
 signal opening_clicked(opening_id, wall_id)
 
 var snapshot: Dictionary = {}
-var show_chrome: bool = true
+var show_chrome: bool = false
 var interactive: bool = false
 var selected_id: String = ""
 var selected_opening_id: String = ""
 var drop_preview: Dictionary = {}
+var full_bleed: bool = true
 
 var _map_min_x := 0.0
 var _map_min_y := 0.0
@@ -84,7 +85,7 @@ func _draw() -> void:
 
 
 func _draw_paper() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Tokens.PAPER)
+	draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE if full_bleed else Tokens.PAPER)
 	if Session.ruler_on("grid"):
 		var step := 24.0
 		var x := 0.0
@@ -95,7 +96,8 @@ func _draw_paper() -> void:
 		while y < size.y:
 			draw_line(Vector2(0, y), Vector2(size.x, y), Tokens.GRID, 1.0)
 			y += step
-	draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
+	if not full_bleed:
+		draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
 
 
 func _draw_empty() -> void:
@@ -232,6 +234,8 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		if poly.size() < 3:
 			continue
 		var fill: Color = palette[i % palette.size()]
+		if _pocket_has_selection(poly):
+			fill = Color(1.0, 0.82, 0.58, 0.55)
 		draw_colored_polygon(poly, fill)
 		var c: Vector2 = pk.get("centroid", Vector2.ZERO)
 		var area: float = float(pk.get("area_m2", 0))
@@ -556,6 +560,44 @@ func to_canvas(global_pos: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * global_pos
 
 
+func selection_anchor() -> Vector2:
+	if not selected_opening_id.is_empty():
+		for op in _openings:
+			if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == selected_opening_id:
+				var mid: Vector2 = (op.a + op.b) * 0.5
+				return get_global_transform_with_canvas() * mid
+	if not selected_id.is_empty():
+		for seg in _segments:
+			if typeof(seg) == TYPE_DICTIONARY and str(seg.get("id", "")) == selected_id:
+				var mid: Vector2 = (seg.a + seg.b) * 0.5
+				return get_global_transform_with_canvas() * mid
+	return Vector2.ZERO
+
+
+func wall_angle_deg(wall_id: String) -> float:
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY or str(seg.get("id", "")) != wall_id:
+			continue
+		var a: Vector2 = seg.a
+		var b: Vector2 = seg.b
+		var deg := absf(rad_to_deg((b - a).angle()))
+		if deg > 90.0:
+			deg = 180.0 - deg
+		return deg
+	return 90.0
+
+
+func _pocket_has_selection(poly: PackedVector2Array) -> bool:
+	if selected_id.is_empty() or poly.size() < 3:
+		return false
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY or str(seg.get("id", "")) != selected_id:
+			continue
+		var mid: Vector2 = (seg.a + seg.b) * 0.5
+		return Geometry2D.is_point_in_polygon(mid, poly)
+	return false
+
+
 func _draw_drop_preview() -> void:
 	if drop_preview.is_empty():
 		return
@@ -576,8 +618,27 @@ func _draw_drop_preview() -> void:
 	draw_line(qa, qb, color, 6.0)
 	draw_circle(qa, 5.0, color)
 	draw_circle(qb, 5.0, color)
+	_draw_drag_dims(a, b, qa, qb, length, float(drop_preview.get("offset_mm", 0)), float(drop_preview.get("width_mm", 900)))
 	var label := Tokens.opening_label(kind)
 	draw_string(_font(), (qa + qb) * 0.5 + Vector2(-18, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+func _draw_drag_dims(wall_a: Vector2, wall_b: Vector2, qa: Vector2, qb: Vector2, length_mm: float, offset_mm: float, width_mm: float) -> void:
+	var n := Vector2(-(wall_b - wall_a).y, (wall_b - wall_a).x).normalized() * 16.0
+	var left_mm := offset_mm
+	var right_mm := maxf(length_mm - offset_mm - width_mm, 0.0)
+	_dim_run(wall_a + n, qa + n, left_mm, Tokens.PAGE_DIM_RED)
+	_dim_run(qb + n, wall_b + n, right_mm, Tokens.TEXT)
+
+
+func _dim_run(p0: Vector2, p1: Vector2, mm: float, ink: Color) -> void:
+	if p0.distance_to(p1) < 8.0:
+		return
+	draw_line(p0, p1, ink, 1.4)
+	draw_circle(p0, 3.0, ink)
+	draw_circle(p1, 3.0, ink)
+	var mid := (p0 + p1) * 0.5 + Vector2(0, -8)
+	draw_string(_font(), mid + Vector2(-16, 0), "%d" % int(round(mm)), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ink)
 
 
 func _gui_input(event: InputEvent) -> void:

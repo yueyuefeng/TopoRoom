@@ -8,6 +8,8 @@ const OpeningLibrary := preload("res://app/opening_library.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const PageIslands := preload("res://app/ui/page_islands.gd")
+const Minimap := preload("res://app/ui/minimap.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -26,13 +28,23 @@ var _status: Label
 var _sel_label: Label
 var _lwh: Label
 var _lwh_row: HBoxContainer
+var _lwh_wrap: Control
 var _numeric: Control
 var _ruler: Control
 var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
+var _ctx_wrap: Control
 var _dim_chip: Button
 var _dim_overlay: Control
 var _show_dims := false
+var _hud_layer: CanvasLayer
+var _minimap: Control
+var _lib_dock: Control
+var _stick: Control
+var _status_snack: Control
+var _stick_knob: Control
+var _stick_held := false
+var _stick_vec := Vector2.ZERO
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -90,38 +102,97 @@ func _ready() -> void:
 
 
 func _build_hud() -> void:
-	var hud: Dictionary = Studio.attach_hud(self)
-	var col: VBoxContainer = hud.column
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
-	row.add_child(Studio.chip("加载夹具", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
-	var grow := Control.new()
-	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(grow)
-	var light_idx := 0
-	if _lighting and _lighting.preset == Lighting.PRESET_WARM:
-		light_idx = 1
-	row.add_child(Studio.segmented(PackedStringArray(["白天", "暖光"]), light_idx, func(_i: int, name: String):
-		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
-		_update_hud()
+	_hud_layer = CanvasLayer.new()
+	add_child(_hud_layer)
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = Studio.theme
+	_hud_layer.add_child(root)
+
+	root.add_child(PageIslands.top_bar(
+		func(): get_tree().change_scene_to_file("res://app/main.tscn"),
+		PageIslands.view_toggle(false, func(): _go_2d(), func(): pass),
+		func(): Session._log("多层楼层 P1")
 	))
-	_dim_chip = Studio.chip("标尺", func(): _open_ruler(), false)
-	row.add_child(_dim_chip)
-	col.add_child(row)
-	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
-	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_lwh)
-	_lwh_row = Studio.hbox(Tokens.S1)
+
+	_minimap = Minimap.new()
+	_minimap.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_minimap.offset_left = 12
+	_minimap.offset_top = 72
+	_minimap.offset_right = 124
+	_minimap.offset_bottom = 184
+	root.add_child(_minimap)
+
+	_lwh = Studio.label("", Tokens.FONT_CHIP, Tokens.TEXT)
+	_lwh_wrap = PageIslands.readout_pill()
+	_lwh_wrap.visible = false
+	_lwh_wrap.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_lwh_wrap.offset_left = 12
+	_lwh_wrap.offset_top = 192
+	_lwh_wrap.offset_right = 240
+	_lwh_wrap.offset_bottom = 228
+	var lwh_col := Studio.vbox(2)
+	lwh_col.add_child(_lwh)
+	_lwh_row = Studio.hbox(4)
 	_lwh_row.visible = false
-	col.add_child(_lwh_row)
-	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_status)
+	lwh_col.add_child(_lwh_row)
+	_lwh_wrap.add_child(lwh_col)
+	root.add_child(_lwh_wrap)
+
+	var rail := PageIslands.right_circles([
+		["settings", "⚙", func(): Session._log("设置 P1")],
+		["eye", "目", func(): _gizmos.visible = not _gizmos.visible],
+		["library", "盒", func(): _toggle_library()],
+		["ruler", "尺", func(): _open_ruler()],
+		["pen", "✎", func(): Session._log("标注 P1")],
+		["curve", "∿", func(): _open_elevation()],
+	])
+	root.add_child(rail)
+
+	root.add_child(PageIslands.green_back_2d(func(): _go_2d()))
+	root.add_child(PageIslands.undo_redo_pill(
+		func(): Session._log("撤销 P1"),
+		func(): Session._log("重做 P1")
+	))
+
+	_stick = _make_stick()
+	root.add_child(_stick)
+	var sun := PageIslands.circle_btn("☀", func():
+		if _lighting == null:
+			return
+		if _lighting.preset == Lighting.PRESET_WARM:
+			_lighting.apply_preset(Lighting.PRESET_DAY)
+		else:
+			_lighting.apply_preset(Lighting.PRESET_WARM)
+		_update_hud()
+	, 48)
+	sun.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	sun.anchor_left = 1.0
+	sun.anchor_top = 1.0
+	sun.offset_left = -188
+	sun.offset_right = -140
+	sun.offset_top = -76
+	sun.offset_bottom = -28
+	root.add_child(sun)
+
+	_status = Studio.label("", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY, true)
+	_status.visible = false
+	root.add_child(_status)
 	_sel_label = Studio.caption("")
-	col.add_child(_sel_label)
-	_ctx = Studio.hbox(Tokens.S1)
-	col.add_child(_ctx)
-	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
+	_sel_label.visible = false
+	root.add_child(_sel_label)
+	_ctx = Studio.hbox(4)
+	_ctx_wrap = PageIslands.readout_pill()
+	_ctx_wrap.visible = false
+	_ctx_wrap.set_anchors_preset(Control.PRESET_CENTER)
+	_ctx_wrap.offset_left = -120
+	_ctx_wrap.offset_right = 120
+	_ctx_wrap.offset_top = 40
+	_ctx_wrap.offset_bottom = 84
+	_ctx_wrap.add_child(_ctx)
+	root.add_child(_ctx_wrap)
+
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
 	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -130,37 +201,30 @@ func _build_hud() -> void:
 	snack.offset_right = -16
 	snack.offset_top = -80
 	snack.offset_bottom = -16
-	hud.layer.add_child(snack)
-	Session.log_line.connect(func(text: String): snack.show_message(text))
-	var fab := Studio.fab("2D", func(): _go_2d())
-	fab.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	fab.anchor_left = 1.0
-	fab.anchor_top = 1.0
-	fab.anchor_right = 1.0
-	fab.anchor_bottom = 1.0
-	fab.offset_left = -78
-	fab.offset_top = -90
-	fab.offset_right = -20
-	fab.offset_bottom = -32
-	hud.layer.add_child(fab)
+	_hud_layer.add_child(snack)
+	_status_snack = snack
+	if not Session.log_line.is_connected(_on_host_log):
+		Session.log_line.connect(_on_host_log)
+
 	_numeric = NumericSheet.new()
-	hud.layer.add_child(_numeric)
+	_hud_layer.add_child(_numeric)
 	_ruler = RulerSheet.new()
 	_ruler.changed.connect(_sync_dims_from_prefs)
-	hud.layer.add_child(_ruler)
+	_hud_layer.add_child(_ruler)
 	var coach := CoachMarks.new()
-	hud.layer.add_child(coach)
+	_hud_layer.add_child(coach)
 	if Session.screen == "photo":
 		coach.start([
-			{"id": "place_3d", "text": "长按底栏门窗，拖到立体墙面上松手。尺寸仍然只来自命令。"},
+			{"id": "place_3d", "text": "右栏盒打开库，长按拖到立体墙面。绿钮回 2D。"},
 		])
-	_mount_3d_library(hud.layer)
+	_mount_3d_library(_hud_layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim_overlay.visible = false
 	_dim_overlay.draw.connect(_draw_dim_overlay)
-	hud.layer.add_child(_dim_overlay)
+	_hud_layer.add_child(_dim_overlay)
+	_dim_chip = null
 
 
 func _tween_extrude(t: float) -> void:
@@ -170,22 +234,33 @@ func _tween_extrude(t: float) -> void:
 
 
 func _mount_3d_library(layer: CanvasLayer) -> void:
-	var dock := MarginContainer.new()
-	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	dock.anchor_top = 1.0
-	dock.offset_left = 12
-	dock.offset_right = -88
-	dock.offset_top = -168
-	dock.offset_bottom = -16
-	dock.theme = Studio.theme
-	var sheet := Studio.sheet()
+	_lib_dock = MarginContainer.new()
+	_lib_dock.visible = false
+	_lib_dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_lib_dock.anchor_top = 1.0
+	_lib_dock.offset_left = 12
+	_lib_dock.offset_right = -88
+	_lib_dock.offset_top = -220
+	_lib_dock.offset_bottom = -88
+	_lib_dock.theme = Studio.theme
+	var sheet := PanelContainer.new()
+	sheet.add_theme_stylebox_override("panel", PageIslands.white_sheet_style())
 	var lib := OpeningLibrary.new()
 	lib.dropped.connect(_on_library_drop)
 	lib.tapped.connect(_on_library_tap)
 	lib.previewed.connect(_on_library_preview)
 	sheet.add_child(lib)
-	dock.add_child(sheet)
-	layer.add_child(dock)
+	_lib_dock.add_child(sheet)
+	layer.add_child(_lib_dock)
+
+
+func _toggle_library() -> void:
+	if _lib_dock:
+		_lib_dock.visible = not _lib_dock.visible
+
+
+func _open_elevation() -> void:
+	get_tree().change_scene_to_file("res://app/elevation_index.tscn")
 
 
 func _on_library_preview(_kind: String, global_pos: Vector2) -> void:
@@ -261,20 +336,33 @@ func _draw_dim_overlay() -> void:
 	if not _show_dims or _camera == null or _dim_overlay == null:
 		return
 	var fnt: Font = Studio.font if Studio and Studio.font else ThemeDB.fallback_font
+	var pink := Tokens.PAGE_PINK
 	for w in _walls():
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		var fr := _frame(w)
-		var mid := Vector3((fr.x0 + fr.x1) * 0.0005, float(fr.height) * 0.0005 + 0.12, (fr.y0 + fr.y1) * 0.0005)
-		if _camera.is_position_behind(mid):
+		var a := Vector3(fr.x0 * 0.001, float(fr.height) * 0.001 + 0.04, fr.y0 * 0.001)
+		var b := Vector3(fr.x1 * 0.001, float(fr.height) * 0.001 + 0.04, fr.y1 * 0.001)
+		var mid := (a + b) * 0.5
+		if _camera.is_position_behind(a) or _camera.is_position_behind(b):
 			continue
-		var p: Vector2 = _camera.unproject_position(mid)
+		var pa: Vector2 = _camera.unproject_position(a)
+		var pb: Vector2 = _camera.unproject_position(b)
+		_dim_overlay.draw_line(pa, pb, pink, 1.6)
 		var txt := "%d" % int(round(float(fr.length)))
-		var sz: Vector2 = fnt.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
-		var box := Rect2(p - Vector2(sz.x * 0.5 + 6, 10), Vector2(sz.x + 12, 20))
-		_dim_overlay.draw_rect(box, Color(1, 1, 1, 0.88), true)
-		_dim_overlay.draw_rect(box, Tokens.HAIRLINE, false, 1.0)
-		_dim_overlay.draw_string(fnt, p - Vector2(sz.x * 0.5, -5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.TEXT)
+		var p: Vector2 = _camera.unproject_position(mid)
+		_dim_overlay.draw_string(fnt, p - Vector2(18, -4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, pink)
+		if Session.ruler_on("thickness"):
+			var thick := "%d" % int(round(float(fr.thickness)))
+			_dim_overlay.draw_string(fnt, p + Vector2(-14, 16), thick, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Tokens.PAGE_DIM_RED)
+		# storey / opening height tick at wall start
+		var floor_p := Vector3(fr.x0 * 0.001, 0.02, fr.y0 * 0.001)
+		var top_p := Vector3(fr.x0 * 0.001, float(fr.height) * 0.001, fr.y0 * 0.001)
+		if not _camera.is_position_behind(floor_p) and not _camera.is_position_behind(top_p):
+			var pf: Vector2 = _camera.unproject_position(floor_p)
+			var pt: Vector2 = _camera.unproject_position(top_p)
+			_dim_overlay.draw_line(pf, pt, pink, 1.2)
+			_dim_overlay.draw_string(fnt, pt + Vector2(6, 0), "%d" % int(round(float(fr.height))), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, pink)
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
@@ -285,8 +373,8 @@ func _draw_dim_overlay() -> void:
 			var pos := _along(f2, t, y)
 			if not _camera.is_position_behind(pos):
 				var p2: Vector2 = _camera.unproject_position(pos)
-				var t2 := "W %d  H %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
-				_dim_overlay.draw_string(fnt, p2 + Vector2(-36, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.PRIMARY)
+				var t2 := "%d × %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
+				_dim_overlay.draw_string(fnt, p2 + Vector2(-28, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Tokens.PAGE_DIM_RED)
 
 
 func _go_2d() -> void:
@@ -667,6 +755,8 @@ func _orbit() -> void:
 		_distance * cos(_pitch) * cos(_yaw)
 	)
 	_camera.look_at_from_position(_target + offset, _target)
+	if _minimap and _minimap.has_method("set_yaw"):
+		_minimap.set_yaw(_yaw)
 	if _dim_overlay and _show_dims:
 		_dim_overlay.queue_redraw()
 
@@ -942,10 +1032,13 @@ func _rebuild_lwh() -> void:
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
 	if pick != KIND_OPENING and pick != KIND_WALL:
-		_lwh.visible = true
-		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		if _lwh_wrap:
+			_lwh_wrap.visible = false
+		_lwh.visible = false
 		_lwh_row.visible = false
 		return
+	if _lwh_wrap:
+		_lwh_wrap.visible = true
 	_lwh.visible = false
 	_lwh_row.visible = true
 	var dims := _lwh_dims()
@@ -1060,6 +1153,8 @@ func _rebuild_ctx() -> void:
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
+		if _ctx_wrap:
+			_ctx_wrap.visible = true
 		_ctx.visible = true
 		var oid := str(_selected.get("opening_id", ""))
 		_ctx_chip("翻转", func(): Session.flip_opening(oid))
@@ -1069,7 +1164,11 @@ func _rebuild_ctx() -> void:
 		return
 	if pick != KIND_WALL:
 		_ctx.visible = false
+		if _ctx_wrap:
+			_ctx_wrap.visible = false
 		return
+	if _ctx_wrap:
+		_ctx_wrap.visible = true
 	_ctx.visible = true
 	var wid := str(_selected.get("wall_id", ""))
 	var shear := Studio.chip("承重", func(): Session.set_wall_kind(wid, "shearWall"), true)
@@ -1086,6 +1185,59 @@ func _ctx_chip(text: String, cb: Callable) -> void:
 	_ctx.add_child(b)
 
 
+func _make_stick() -> Control:
+	var wrap := Control.new()
+	wrap.custom_minimum_size = Vector2(72, 72)
+	wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	wrap.anchor_left = 0.5
+	wrap.anchor_right = 0.5
+	wrap.anchor_top = 1.0
+	wrap.offset_left = -36
+	wrap.offset_right = 36
+	wrap.offset_top = -100
+	wrap.offset_bottom = -28
+	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	var ring := PageIslands.circle_btn("", func(): pass, 72, Tokens.PAGE_ISLAND)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wrap.add_child(ring)
+	_stick_knob = ColorRect.new()
+	_stick_knob.color = Color(0.75, 0.76, 0.78, 1)
+	_stick_knob.size = Vector2(22, 22)
+	_stick_knob.position = Vector2(25, 25)
+	_stick_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(_stick_knob)
+	wrap.gui_input.connect(_on_stick_input)
+	return wrap
+
+
+func _on_stick_input(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton:
+		_stick_held = ev.pressed
+		if not ev.pressed:
+			_stick_vec = Vector2.ZERO
+			if _stick_knob:
+				_stick_knob.position = Vector2(25, 25)
+	elif (ev is InputEventMouseMotion or ev is InputEventScreenDrag) and _stick_held:
+		var pos := Vector2.ZERO
+		if ev is InputEventMouseMotion:
+			pos = (ev as InputEventMouseMotion).position
+		else:
+			pos = (ev as InputEventScreenDrag).position
+		var c := Vector2(36, 36)
+		var v := (pos - c).limit_length(28.0)
+		_stick_vec = v / 28.0
+		if _stick_knob:
+			_stick_knob.position = c + v - Vector2(11, 11)
+
+
+func _process(delta: float) -> void:
+	if _stick_vec.length() > 0.08:
+		_yaw += _stick_vec.x * delta * 1.6
+		_pitch = clampf(_pitch - _stick_vec.y * delta * 1.1, -1.35, -0.12)
+		_orbit()
+
+
 func _opening_by_id(oid: String) -> Dictionary:
 	for w in _walls():
 		if typeof(w) != TYPE_DICTIONARY:
@@ -1094,3 +1246,13 @@ func _opening_by_id(oid: String) -> Dictionary:
 			if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == oid:
 				return op
 	return {}
+
+
+func _on_host_log(text: String) -> void:
+	if is_instance_valid(_status_snack) and _status_snack.has_method("show_message"):
+		_status_snack.show_message(text)
+
+
+func _exit_tree() -> void:
+	if Session.log_line.is_connected(_on_host_log):
+		Session.log_line.disconnect(_on_host_log)

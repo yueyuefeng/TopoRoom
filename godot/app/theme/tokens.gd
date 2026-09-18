@@ -44,6 +44,18 @@ const DIM := Color("8E8E93")
 const HUD_FILL := Color(1.0, 1.0, 1.0, 0.94)
 const HUD_BORDER := Color(0.90, 0.91, 0.93, 0.95)
 
+# --- Page-clone islands (JoyPlan video S2–S7) ---
+const PAGE_PINK := Color("E85A8C")
+const PAGE_PINK_HOVER := Color("D44878")
+const PAGE_GREEN := Color("34C759")
+const PAGE_GREEN_HOVER := Color("28A745")
+const PAGE_PURPLE := Color("7C5CFF")
+const PAGE_DARK := Color(0.16, 0.16, 0.18, 0.94)
+const PAGE_DARK_SOFT := Color(0.12, 0.12, 0.14, 0.78)
+const PAGE_ISLAND := Color(1, 1, 1, 0.96)
+const PAGE_DIM_RED := Color("E23B3B")
+const PAGE_WASH := Color(0.95, 0.55, 0.70, 0.16)
+
 # --- Type (px) ---
 const FONT_DISPLAY := 32
 const FONT_TITLE := 22
