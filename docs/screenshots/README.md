@@ -10,10 +10,10 @@
 | [02-guide.png](./02-guide.png) | 引导量房：底部操作条 |
 | [03-photo-pick.png](./03-photo-pick.png) | 拍户型图 / 从相册导入 / 示例图 |
 | [09-photo-preview.png](./09-photo-preview.png) | 选图后预览，开始识墙 |
-| [04-photo-review-kinds.png](./04-photo-review-kinds.png) | 确认承重：L/W/H chips、收藏/门/窗 库、房间 m²、FAB 3D |
+| [04-photo-review-kinds.png](./04-photo-review-kinds.png) | 确认承重：JoyPlan 顶栏+右轨、房间 m²、门窗库 |
 | [05-demolish.png](./05-demolish.png) | 拆改：砌体直接拆；承重二次确认 copy |
 | [06-shear-confirm.png](./06-shear-confirm.png) | 确认拆除承重墙（再点一次确认 / 先不拆） |
-| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D 编辑 · 白天 + 底栏库 + 标尺 + FAB 2D |
+| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D：三区 chrome（顶栏模式+LWH、右轨、摇杆/灯光/绿钮） |
 | [08-edit-3d-warm.png](./08-edit-3d-warm.png) | 3D 编辑 · 暖光预设 |
 
 ## 01 首页
@@ -38,7 +38,7 @@
 
 ## 04 确认承重
 
-点墙切换种类。顶栏 L/W/H 可点进数字底栏。底栏 收藏/门/窗 长按拖放到墙。
+点墙切换种类。顶栏 JoyPlan 模式条 + L/W/H；右侧工具轨；底栏门窗库。
 
 ![确认承重](./04-photo-review-kinds.png)
 
@@ -51,6 +51,8 @@
 ![承重墙拆除确认](./06-shear-confirm.png)
 
 ## 07 3D 编辑 · 白天
+
+JoyPlan 三区：顶栏 平/立/人/⛶ + LWH + 1F；右轨；底栏撤销/摇杆/灯光/绿色导出。
 
 ![3D 编辑白天](./07-edit-3d-day.png)
 

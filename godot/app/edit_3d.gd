@@ -8,6 +8,7 @@ const OpeningLibrary := preload("res://app/opening_library.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const JoyplanChrome := preload("res://app/ui/joyplan_chrome.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -30,6 +31,9 @@ var _numeric: Control
 var _ruler: Control
 var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
+var _chrome: Control
+var _hud_layer: CanvasLayer
+var _lib_dock: Control
 var _dim_chip: Button
 var _dim_overlay: Control
 var _show_dims := false
@@ -90,77 +94,121 @@ func _ready() -> void:
 
 
 func _build_hud() -> void:
-	var hud: Dictionary = Studio.attach_hud(self)
-	var col: VBoxContainer = hud.column
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
-	row.add_child(Studio.chip("加载夹具", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
-	var grow := Control.new()
-	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(grow)
-	var light_idx := 0
-	if _lighting and _lighting.preset == Lighting.PRESET_WARM:
-		light_idx = 1
-	row.add_child(Studio.segmented(PackedStringArray(["白天", "暖光"]), light_idx, func(_i: int, name: String):
-		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
-		_update_hud()
-	))
-	_dim_chip = Studio.chip("标尺", func(): _open_ruler(), false)
-	row.add_child(_dim_chip)
-	col.add_child(row)
-	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
-	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_lwh)
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	_hud_layer = layer
+	_chrome = JoyplanChrome.new()
+	_chrome.active_mode = "cube"
+	_chrome.show_rail = true
+	_chrome.show_bottom = true
+	_chrome.show_joystick = true
+	layer.add_child(_chrome)
+	_chrome.back_pressed.connect(func(): get_tree().change_scene_to_file("res://app/main.tscn"))
+	_chrome.mode_pressed.connect(_on_chrome_mode)
+	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
+	_chrome.floor_pressed.connect(func(): Session.log_line.emit("本方案一层。多层楼层切换是 P1。"))
+	_chrome.rail_pressed.connect(_on_chrome_rail)
+	_chrome.undo_pressed.connect(func(): Session.log_line.emit("撤销栈稍后（命令历史 P1）。"))
+	_chrome.redo_pressed.connect(func(): Session.log_line.emit("重做栈稍后（命令历史 P1）。"))
+	_chrome.lighting_pressed.connect(_on_chrome_light)
+	_chrome.primary_pressed.connect(_on_chrome_primary)
+	_chrome.stick_moved.connect(func(_v: Vector2): pass)
+
+	var ctx_m := MarginContainer.new()
+	ctx_m.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	ctx_m.anchor_bottom = 0.0
+	ctx_m.offset_left = 12
+	ctx_m.offset_right = -12
+	ctx_m.offset_top = 100
+	ctx_m.offset_bottom = 148
+	ctx_m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(ctx_m)
+	_ctx = Studio.hbox(Tokens.S1)
+	ctx_m.add_child(_ctx)
+
+	_status = Studio.label("", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY, true)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.visible = false
+	_sel_label = Studio.caption("")
+	_sel_label.visible = false
+	_lwh = Studio.label("", Tokens.FONT_CAPTION, Tokens.TEXT)
+	_lwh.visible = false
 	_lwh_row = Studio.hbox(Tokens.S1)
 	_lwh_row.visible = false
-	col.add_child(_lwh_row)
-	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_status)
-	_sel_label = Studio.caption("")
-	col.add_child(_sel_label)
-	_ctx = Studio.hbox(Tokens.S1)
-	col.add_child(_ctx)
-	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
+
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
 	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	snack.anchor_top = 1.0
 	snack.offset_left = 16
 	snack.offset_right = -16
-	snack.offset_top = -80
-	snack.offset_bottom = -16
-	hud.layer.add_child(snack)
+	snack.offset_top = -168
+	snack.offset_bottom = -120
+	layer.add_child(snack)
 	Session.log_line.connect(func(text: String): snack.show_message(text))
-	var fab := Studio.fab("2D", func(): _go_2d())
-	fab.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	fab.anchor_left = 1.0
-	fab.anchor_top = 1.0
-	fab.anchor_right = 1.0
-	fab.anchor_bottom = 1.0
-	fab.offset_left = -78
-	fab.offset_top = -90
-	fab.offset_right = -20
-	fab.offset_bottom = -32
-	hud.layer.add_child(fab)
 	_numeric = NumericSheet.new()
-	hud.layer.add_child(_numeric)
+	layer.add_child(_numeric)
 	_ruler = RulerSheet.new()
 	_ruler.changed.connect(_sync_dims_from_prefs)
-	hud.layer.add_child(_ruler)
+	layer.add_child(_ruler)
 	var coach := CoachMarks.new()
-	hud.layer.add_child(coach)
+	layer.add_child(coach)
 	if Session.screen == "photo":
 		coach.start([
 			{"id": "place_3d", "text": "长按底栏门窗，拖到立体墙面上松手。尺寸仍然只来自命令。"},
 		])
-	_mount_3d_library(hud.layer)
+	_mount_3d_library(layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim_overlay.visible = false
 	_dim_overlay.draw.connect(_draw_dim_overlay)
-	hud.layer.add_child(_dim_overlay)
+	layer.add_child(_dim_overlay)
+
+
+func _on_chrome_mode(id: String) -> void:
+	if id == "plan":
+		_go_2d()
+	elif id == "cube":
+		return
+	elif id == "roam":
+		get_tree().change_scene_to_file("res://app/roam.tscn")
+	elif id == "expand":
+		return
+
+
+func _on_chrome_rail(id: String) -> void:
+	match id:
+		"save":
+			Session.auto_save()
+			Session.log_line.emit("已保存方案")
+		"eye":
+			_open_ruler()
+		"cube":
+			if _lib_dock:
+				_lib_dock.visible = not _lib_dock.visible
+		"pencil":
+			if _ctx:
+				_ctx.visible = not _ctx.visible
+		"more":
+			Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
+		_:
+			Session.log_line.emit("稍后：设置 / 消息。本轮先用标尺、构件库和保存。")
+
+
+func _on_chrome_light() -> void:
+	if _lighting and _lighting.has_method("toggle_preset"):
+		_lighting.toggle_preset()
+		_update_hud()
+		Session.log_line.emit("灯光 %s" % _lighting.preset_label())
+
+
+func _on_chrome_primary() -> void:
+	var msg := Session.export_deliverables()
+	if msg.is_empty() and not Session.last_error.is_empty():
+		Session.log_line.emit(Session.last_error)
+		return
+	Session.log_line.emit(msg if not msg.is_empty() else "已导出")
 
 
 func _tween_extrude(t: float) -> void:
@@ -175,9 +223,11 @@ func _mount_3d_library(layer: CanvasLayer) -> void:
 	dock.anchor_top = 1.0
 	dock.offset_left = 12
 	dock.offset_right = -88
-	dock.offset_top = -168
-	dock.offset_bottom = -16
+	dock.offset_top = -300
+	dock.offset_bottom = -140
 	dock.theme = Studio.theme
+	dock.visible = false
+	_lib_dock = dock
 	var sheet := Studio.sheet()
 	var lib := OpeningLibrary.new()
 	lib.dropped.connect(_on_library_drop)
@@ -671,6 +721,17 @@ func _orbit() -> void:
 		_dim_overlay.queue_redraw()
 
 
+func _process(delta: float) -> void:
+	if _chrome == null or not _chrome.has_method("stick_vector"):
+		return
+	var v: Vector2 = _chrome.stick_vector()
+	if v.length() < 0.08:
+		return
+	_yaw -= v.x * delta * 1.8
+	_pitch = clampf(_pitch - v.y * delta * 1.3, -1.25, -0.08)
+	_orbit()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
@@ -942,16 +1003,24 @@ func _rebuild_lwh() -> void:
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
 	if pick != KIND_OPENING and pick != KIND_WALL:
-		_lwh.visible = true
-		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		_lwh.visible = false
 		_lwh_row.visible = false
+		if _chrome and _chrome.has_method("set_lwh"):
+			var walls: Array = _walls()
+			if walls.size() > 0:
+				var f := _frame(walls[0])
+				_chrome.set_lwh(float(f.get("length", 0)), float(f.get("thickness", 200)), float(f.get("height", 2800)))
+			else:
+				_chrome.set_lwh(0, 200, 2800)
 		return
 	_lwh.visible = false
-	_lwh_row.visible = true
+	_lwh_row.visible = false
 	var dims := _lwh_dims()
 	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
 	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
 	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+	if _chrome and _chrome.has_method("set_lwh"):
+		_chrome.set_lwh(float(dims.get("l", 0)), float(dims.get("w", 0)), float(dims.get("h", 0)))
 
 
 func _lwh_chip(text: String, cb: Callable) -> void:

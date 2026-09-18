@@ -265,7 +265,7 @@ DraggingAsset
 
 | URL | 标题/账号 | 观察到的交互要点 | 日期 |
 |---|---|---|---|
-| （待补） | | | |
+| （用户截图，完整 URL 未提供） | TikTok `@joyplan.app` 0:18 / 0:35 | 3D 三区 chrome：顶栏返回+四模式+LWH+1F；右侧竖轨保存/设置/消息/图层/库/编辑/更多；底栏撤销重做+虚拟摇杆+灯光+绿色主按钮 | 2026-09-18 |
 
 ---
 
@@ -274,3 +274,26 @@ DraggingAsset
 | 日期 | 变更 |
 |---|---|
 | 2026-09-18 | 初版：融合 V1 视频拆解 + joyplan-prd 第 3–4 章 + 樂規畫课程目录；给出拓间差距与分 commit 实施计划 |
+| 2026-09-18 | 增补 §10 Chrome 三区布局（TikTok @joyplan.app 截图）；Godot 2D/3D 落地 frosted pills |
+
+---
+
+## 10. Chrome 三区布局（V1 3D 截图）
+
+证据：用户 2026-09-18 提供的 JoyPlan 3D 工作台截图（TikTok `@joyplan.app`）。视频播放器控件忽略。样式：半透明磨砂圆/胶囊，画布最大化。
+
+| 区 | 控件 | 拓间接线 |
+|---|---|---|
+| **顶栏** | 返回圆钮 | 2D `_back` / 3D 回首页 |
+| | 四模式：平面 / 立体（选中） / 漫游 / 展开 | `plan`→`photo_stub`；`cube`→`edit_3d`；`roam`→`roam.tscn`；`expand` 收起轨与底栏 |
+| | L / W / H 磨砂条 | 点数字 → `numeric_sheet` → 命令 |
+| | `1F` 楼层芯片 | P0 一层；toast「多层 P1」 |
+| **右侧竖轨** | 保存、设置、消息、图层（眼）、构件库（盒）、编辑（笔）、更多 | 保存=`auto_save`；眼=标尺 sheet；盒=门窗库；笔=上下文工具条；设置/消息 toast 稍后；更多=加载夹具（3D） |
+| **底栏（仅 3D）** | 撤销 / 重做 | toast「命令历史 P1」 |
+| | 大虚拟摇杆 | 环视：改 `_yaw` / `_pitch` |
+| | 太阳 | `Lighting.toggle_preset` 白天/暖光 |
+| | 绿色主按钮 | `export_deliverables` |
+
+2D 工作台共用顶栏 + 右轨，**没有摇杆**。实现：`godot/app/ui/joyplan_chrome.gd`。
+
+截图：`docs/screenshots/04-photo-review-kinds.png`（2D）、`docs/screenshots/07-edit-3d-day.png`（3D）。
