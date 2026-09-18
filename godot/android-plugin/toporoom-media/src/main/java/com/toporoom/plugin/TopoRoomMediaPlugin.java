@@ -3,6 +3,7 @@ package com.toporoom.plugin;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -60,6 +61,8 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     private static final SignalInfo PICK_ERROR = new SignalInfo("pick_error", String.class);
 
     @Nullable private File pendingPhoto;
+    private boolean cameraAwaitingResult;
+    private boolean cameraEmitted;
     private int galleryAttempt;
     private long galleryLaunchedAt;
     private boolean awaitingReadPerm;
@@ -111,33 +114,47 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             return;
         }
         try {
-            File dir = importsDir(activity);
+            File dir = cameraOutputDir(activity);
             if (!dir.exists() && !dir.mkdirs()) {
-                emitError("cannot create imports dir");
+                emitError("cannot create camera dir");
                 return;
             }
             pendingPhoto = new File(dir, "capture_" + System.currentTimeMillis() + ".jpg");
+            if (!pendingPhoto.exists() && !pendingPhoto.createNewFile()) {
+                emitError("cannot create capture file");
+                return;
+            }
             Uri uri = FileProvider.getUriForFile(
                     activity, activity.getPackageName() + ".fileprovider", pendingPhoto);
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
-            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.putExtra("return-data", false);
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setClipData(ClipData.newRawUri("", uri));
             List<ResolveInfo> cameras = activity.getPackageManager()
                     .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
             for (ResolveInfo info : cameras) {
+                if (info.activityInfo == null) {
+                    continue;
+                }
                 activity.grantUriPermission(
                         info.activityInfo.packageName,
                         uri,
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             }
-            if (cameras.isEmpty()) {
-                emitError("no camera app");
-                return;
-            }
+            cameraAwaitingResult = true;
+            cameraEmitted = false;
+            Log.i(TAG, "camera launch resolvers=" + cameras.size()
+                    + " file=" + pendingPhoto.getAbsolutePath());
             activity.startActivityForResult(intent, REQ_CAMERA);
         } catch (ActivityNotFoundException e) {
+            cameraAwaitingResult = false;
+            pendingPhoto = null;
             emitError("no camera app");
         } catch (Exception e) {
+            cameraAwaitingResult = false;
+            pendingPhoto = null;
             Log.e(TAG, "capture_photo", e);
             emitError(e.getMessage() == null ? "camera failed" : e.getMessage());
         }
@@ -322,35 +339,68 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     }
 
     @Override
+    public void onMainResume() {
+        if (!cameraAwaitingResult || cameraEmitted) {
+            return;
+        }
+        if (emitPendingCameraFileIfWritten()) {
+            Log.i(TAG, "camera file present on resume");
+            finishCamera(null, true);
+        }
+    }
+
+    @Override
     public void onMainActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode != REQ_CAMERA && requestCode != REQ_GALLERY) {
             return;
         }
-        if (resultCode != Activity.RESULT_OK) {
-            if (requestCode == REQ_GALLERY) {
-                long dt = SystemClock.elapsedRealtime() - galleryLaunchedAt;
-                if (dt < QUICK_CANCEL_MS) {
-                    Log.w(TAG, "gallery quick-cancel " + dt + "ms, trying next");
-                    launchGallery();
-                    return;
-                }
+        if (requestCode == REQ_CAMERA) {
+            if (cameraEmitted) {
+                return;
             }
+            boolean ok = resultCode == Activity.RESULT_OK || emitPendingCameraFileIfWritten();
+            if (ok) {
+                finishCamera(data, true);
+                return;
+            }
+            cameraAwaitingResult = false;
             pendingPhoto = null;
             emitSignalOnRender("pick_cancelled");
             return;
         }
-        if (requestCode == REQ_CAMERA) {
-            handleCameraResult(data);
+        if (resultCode != Activity.RESULT_OK) {
+            long dt = SystemClock.elapsedRealtime() - galleryLaunchedAt;
+            if (dt < QUICK_CANCEL_MS) {
+                Log.w(TAG, "gallery quick-cancel " + dt + "ms, trying next");
+                launchGallery();
+                return;
+            }
+            emitSignalOnRender("pick_cancelled");
             return;
         }
         handleGalleryResult(data);
     }
 
+    private void finishCamera(@Nullable Intent data, boolean ok) {
+        if (cameraEmitted) {
+            return;
+        }
+        cameraAwaitingResult = false;
+        cameraEmitted = true;
+        if (ok) {
+            handleCameraResult(data);
+        }
+    }
+
+    private boolean emitPendingCameraFileIfWritten() {
+        return pendingPhoto != null && pendingPhoto.exists() && pendingPhoto.length() > 32;
+    }
+
     private void handleCameraResult(@Nullable Intent data) {
         if (pendingPhoto != null && pendingPhoto.exists() && pendingPhoto.length() > 0) {
-            String path = pendingPhoto.getAbsolutePath();
+            File src = pendingPhoto;
             pendingPhoto = null;
-            emitPath(path);
+            emitCameraFile(src);
             return;
         }
         if (data != null && data.getData() != null) {
@@ -366,6 +416,41 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
         }
         pendingPhoto = null;
         emitError("camera returned no image");
+    }
+
+    private void emitCameraFile(@NonNull File src) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(src.getAbsolutePath(), bounds);
+        int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
+        Bitmap bmp = null;
+        if (maxDim > 0) {
+            int sample = 1;
+            while (maxDim / sample > 4096) {
+                sample *= 2;
+            }
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = Math.max(sample, 1);
+            bmp = BitmapFactory.decodeFile(src.getAbsolutePath(), opts);
+        }
+        Activity activity = getActivity();
+        if (bmp != null && activity != null) {
+            File dest = new File(cacheImportsDir(activity), "capture_" + System.currentTimeMillis() + ".jpg");
+            try (FileOutputStream out = new FileOutputStream(dest)) {
+                bmp.compress(Bitmap.CompressFormat.JPEG, 92, out);
+                bmp.recycle();
+                if (dest.exists() && dest.length() >= 32) {
+                    emitPath(dest.getAbsolutePath());
+                    return;
+                }
+            } catch (Exception e) {
+                bmp.recycle();
+                Log.w(TAG, "camera recompress", e);
+            }
+        } else if (bmp != null) {
+            bmp.recycle();
+        }
+        emitPath(src.getAbsolutePath());
     }
 
     private void handleGalleryResult(@Nullable Intent data) {
@@ -500,6 +585,23 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     }
 
     @NonNull
+    private static File cameraOutputDir(@NonNull Activity activity) {
+        File ext = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        if (ext != null) {
+            File dir = new File(ext, "imports");
+            if (dir.exists() || dir.mkdirs()) {
+                return dir;
+            }
+        }
+        File files = activity.getFilesDir();
+        File dir = new File(files, "imports");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+    @NonNull
     private static File cacheImportsDir(@NonNull Activity activity) {
         File root = activity.getCacheDir();
         if (root == null) {
@@ -510,15 +612,6 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             dir.mkdirs();
         }
         return dir;
-    }
-
-    @NonNull
-    private static File importsDir(@NonNull Activity activity) {
-        File ext = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        if (ext != null) {
-            return new File(ext, "imports");
-        }
-        return cacheImportsDir(activity);
     }
 
     private void emitPath(@NonNull String path) {

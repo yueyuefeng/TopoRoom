@@ -42,6 +42,9 @@ QUERIES = '''
         <intent>
             <action android:name="android.provider.action.PICK_IMAGES" />
         </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
     </queries>
 '''
 
@@ -80,6 +83,15 @@ def patch(path: pathlib.Path) -> None:
         else:
             text = text.replace('</manifest>', QUERIES + '\n</manifest>', 1)
         print('Injected gallery <queries> into', path)
+    elif 'android.media.action.IMAGE_CAPTURE' not in text and '<queries>' in text:
+        text = text.replace(
+            '</queries>',
+            '        <intent>\n'
+            '            <action android:name="android.media.action.IMAGE_CAPTURE" />\n'
+            '        </intent>\n    </queries>',
+            1,
+        )
+        print('Injected IMAGE_CAPTURE <queries> into', path)
     path.write_text(text)
 
 

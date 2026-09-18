@@ -51,9 +51,14 @@ The selected `content://` URI is decoded with `ContentResolver` +
 | signal `pick_error(message)` | No gallery / permission denied / copy failed |
 
 Godot already ships `FileProvider` at `{applicationId}.fileprovider`
-(`com.toporoom.godot.fileprovider`). The capture file lives under the app's
-external pictures / `imports` folder so that provider can share it with the
-camera app.
+(`com.toporoom.godot.fileprovider`) covering `files/` and `external-files/`.
+Camera capture writes under `getExternalFilesDir(DIRECTORY_PICTURES)/imports`
+(or `getFilesDir()/imports`), `createNewFile()`, then
+`MediaStore.ACTION_IMAGE_CAPTURE` with `EXTRA_OUTPUT` + `ClipData` URI grants.
+Android 11+ needs `<queries>` for `IMAGE_CAPTURE` or `queryIntentActivities`
+is empty — we still launch; ClipData grants the camera app write access.
+Some OEM cameras return `RESULT_CANCELED` after writing the file; `onMainResume`
+picks that up. The JPEG is copied into `getCacheDir()/imports` for Godot.
 
 ## Permissions
 
