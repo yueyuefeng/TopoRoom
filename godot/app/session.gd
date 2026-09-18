@@ -390,19 +390,31 @@ func store_imported_image(src: String) -> String:
 			if packed.is_empty():
 				packed = FileAccess.get_file_as_bytes(abs_src)
 			if packed.is_empty():
-				return ""
+				return _keep_src_if_readable(src, abs_src)
 			var outp := FileAccess.open(dest, FileAccess.WRITE)
 			if outp == null:
-				return ""
+				return _keep_src_if_readable(src, abs_src)
 			outp.store_buffer(packed)
 		else:
 			var outf := FileAccess.open(dest, FileAccess.WRITE)
 			if outf == null:
-				return ""
+				return _keep_src_if_readable(src, abs_src)
 			outf.store_buffer(inf.get_buffer(inf.get_length()))
 	last_import_path = dest
 	last_import_uri = dest
 	return dest
+
+
+func _keep_src_if_readable(src: String, abs_src: String) -> String:
+	if FileAccess.file_exists(abs_src):
+		last_import_path = abs_src
+		last_import_uri = abs_src
+		return abs_src
+	if FileAccess.file_exists(src):
+		last_import_path = src
+		last_import_uri = src
+		return src
+	return ""
 
 
 func load_gold_sample() -> String:

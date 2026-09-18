@@ -1,16 +1,17 @@
 extends ColorRect
-## 选择户型图: 相册选择 / 拍照上传 / 使用示例户型. Never a dead-end.
+## 选择户型图: 相册选择 / 拍照上传 / 使用示例户型. Parent owns MediaPicker.
 
-signal picked(path: String)
+signal gallery_pressed
+signal camera_pressed
+signal sample_picked(path: String)
 signal dismissed
 
-const MediaPickerScript := preload("res://app/media_picker.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
 
-var _picker: Node
 var _snack: PanelContainer
 var _card: PanelContainer
+var busy := false
 
 
 func _ready() -> void:
@@ -18,14 +19,11 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	gui_input.connect(func(ev: InputEvent):
+		if busy:
+			return
 		if ev is InputEventMouseButton and ev.pressed:
 			_close()
 	)
-	_picker = MediaPickerScript.new()
-	_picker.image_ready.connect(_on_image)
-	_picker.failed.connect(_on_fail)
-	_picker.cancelled.connect(func(): _toast("已取消，可改用示例户型"))
-	add_child(_picker)
 	_snack = Snackbar.new()
 	_snack.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_snack.offset_left = 24
@@ -63,12 +61,13 @@ func _build_card() -> void:
 	head.add_child(title)
 	head.add_child(JoyplanChrome.icon_btn("✕", func(): _close(), 36, Tokens.TEXT_SECONDARY))
 	col.add_child(head)
-	col.add_child(_action("相册选择", "从系统相册导入", func(): _picker.pick_gallery()))
+	col.add_child(_action("相册选择", "从系统相册导入", func():
+		busy = true
+		gallery_pressed.emit()
+	))
 	col.add_child(_action("拍照上传", "拍摄户型图", func():
-		if OS.get_name() == "Android" and not _picker.available_on_android():
-			_toast("当前设备没有可用相机插件")
-			return
-		_picker.capture_photo()
+		busy = true
+		camera_pressed.emit()
 	))
 	col.add_child(_action("使用示例户型", "无需相册或相机权限", func(): _use_sample(), Tokens.JP_ORANGE))
 	_card.add_child(col)
@@ -107,28 +106,19 @@ func _action(title: String, subtitle: String, cb: Callable, ink: Color = Tokens.
 func _use_sample() -> void:
 	var stored := Session.load_gold_sample()
 	if stored.is_empty():
-		_toast("无法打开示例户型图")
+		show_toast("无法打开示例户型图")
 		return
-	picked.emit(stored)
+	sample_picked.emit(stored)
 
 
-func _on_image(path: String) -> void:
-	var stored := Session.store_imported_image(path)
-	if stored.is_empty():
-		_toast(Session.last_error if Session.last_error != "" else "没有收到照片")
-		return
-	picked.emit(stored)
-
-
-func _on_fail(msg: String) -> void:
-	_toast((msg if not msg.is_empty() else "打开相机或相册失败") + " · 可改用示例户型")
-
-
-func _toast(text: String) -> void:
+func show_toast(text: String) -> void:
+	busy = false
 	if _snack and _snack.has_method("show_message"):
 		_snack.show_message(text)
 
 
 func _close() -> void:
+	if busy:
+		return
 	dismissed.emit()
 	queue_free()

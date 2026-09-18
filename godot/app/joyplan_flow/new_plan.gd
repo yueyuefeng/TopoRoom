@@ -1,12 +1,12 @@
 extends Control
 ## 新建户型 list. 导入户型图 opens 选择户型图; other cards toast 即将支持.
 
-const PickModal := preload("res://app/joyplan_flow/pick_source_modal.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
+const ImportPickHost := preload("res://app/joyplan_flow/import_pick_host.gd")
 
 var _snack: PanelContainer
-var _modal: Control
+var _import: Node
 
 
 func _ready() -> void:
@@ -21,6 +21,10 @@ func _ready() -> void:
 	_snack.offset_top = -96
 	_snack.offset_bottom = -36
 	add_child(_snack)
+	_import = ImportPickHost.new()
+	_import.imported.connect(_on_import_path)
+	_import.failed.connect(_on_pick_fail)
+	add_child(_import)
 
 
 func _build() -> void:
@@ -97,16 +101,25 @@ func _build() -> void:
 
 
 func _open_pick() -> void:
-	if _modal and is_instance_valid(_modal):
-		_modal.queue_free()
-	_modal = PickModal.new()
-	_modal.picked.connect(func(path: String):
-		if path.is_empty():
-			_soon("没有收到照片")
-			return
-		FlowRouter.scale(self)
-	)
-	add_child(_modal)
+	if _import:
+		_import.open()
+
+
+func _on_import_path(path: String) -> void:
+	var stored := Session.store_imported_image(path)
+	if stored.is_empty() and FileAccess.file_exists(path):
+		Session.last_import_path = path
+		Session.last_import_uri = path
+		stored = path
+	if stored.is_empty():
+		_on_pick_fail(Session.last_error if Session.last_error != "" else "没有收到照片")
+		return
+	FlowRouter.scale(self)
+
+
+func _on_pick_fail(msg: String) -> void:
+	var text := msg if not msg.is_empty() else "打开相机或相册失败"
+	_soon(text + " · 可改用示例户型")
 
 
 func _soon(text: String = "即将支持") -> void:

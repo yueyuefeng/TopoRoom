@@ -16,8 +16,10 @@ var _numeric: Control
 var _snack: PanelContainer
 var _pending_dim: Dictionary = {}
 var _add_menu: Control
-const PickModal := preload("res://app/joyplan_flow/pick_source_modal.gd")
+const ImportPickHost := preload("res://app/joyplan_flow/import_pick_host.gd")
 const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
+
+var _import: Node
 
 
 func _ready() -> void:
@@ -124,6 +126,10 @@ func _ready() -> void:
 	add_child(_snack)
 	Session.log_line.connect(func(t: String): _snack.show_message(t))
 	Session.document_changed.connect(_refresh)
+	_import = ImportPickHost.new()
+	_import.imported.connect(_on_import_path)
+	_import.failed.connect(func(msg: String): _toast(msg if not msg.is_empty() else "打开相册失败"))
+	add_child(_import)
 	_refresh()
 
 
@@ -205,9 +211,20 @@ func _import_from_2d() -> void:
 	if _add_menu:
 		_add_menu.queue_free()
 		_add_menu = null
-	var modal: Control = PickModal.new()
-	modal.picked.connect(func(_path: String): FlowRouter.scale(self))
-	add_child(modal)
+	if _import:
+		_import.open()
+
+
+func _on_import_path(path: String) -> void:
+	var stored := Session.store_imported_image(path)
+	if stored.is_empty() and FileAccess.file_exists(path):
+		Session.last_import_path = path
+		Session.last_import_uri = path
+		stored = path
+	if stored.is_empty():
+		_toast(Session.last_error if Session.last_error != "" else "没有收到照片")
+		return
+	FlowRouter.scale(self)
 
 
 func show_library(on: bool = true) -> void:

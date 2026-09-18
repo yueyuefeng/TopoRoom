@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Copy TopoRoomMedia Java into the Godot Gradle project and register v2 plugin
-# meta-data. .gdap/AAR is the documented path; this keeps the class in the APK
-# even when the editor export preset does not load android/plugins.
+# meta-data, gallery <queries>, and READ_MEDIA_* so OEM package visibility
+# works even when the .aar merge is skipped.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/godot/android-plugin/toporoom-media/src/main/java/com/toporoom/plugin/TopoRoomMediaPlugin.java"
 DEST_DIR="$ROOT/godot/android/build/src/com/toporoom/plugin"
 MANIFEST="$ROOT/godot/android/build/AndroidManifest.xml"
+DEBUG_MANIFEST="$ROOT/godot/android/build/src/debug/AndroidManifest.xml"
 
 if [[ ! -f "$SRC" ]]; then
   echo "Missing plugin Java: $SRC" >&2
@@ -21,21 +22,69 @@ fi
 mkdir -p "$DEST_DIR"
 cp "$SRC" "$DEST_DIR/TopoRoomMediaPlugin.java"
 
-if [[ -f "$MANIFEST" ]] && ! grep -q 'org.godotengine.plugin.v2.TopoRoomMedia' "$MANIFEST"; then
-  python3 - "$MANIFEST" <<'PY'
+python3 - "$MANIFEST" "$DEBUG_MANIFEST" <<'PY'
 import pathlib, sys
-path = pathlib.Path(sys.argv[1])
-text = path.read_text()
-meta = '''
+
+QUERIES = '''
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.provider.action.PICK_IMAGES" />
+        </intent>
+    </queries>
+'''
+
+META = '''
         <meta-data
             android:name="org.godotengine.plugin.v2.TopoRoomMedia"
             android:value="com.toporoom.plugin.TopoRoomMediaPlugin" />
 '''
-needle = "</application>"
-if needle not in text:
-    raise SystemExit("AndroidManifest.xml missing </application>")
-path.write_text(text.replace(needle, meta + "    " + needle, 1))
-print("Registered TopoRoomMedia v2 meta-data in", path)
+
+PERMS = [
+    ('android.permission.READ_MEDIA_IMAGES',
+     '    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n'),
+    ('android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+     '    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />\n'),
+]
+
+
+def patch(path: pathlib.Path) -> None:
+    if not path.is_file():
+        return
+    text = path.read_text()
+    if 'org.godotengine.plugin.v2.TopoRoomMedia' not in text and '</application>' in text:
+        text = text.replace('</application>', META + '    </application>', 1)
+        print('Registered TopoRoomMedia v2 meta-data in', path)
+    for needle, snippet in PERMS:
+        if needle not in text:
+            if '<application' in text:
+                text = text.replace('<application', snippet + '    <application', 1)
+            elif '<manifest' in text:
+                nl = text.find('\n', text.find('<manifest'))
+                text = text[:nl + 1] + snippet + text[nl + 1:]
+            print('Declared', needle, 'in', path)
+    if 'android.intent.action.GET_CONTENT' not in text:
+        if '<application' in text:
+            text = text.replace('<application', QUERIES + '\n    <application', 1)
+        else:
+            text = text.replace('</manifest>', QUERIES + '\n</manifest>', 1)
+        print('Injected gallery <queries> into', path)
+    path.write_text(text)
+
+
+for raw in sys.argv[1:]:
+    patch(pathlib.Path(raw))
 PY
-fi
+
 echo "Injected TopoRoomMediaPlugin into $DEST_DIR"

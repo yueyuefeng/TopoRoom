@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -29,14 +30,21 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
- * Wraps ACTION_IMAGE_CAPTURE and the system photo picker / GET_CONTENT so Godot
- * can receive a filesystem path after the user takes or picks a floor-plan photo.
+ * Gallery + camera Intents. Gallery chain (Chinese OEMs often stub Photo Picker):
+ *   ACTION_GET_CONTENT image/*  (first on Huawei / Xiaomi / OPPO / vivo / …)
+ *   → ACTION_GET_CONTENT without CATEGORY_OPENABLE
+ *   → ACTION_PICK MediaStore.Images (needs READ_MEDIA_IMAGES)
+ *   → ACTION_OPEN_DOCUMENT
+ *   → ACTION_PICK_IMAGES last on CN OEMs (first on Pixel / API 33+)
+ * Copies content:// into app cache so Godot FileAccess can read it.
  */
 public class TopoRoomMediaPlugin extends GodotPlugin {
     private static final String TAG = "TopoRoomMedia";
@@ -44,12 +52,17 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     private static final int REQ_CAMERA = 4101;
     private static final int REQ_GALLERY = 4102;
     private static final int REQ_CAMERA_PERM = 4103;
+    private static final int REQ_READ_IMAGES = 4104;
+    private static final long QUICK_CANCEL_MS = 450L;
 
     private static final SignalInfo IMAGE_PICKED = new SignalInfo("image_picked", String.class);
     private static final SignalInfo PICK_CANCELLED = new SignalInfo("pick_cancelled");
     private static final SignalInfo PICK_ERROR = new SignalInfo("pick_error", String.class);
 
     @Nullable private File pendingPhoto;
+    private int galleryAttempt;
+    private long galleryLaunchedAt;
+    private boolean awaitingReadPerm;
 
     public TopoRoomMediaPlugin(Godot godot) {
         super(godot);
@@ -80,6 +93,8 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
 
     @UsedByGodot
     public void pick_gallery() {
+        galleryAttempt = 0;
+        awaitingReadPerm = false;
         runOnUiThread(this::launchGallery);
     }
 
@@ -134,46 +149,175 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             emitError("no activity");
             return;
         }
-        try {
-            Intent intent;
-            if (Build.VERSION.SDK_INT >= 33) {
-                intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
-                intent.setType("image/*");
-                intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 1);
-            } else if (Build.VERSION.SDK_INT >= 19) {
-                intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("image/*");
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            } else {
-                intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("image/*");
+        List<Intent> chain = galleryChain();
+        while (galleryAttempt < chain.size()) {
+            Intent intent = chain.get(galleryAttempt);
+            galleryAttempt++;
+            if (intent == null) {
+                continue;
             }
+            if (needsReadPermission(intent) && !hasReadImages(activity)) {
+                awaitingReadPerm = true;
+                galleryAttempt--;
+                requestReadImages(activity);
+                return;
+            }
+            Log.i(TAG, "gallery launch " + intent.getAction()
+                    + " attempt=" + galleryAttempt + "/" + chain.size());
+            if (startGalleryIntent(activity, intent)) {
+                return;
+            }
+            Log.w(TAG, "gallery not found " + intent.getAction());
+        }
+        emitError("no gallery");
+    }
+
+    private boolean startGalleryIntent(@NonNull Activity activity, @NonNull Intent intent) {
+        String action = intent.getAction();
+        try {
+            galleryLaunchedAt = SystemClock.elapsedRealtime();
             activity.startActivityForResult(intent, REQ_GALLERY);
-        } catch (ActivityNotFoundException first) {
+            return true;
+        } catch (ActivityNotFoundException e) {
+            if (MediaStore.ACTION_PICK_IMAGES.equals(action)) {
+                return false;
+            }
             try {
-                Intent fallback = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                fallback.setType("image/*");
-                activity.startActivityForResult(Intent.createChooser(fallback, "选择户型图"), REQ_GALLERY);
-            } catch (ActivityNotFoundException second) {
-                emitError("no gallery");
+                galleryLaunchedAt = SystemClock.elapsedRealtime();
+                activity.startActivityForResult(
+                        Intent.createChooser(intent, "选择户型图"), REQ_GALLERY);
+                return true;
+            } catch (ActivityNotFoundException e2) {
+                return false;
             }
         } catch (Exception e) {
             Log.e(TAG, "pick_gallery", e);
-            emitError(e.getMessage() == null ? "gallery failed" : e.getMessage());
+            return false;
         }
+    }
+
+    @NonNull
+    private List<Intent> galleryChain() {
+        List<Intent> chain = new ArrayList<>();
+        boolean cn = isChineseOem();
+        if (!cn && Build.VERSION.SDK_INT >= 33) {
+            chain.add(photoPickerIntent());
+        }
+        chain.add(getContentIntent(true));
+        chain.add(getContentIntent(false));
+        chain.add(mediaStorePickIntent());
+        chain.add(openDocumentIntent());
+        if (cn || Build.VERSION.SDK_INT < 33) {
+            chain.add(photoPickerIntent());
+        }
+        return chain;
+    }
+
+    @NonNull
+    private static Intent photoPickerIntent() {
+        Intent intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+        if (Build.VERSION.SDK_INT >= 33) {
+            intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 1);
+        }
+        return intent;
+    }
+
+    @NonNull
+    private static Intent getContentIntent(boolean openable) {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        if (openable) {
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+        }
+        intent.setType("image/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                "image/jpeg", "image/png", "image/webp", "image/*"
+        });
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_LOCAL_ONLY, false);
+        return intent;
+    }
+
+    @NonNull
+    private static Intent mediaStorePickIntent() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setType("image/*");
+        return intent;
+    }
+
+    @NonNull
+    private static Intent openDocumentIntent() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        return intent;
+    }
+
+    private static boolean needsReadPermission(@NonNull Intent intent) {
+        return Intent.ACTION_PICK.equals(intent.getAction());
+    }
+
+    private static boolean hasReadImages(@NonNull Activity activity) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_IMAGES)
+                    == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
+            if (Build.VERSION.SDK_INT >= 34) {
+                return ContextCompat.checkSelfPermission(
+                                activity, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
+                        == PackageManager.PERMISSION_GRANTED;
+            }
+            return false;
+        }
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestReadImages(@NonNull Activity activity) {
+        List<String> perms = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= 33) {
+            perms.add(Manifest.permission.READ_MEDIA_IMAGES);
+            if (Build.VERSION.SDK_INT >= 34) {
+                perms.add("android.permission.READ_MEDIA_VISUAL_USER_SELECTED");
+            }
+        } else {
+            perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        ActivityCompat.requestPermissions(
+                activity, perms.toArray(new String[0]), REQ_READ_IMAGES);
+    }
+
+    private static boolean isChineseOem() {
+        String m = String.valueOf(Build.MANUFACTURER).toLowerCase(Locale.US);
+        String b = String.valueOf(Build.BRAND).toLowerCase(Locale.US);
+        String s = m + " " + b;
+        return s.contains("huawei") || s.contains("honor") || s.contains("xiaomi")
+                || s.contains("redmi") || s.contains("oppo") || s.contains("vivo")
+                || s.contains("realme") || s.contains("oneplus") || s.contains("meizu")
+                || s.contains("lenovo") || s.contains("zte") || s.contains("nubia")
+                || s.contains("iqoo") || s.contains("blackshark");
     }
 
     @Override
     public void onMainRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode != REQ_CAMERA_PERM) {
+        if (requestCode == REQ_CAMERA_PERM) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                launchCamera();
+            } else {
+                emitError("需要相机权限才能拍照");
+            }
             return;
         }
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            launchCamera();
-        } else {
-            emitError("需要相机权限才能拍照");
+        if (requestCode == REQ_READ_IMAGES) {
+            awaitingReadPerm = false;
+            Activity activity = getActivity();
+            if (activity == null || !hasReadImages(activity)) {
+                Log.w(TAG, "READ_MEDIA_IMAGES denied, skip ACTION_PICK");
+                galleryAttempt++;
+            }
+            launchGallery();
         }
     }
 
@@ -183,6 +327,14 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             return;
         }
         if (resultCode != Activity.RESULT_OK) {
+            if (requestCode == REQ_GALLERY) {
+                long dt = SystemClock.elapsedRealtime() - galleryLaunchedAt;
+                if (dt < QUICK_CANCEL_MS) {
+                    Log.w(TAG, "gallery quick-cancel " + dt + "ms, trying next");
+                    launchGallery();
+                    return;
+                }
+            }
             pendingPhoto = null;
             emitSignalOnRender("pick_cancelled");
             return;
@@ -225,9 +377,23 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
         if (uri == null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
             uri = data.getClipData().getItemAt(0).getUri();
         }
+        if (uri == null && data.getExtras() != null) {
+            Object stream = data.getExtras().get(Intent.EXTRA_STREAM);
+            if (stream instanceof Uri) {
+                uri = (Uri) stream;
+            }
+        }
         if (uri == null) {
             emitError("gallery returned no image");
             return;
+        }
+        try {
+            Activity activity = getActivity();
+            if (activity != null) {
+                activity.getContentResolver().takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+        } catch (Exception ignored) {
         }
         copyAndEmit(uri);
     }
@@ -238,8 +404,25 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             emitError("no activity");
             return;
         }
+        File dest = new File(cacheImportsDir(activity), "import_" + System.currentTimeMillis() + ".jpg");
+        Bitmap bmp = decodeScaled(activity, uri);
+        if (bmp != null) {
+            try (FileOutputStream out = new FileOutputStream(dest)) {
+                bmp.compress(Bitmap.CompressFormat.JPEG, 92, out);
+            } catch (Exception e) {
+                bmp.recycle();
+                Log.e(TAG, "compress jpeg", e);
+                emitError(e.getMessage() == null ? "copy failed" : e.getMessage());
+                return;
+            }
+            bmp.recycle();
+            if (dest.exists() && dest.length() >= 32) {
+                Log.i(TAG, "gallery jpeg " + dest.getAbsolutePath() + " bytes=" + dest.length());
+                emitPath(dest.getAbsolutePath());
+                return;
+            }
+        }
         try {
-            File dest = new File(importsDir(activity), "import_" + System.currentTimeMillis() + ".jpg");
             try (InputStream in = activity.getContentResolver().openInputStream(uri);
                     OutputStream out = new FileOutputStream(dest)) {
                 if (in == null) {
@@ -256,27 +439,45 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
                 emitError("copied image is empty");
                 return;
             }
-            BitmapFactory.Options bounds = new BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(dest.getAbsolutePath(), bounds);
-            int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
-            int sample = 1;
-            while (maxDim / sample > 4096) {
-                sample *= 2;
-            }
-            BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inSampleSize = Math.max(sample, 1);
-            Bitmap bmp = BitmapFactory.decodeFile(dest.getAbsolutePath(), opts);
-            if (bmp != null) {
-                try (FileOutputStream out = new FileOutputStream(dest)) {
-                    bmp.compress(Bitmap.CompressFormat.JPEG, 92, out);
-                }
-                bmp.recycle();
-            }
+            Log.i(TAG, "gallery copied " + dest.getAbsolutePath() + " bytes=" + dest.length());
             emitPath(dest.getAbsolutePath());
         } catch (Exception e) {
             Log.e(TAG, "copy uri", e);
             emitError(e.getMessage() == null ? "copy failed" : e.getMessage());
+        }
+    }
+
+    @Nullable
+    private static Bitmap decodeScaled(@NonNull Activity activity, @NonNull Uri uri) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (InputStream in = activity.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            BitmapFactory.decodeStream(in, null, bounds);
+        } catch (Exception e) {
+            Log.w(TAG, "bounds", e);
+            return null;
+        }
+        int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
+        if (maxDim <= 0) {
+            return null;
+        }
+        int sample = 1;
+        while (maxDim / sample > 4096) {
+            sample *= 2;
+        }
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = Math.max(sample, 1);
+        try (InputStream in = activity.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            return BitmapFactory.decodeStream(in, null, opts);
+        } catch (Exception e) {
+            Log.w(TAG, "decode", e);
+            return null;
         }
     }
 
@@ -287,7 +488,7 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             return;
         }
         try {
-            File dest = new File(importsDir(activity), "capture_" + System.currentTimeMillis() + ".jpg");
+            File dest = new File(cacheImportsDir(activity), "capture_" + System.currentTimeMillis() + ".jpg");
             try (FileOutputStream out = new FileOutputStream(dest)) {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out);
             }
@@ -299,12 +500,25 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     }
 
     @NonNull
+    private static File cacheImportsDir(@NonNull Activity activity) {
+        File root = activity.getCacheDir();
+        if (root == null) {
+            root = activity.getFilesDir();
+        }
+        File dir = new File(root, "imports");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+    @NonNull
     private static File importsDir(@NonNull Activity activity) {
         File ext = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         if (ext != null) {
             return new File(ext, "imports");
         }
-        return new File(activity.getFilesDir(), "imports");
+        return cacheImportsDir(activity);
     }
 
     private void emitPath(@NonNull String path) {
