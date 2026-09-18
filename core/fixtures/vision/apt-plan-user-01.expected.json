@@ -15,5 +15,6 @@
   "plan_width_mm_min": 7000,
   "plan_width_mm_max": 20000,
   "max_exterior_gap_mm": 150,
-  "notes": "P0 black-blob + gray-line + heuristic openings. Closed envelope via merge/snap/T-node/close. WindowSubtype bay (飘窗) and floorCeiling (落地窗). OCR/swing-arc/deskew are P1. After close iteration: 22 shear / 14 masonry / 15 openings / 36 walls, ≥1 bay, ≥1 floor-ceiling, StatusGate ok."
+  "min_interior_area_mm2": 45000000,
+  "notes": "P0 black-blob + gray-line + heuristic openings. Envelope seal: crop grey 阳台/落地窗 ring (~1.7 m beyond black bbox), 1 px envelope strokes become masonry hosts, T-join + hull fill. Glass is wall+opening, not air. Golden: living/balcony enclosed, interior ≥ 45 m² (thin stamp), 42 shear / 32 masonry / 16 openings / 74 walls, ≥1 bay, ≥1 floor-ceiling, StatusGate ok. OCR/swing-arc/deskew are P1."
 }

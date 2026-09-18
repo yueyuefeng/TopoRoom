@@ -62,16 +62,16 @@ floor**, not a claimed field accuracy.
 
 | Check | Floor (expected.json) | Recorded golden apply (`apt-plan-user-01.sceneir.json`) | This iteration (raster) |
 |-------|------------------------|----------------------------------------------------------|-------------------------|
-| Shear / 承重 | ≥ 12 | 22 | 22 |
-| Masonry / 砌体 | ≥ 8 | 20 | 14 |
-| Doors | ≥ 3 | 6 | 6 |
-| Windows | ≥ 3 | 7 | 9 |
-| Bay / 飘窗 | ≥ 1 | — | 3 |
-| Floor-ceiling / 落地窗 | ≥ 1 | — | 2 detected |
+| Shear / 承重 | ≥ 12 | 22 | 42 |
+| Masonry / 砌体 | ≥ 8 | 20 | 32 |
+| Doors | ≥ 3 | 6 | 8 |
+| Windows | ≥ 3 | 7 | 8 |
+| Bay / 飘窗 | ≥ 1 | — | 6 |
+| Floor-ceiling / 落地窗 | ≥ 1 | — | 1 |
 | Columns (nearly-square shear) | ≥ 2 | (counted in shear bars) | (counted in shear bars) |
-| Walls applied | ≥ 18 | 42 | 36 |
-| Openings applied | ≥ 4 | 13 | 15 |
-| Exterior | closed (gap ≤ 150 mm) | open fragments | closed (flood interior) |
+| Walls applied | ≥ 18 | 42 | 74 |
+| Openings applied | ≥ 4 | 13 | 16 |
+| Exterior | living + 阳台 enclosed; interior ≥ 45 m² | open fragments | closed hull (this iteration) |
 | Scale | 12–28 mm/px (200 mm bar thickness) | bbox ≈ **9600 × 8663 mm** | same |
 | Rebuild | StatusGate `ok` | `ok` | `ok` |
 

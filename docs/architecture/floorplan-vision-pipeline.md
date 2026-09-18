@@ -16,13 +16,14 @@ and `FloorPlanDocument` commands write the 方案.
 | 2026-09-17 | Golden fixture `apt-plan-user-01.png` | User CAD-like apartment plan. Scale = 200 mm shear-bar thickness. Room-name / mm-string OCR deferred P1. |
 | 2026-09-17 | Real gallery/camera files → raster C API | `Session.import_photo_vision` → `toporoom_vision_import_image`. Tiny Fake path unchanged. |
 | 2026-09-17 | Closed envelope + window subtypes | Merge collinear (T-junctions block room-scale joins), snap corners, split T-nodes for the graph, close outer/bbox degree-1 gaps. Additive SceneIR `opening.subtype`: `bay` (飘窗) / `floorCeiling` (落地窗). Golden: enclosed 3D (flood-fill interior ≥ 2 m²), ≥1 bay, ≥1 floor-ceiling. |
+| 2026-09-18 | Outer hull seal on gold sample | Previous flood ≥ 2 m² passed while 客餐厅/阳台 leaked (independent slabs, thin grey perimeter cropped away). Analyzer now keeps ~1.7 m of grey/win ink beyond the black bbox, promotes 1 px envelope strokes to masonry *hosts*, T-joins endpoints, and `seal_outer_envelope` fills missing hull edges. Openings must lie on a wall. Tests: interior ≥ 45 m², living + balcony probes enclosed. |
 
 ## Stages
 
 1. **Load** — PNG/JPEG via `stb_image` (grayscale classification on RGB).
 2. **Preprocess** — classify pixels: near-black structural ink, low-saturation
-   mid-gray partition ink, ignore floor fills and labels. Crop to the
-   structural bounding box (deskew/OCR are P1).
+   mid-gray partition ink, ignore floor fills and labels. Crop grey/win ink to
+   the black bbox **plus ~1.7 m** so 阳台 / 飘窗 / 落地窗 glass is not deleted.
 3. **Scale** — median thickness of black bars is treated as **200 mm**
    (typical 剪力墙). Dimension-string OCR is P1; the golden fixture
    (`apt-plan-user-01.png`) is calibrated this way. Tick-span detection can
@@ -30,8 +31,9 @@ and `FloorPlanDocument` commands write the 方案.
 4. **Structural** — extract axis-aligned rectangles from black blobs
    (run-length merge). Long bars → `shearWall`. Nearly square bars → short
    shear segments (columns in plan).
-5. **Partition** — same extractor on gray ink inside the plan bbox, dropping
-   1 px dimension ticks. → `masonry`.
+5. **Partition** — same extractor on gray ink inside the plan bbox
+   (`min_thick` 3). Separately, **1 px envelope-ring** strokes (grey/win on
+   the outer outset) become masonry *hosts* so glass is a wall+opening, not air.
 6. **Doors** — collinear centerline gaps in the ~700–1000 mm band, plus
    interior gaps up to a double-leaf width. `OpeningKind::Door` on the nearest
    host wall. Quarter-circle swing arcs are **not** fully vectorized (P1).
@@ -41,11 +43,12 @@ and `FloorPlanDocument` commands write the 方案.
      extrusion), typically sill 400 mm
    - **floorCeiling / 落地窗** — width ≥ 1500 mm or sill≈0 and height≈storey
    - **standard** — sill 900 mm / height 1400 mm
-8. **Envelope close** — `merge_collinear_segments` (do not join across a
-   T-junction), `snap_endpoints`, `split_at_nodes`, `close_exterior_loop`
-   (extend to hits, outer-cycle fills, bbox degree-1 L-fills). Prefer fewer
-   long host walls; openings sit on them. Enclosure is tested by a flood-fill
-   of the wall raster (interior pocket ≥ 2 m²).
+8. **Envelope close** — `join_t_junctions`, `close_exterior_loop`, then
+   `seal_outer_envelope` (occupancy contour fills missing hull edges; drop
+   masonry that duplicates shear). Openings must project onto a host wall.
+   Enclosure is tested by interior area ≥ 45 m² **and** living/balcony probes
+   not leaked (the old ≥ 2 m² flood was too weak: bedrooms could pass while
+   客餐厅/阳台 were open).
 9. **Rooms / OCR** — 主卧/客餐厅 labels are **not** OCR’d in P0. Flood-fill
    room labels remain P1.
 10. **Emit** — `add_wall` / `add_opening` → SceneIR 0.2 → Manifold rebuild →
@@ -79,18 +82,18 @@ Regression floor: `--gtest_filter='FloorPlanRaster*'`
 
 | Metric | Test floor (`expected.json`) | This iteration (raster apply) | Prior SceneIR file |
 |--------|------------------------------|-------------------------------|---------------------|
-| Shear walls | ≥ 12 | 22 | 22 |
-| Masonry walls | ≥ 8 | 14 | 20 |
-| Doors | ≥ 3 | 6 | 6 |
-| Windows | ≥ 3 | 9 | 7 |
-| Bay / 飘窗 | ≥ 1 | 3 detected / 3 in SceneIR | (unspecified) |
-| Floor-ceiling / 落地窗 | ≥ 1 | 2 detected / ≥1 in SceneIR | (unspecified) |
+| Shear walls | ≥ 12 | 42 | 22 |
+| Masonry walls | ≥ 8 | 32 | 14 |
+| Doors | ≥ 3 | 8 | 6 |
+| Windows | ≥ 3 | 8 | 9 |
+| Bay / 飘窗 | ≥ 1 | 6 detected | 3 |
+| Floor-ceiling / 落地窗 | ≥ 1 | 1 detected | 2 |
 | Columns | ≥ 2 | in shear set | in shear set |
-| Walls applied | ≥ 18 | 36 | 42 |
-| Openings applied | ≥ 4 | 15 | 13 |
-| Exterior gap | ≤ 150 mm (flood interior ≥ 2 m²) | 0 (closed) | open envelope |
+| Walls applied | ≥ 18 | 74 | 36 |
+| Openings applied | ≥ 4 | 16 | 15 |
+| Exterior | living + 阳台 enclosed; interior ≥ 45 m² | closed (probes + area) | flood ≥ 2 m² (bedrooms only; 客餐厅 leaked) |
 | mm/px | 12–28 | 200 mm / median black bar | 200 mm / median black bar |
-| Plan bbox | width 7000–20000 mm, not Fake 4000 | ≈ 9600 × 8663 mm | ≈ 9600 × 8663 mm |
+| Plan bbox | width 7000–20000 mm, not Fake 4000 | ≈ 11400 × 9600 mm (incl. 阳台 glass) | ≈ 9600 × 8663 mm |
 | Rebuild | StatusGate `ok` | `ok` | `ok` |
 
 Tests: `FixtureLoadsPng`, `GoldenApartmentHasShearMasonryDoorsWindows`,
@@ -99,7 +102,8 @@ Tests: `FixtureLoadsPng`, `GoldenApartmentHasShearMasonryDoorsWindows`,
 `GoldenExteriorIsClosedLoop`, `GoldenHasBayAndFloorCeilingWindows`,
 plus `RasterGeom.*` (`MergeCollinearJoinsFragments`, `SnapEndpointsJoinsCornerGap`,
 `CloseExteriorLoopFillsDegreeOneGap`, `CloseExteriorLoopFillsLCorner`,
-`SplitAtNodesMakesTeeNotAGap`, `ClassifyWindowSubtypeBayAndFloorCeiling`).
+`SplitAtNodesMakesTeeNotAGap`, `SealOuterEnvelopeFillsBalconyL`,
+`ClassifyWindowSubtypeBayAndFloorCeiling`).
 
 ## How to run
 
