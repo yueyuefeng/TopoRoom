@@ -17,14 +17,15 @@ new `joyplan_flow/` scene graph. Not the quarantined `_legacy/` workbench.
 
 ## Debug APK
 
-APK is gitignored (`*.apk`). Built on this branch:
+**每次构建升版本；签名固定.** APK is gitignored (`*.apk`). Built on this branch:
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.0** arm64-v8a |
+| Package | `com.toporoom.godot` **0.1.1** (`versionCode` 2) arm64-v8a |
 | File | `toporoom-android-debug.apk` (74 MB) |
-| SHA-256 | `b719c565a9baf9a45f7811d65dcdddaae8e775451739838254b766fa6b1a5b76` |
-| Direct | https://litter.catbox.moe/pr1zsb.apk |
-| Mirror | https://gofile.io/d/ayxTdhvh |
+| SHA-256 | `ae9cd82e7383a37105effdb623e424fde0fb261e801a0c1ec23f040b9cd048ea` |
+| Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
+| Direct | https://litter.catbox.moe/i352c3.apk |
+| Mirror | https://gofile.io/d/LgzMX1WS |
 
-Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots `joyplan_flow/home.tscn` (system photo picker, no dual-card home). 1:1 captures: `docs/screenshots/joyplan_1to1/`.
+Same signature as **0.1.0** — install over the previous Debug APK without uninstall. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots `joyplan_flow/home.tscn` (system photo picker, no dual-card home). 1:1 captures: `docs/screenshots/joyplan_1to1/`.

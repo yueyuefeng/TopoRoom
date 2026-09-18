@@ -16,14 +16,15 @@ camera/gallery home.
 
 ## Debug APK
 
-APK is gitignored (`*.apk`). Built on this branch after picker-first + 1:1 chrome.
+**每次构建升版本；签名固定.** APK is gitignored (`*.apk`).
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.0** arm64-v8a Debug |
+| Package | `com.toporoom.godot` **0.1.1** (`versionCode` 2) arm64-v8a Debug |
 | File | `toporoom-android-debug.apk` (74 MB) |
-| SHA-256 | `b719c565a9baf9a45f7811d65dcdddaae8e775451739838254b766fa6b1a5b76` |
-| Direct | https://litter.catbox.moe/pr1zsb.apk |
-| Mirror | https://gofile.io/d/ayxTdhvh |
+| SHA-256 | `ae9cd82e7383a37105effdb623e424fde0fb261e801a0c1ec23f040b9cd048ea` |
+| Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
+| Direct | https://litter.catbox.moe/i352c3.apk |
+| Mirror | https://gofile.io/d/LgzMX1WS |
 
-Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn`, which opens the system picker (`pick_gallery`). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
+Same signature as **0.1.0** so the phone can upgrade without uninstall. Keystore: `godot/android/keystore/debug.keystore`. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn`, which opens the system picker (`pick_gallery`). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
