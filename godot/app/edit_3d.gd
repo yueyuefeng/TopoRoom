@@ -5,6 +5,7 @@ extends Node3D
 const Lighting := preload("res://app/lighting.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
+const Haptics := preload("res://app/ui/haptics.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -140,6 +141,7 @@ func _build_hud() -> void:
 	hud.layer.add_child(fab)
 	_numeric = NumericSheet.new()
 	hud.layer.add_child(_numeric)
+	_mount_3d_library(hud.layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -152,6 +154,80 @@ func _tween_extrude(t: float) -> void:
 	_pitch = lerpf(PITCH_TOP, PITCH_EDIT, t)
 	_distance = lerpf(DIST_TOP, DIST_EDIT, t)
 	_orbit()
+
+
+func _mount_3d_library(layer: CanvasLayer) -> void:
+	var dock := MarginContainer.new()
+	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	dock.anchor_top = 1.0
+	dock.offset_left = 12
+	dock.offset_right = -88
+	dock.offset_top = -168
+	dock.offset_bottom = -16
+	dock.theme = Studio.theme
+	var sheet := Studio.sheet()
+	var lib := OpeningLibrary.new()
+	lib.dropped.connect(_on_library_drop)
+	lib.tapped.connect(_on_library_tap)
+	lib.previewed.connect(_on_library_preview)
+	sheet.add_child(lib)
+	dock.add_child(sheet)
+	layer.add_child(dock)
+
+
+func _on_library_preview(kind: String, global_pos: Vector2) -> void:
+	var hit := _intersect(global_pos, 1)
+	if hit.is_empty():
+		return
+	var body: Object = hit.get("collider")
+	if body == null or not body.has_meta("wall_id"):
+		return
+	var wid := str(body.get_meta("wall_id", ""))
+	if wid.is_empty():
+		return
+	if str(_selected.get("wall_id", "")) != wid:
+		_selected = {"pick": KIND_WALL, "wall_id": wid}
+		_refresh_world(false)
+
+
+func _on_library_drop(kind: String, global_pos: Vector2) -> void:
+	if not _place_opening_at(kind, global_pos):
+		_status.text = "拖到墙上再松手。"
+
+
+func _on_library_tap(kind: String) -> void:
+	var wid := str(_selected.get("wall_id", ""))
+	if wid.is_empty():
+		if _status:
+			_status.text = "先点选一道墙，或长按拖到墙上。"
+		return
+	var f := _wall_by_id(wid)
+	var width := 1200.0 if kind != "door" else 900.0
+	var off := maxf((float(f.get("length", 0)) - width) * 0.5, 50.0)
+	Session.add_opening(kind, wid, off)
+
+
+func _place_opening_at(kind: String, pos: Vector2) -> bool:
+	var hit := _intersect(pos, 1)
+	if hit.is_empty():
+		return false
+	var body: Object = hit.get("collider")
+	if body == null:
+		return false
+	var wid := str(body.get_meta("wall_id", ""))
+	if wid.is_empty():
+		return false
+	var f := _wall_by_id(wid)
+	if f.is_empty():
+		return false
+	var p: Vector3 = hit.get("position", Vector3.ZERO)
+	var t_mm := clampf(_project_mm(f, p), 0.0, float(f.length))
+	var width := 1200.0 if kind != "door" else 900.0
+	var off := clampf(t_mm - width * 0.5, 0.0, maxf(float(f.length) - width, 0.0))
+	Session.add_opening(kind, wid, off)
+	_selected = {"pick": KIND_WALL, "wall_id": wid}
+	Haptics.drop()
+	return true
 
 
 func _toggle_dims() -> void:
