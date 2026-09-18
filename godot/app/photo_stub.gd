@@ -8,6 +8,7 @@ const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
+const CoachMarks := preload("res://app/ui/coach_marks.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -28,6 +29,7 @@ var _readout_bar: Control
 var _lwh_row: HBoxContainer
 var _numeric: Control
 var _ruler: Control
+var _coach: Control
 var _ctx: HBoxContainer
 var _fab: Button
 var _snap_wall := ""
@@ -154,6 +156,8 @@ func _ready() -> void:
 	add_child(_numeric)
 	_ruler = RulerSheet.new()
 	add_child(_ruler)
+	_coach = CoachMarks.new()
+	add_child(_coach)
 
 	_picker = MediaPickerScript.new()
 	add_child(_picker)
@@ -197,6 +201,11 @@ func _ready() -> void:
 			_image_uri = Session.last_import_uri if not Session.last_import_uri.is_empty() else _thumb_path
 			_load_thumb(_thumb_path)
 		_show_review()
+
+
+func _coach_start(steps: Array) -> void:
+	if _coach and _coach.has_method("start"):
+		_coach.start(steps)
 
 
 func _open_ruler() -> void:
@@ -244,7 +253,7 @@ func _build_confirm() -> PanelContainer:
 	var sheet := Studio.sheet()
 	var col := Studio.vbox(Tokens.S2)
 	col.add_child(Studio.section("确认拆除承重墙"))
-	_confirm_label = Studio.label("这面墙标成了承重墙。拆除会改写方案，需要你点一次确认。", Tokens.FONT_BODY, Tokens.TEXT, true)
+	_confirm_label = Studio.label("这面墙标成了承重墙。拆除会改写方案，需要你再点一次确认。", Tokens.FONT_BODY, Tokens.TEXT, true)
 	col.add_child(_confirm_label)
 	col.add_child(Studio.primary("确认拆除", func():
 		overlay.visible = false
@@ -332,6 +341,12 @@ func _show_review() -> void:
 	demolish.custom_minimum_size = Vector2(0, 44)
 	_dock.add_child(demolish)
 	_refresh()
+	_coach_start([
+		{"id": "review_walls", "text": "点墙切换承重（暖色）和隔墙（深灰）。认准了再进 3D。"},
+		{"id": "library", "text": "长按底栏门或窗，拖到墙段上松手。收藏夹会记住常用构件。"},
+		{"id": "lwh", "text": "点顶栏 L / W / H，用数字底栏改毫米。尺寸只经命令写回。"},
+		{"id": "fab", "text": "点右下角 3D，平面会挤成立体。再点 2D 回来。"},
+	])
 
 
 func _show_demolish() -> void:
@@ -463,6 +478,9 @@ func _show_calibrate(path: String) -> void:
 		return
 	_calibrate.visible = true
 	_calibrate.move_to_front()
+	_coach_start([
+		{"id": "calibrate", "text": "把两个圆点拖到一条已知边上，输入真实毫米。拖动时看放大镜十字。"},
+	])
 
 
 func _on_calibrated(mm_per_px: float, _px: float, real_mm: float) -> void:

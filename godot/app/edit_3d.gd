@@ -7,6 +7,7 @@ const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
+const CoachMarks := preload("res://app/ui/coach_marks.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -69,6 +70,7 @@ func _ready() -> void:
 	if Session.has_core():
 		Session.last_rebuild = Session.rebuild_probe()
 	_refresh_world(true)
+	_sync_dims_from_prefs()
 	if Session.extrude_from_2d:
 		Session.extrude_from_2d = false
 		_pitch = PITCH_TOP
@@ -146,6 +148,12 @@ func _build_hud() -> void:
 	_ruler = RulerSheet.new()
 	_ruler.changed.connect(_sync_dims_from_prefs)
 	hud.layer.add_child(_ruler)
+	var coach := CoachMarks.new()
+	hud.layer.add_child(coach)
+	if Session.screen == "photo":
+		coach.start([
+			{"id": "place_3d", "text": "长按底栏门窗，拖到立体墙面上松手。尺寸仍然只来自命令。"},
+		])
 	_mount_3d_library(hud.layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
