@@ -236,11 +236,18 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 			used_names[name] = true
 		var f := _font()
 		var title := name
-		var sub := "%.1f m²" % area
-		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-		draw_string(f, c - Vector2(tw * 0.5, 6), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Tokens.TEXT)
-		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(f, c - Vector2(sw * 0.5, -12), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Tokens.TEXT_SECONDARY)
+		var sub := _format_area_m2(area)
+		var title_size := 17
+		var sub_size := 13
+		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
+		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x
+		var bw := maxf(tw, sw) + 20.0
+		var bh := 38.0
+		var box := Rect2(c - Vector2(bw * 0.5, 22.0), Vector2(bw, bh))
+		draw_rect(box, Color(1, 1, 1, 0.82), true)
+		draw_rect(box, Tokens.HAIRLINE, false, 1.0)
+		draw_string(f, Vector2(c.x - tw * 0.5, c.y - 4), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+		draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
 
 
 func _match_room_name(rooms: Array, centroid: Vector2, min_x: float, min_y: float, ox: float, oy: float, scale: float, used: Dictionary) -> String:
