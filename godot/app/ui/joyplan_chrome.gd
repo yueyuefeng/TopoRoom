@@ -263,7 +263,22 @@ func _place_knob(wrap: Control, delta: Vector2) -> void:
 
 
 func _circle_btn(glyph: String, cb: Callable, size: float) -> Button:
-	return _icon_btn(glyph, cb, size, false)
+	var b := Button.new()
+	b.text = glyph
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(size, size)
+	b.add_theme_font_override("font", Studio.font)
+	b.add_theme_font_size_override("font_size", 16 if size < 50 else 18)
+	b.pressed.connect(cb)
+	var sb := _frost_circle(Color(1, 1, 1, 0.86))
+	b.add_theme_stylebox_override("normal", sb)
+	var h := _frost_circle(Color(1, 1, 1, 0.96))
+	b.add_theme_stylebox_override("hover", h)
+	b.add_theme_stylebox_override("pressed", h)
+	b.add_theme_color_override("font_color", Tokens.TEXT)
+	b.add_theme_color_override("font_hover_color", Tokens.TEXT)
+	b.add_theme_color_override("font_pressed_color", Tokens.TEXT)
+	return b
 
 
 func _icon_btn(glyph: String, cb: Callable, size: float, selected: bool) -> Button:

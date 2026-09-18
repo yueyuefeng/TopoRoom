@@ -100,14 +100,19 @@ func _build_hud() -> void:
 	_chrome = JoyplanChrome.new()
 	_chrome.active_mode = "cube"
 	_chrome.show_rail = true
-	_chrome.show_bottom = false
-	_chrome.show_joystick = false
+	_chrome.show_bottom = true
+	_chrome.show_joystick = true
 	layer.add_child(_chrome)
 	_chrome.back_pressed.connect(func(): get_tree().change_scene_to_file("res://app/main.tscn"))
 	_chrome.mode_pressed.connect(_on_chrome_mode)
 	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
 	_chrome.floor_pressed.connect(func(): Session.log_line.emit("本方案一层。多层楼层切换是 P1。"))
 	_chrome.rail_pressed.connect(_on_chrome_rail)
+	_chrome.undo_pressed.connect(func(): Session.log_line.emit("撤销栈稍后（命令历史 P1）。"))
+	_chrome.redo_pressed.connect(func(): Session.log_line.emit("重做栈稍后（命令历史 P1）。"))
+	_chrome.lighting_pressed.connect(_on_chrome_light)
+	_chrome.primary_pressed.connect(_on_chrome_primary)
+	_chrome.stick_moved.connect(func(_v: Vector2): pass)
 
 	var ctx_m := MarginContainer.new()
 	ctx_m.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -137,8 +142,8 @@ func _build_hud() -> void:
 	snack.anchor_top = 1.0
 	snack.offset_left = 16
 	snack.offset_right = -16
-	snack.offset_top = -80
-	snack.offset_bottom = -16
+	snack.offset_top = -168
+	snack.offset_bottom = -120
 	layer.add_child(snack)
 	Session.log_line.connect(func(text: String): snack.show_message(text))
 	_numeric = NumericSheet.new()
@@ -191,6 +196,21 @@ func _on_chrome_rail(id: String) -> void:
 			Session.log_line.emit("稍后：设置 / 消息。本轮先用标尺、构件库和保存。")
 
 
+func _on_chrome_light() -> void:
+	if _lighting and _lighting.has_method("toggle_preset"):
+		_lighting.toggle_preset()
+		_update_hud()
+		Session.log_line.emit("灯光 %s" % _lighting.preset_label())
+
+
+func _on_chrome_primary() -> void:
+	var msg := Session.export_deliverables()
+	if msg.is_empty() and not Session.last_error.is_empty():
+		Session.log_line.emit(Session.last_error)
+		return
+	Session.log_line.emit(msg if not msg.is_empty() else "已导出")
+
+
 func _tween_extrude(t: float) -> void:
 	_pitch = lerpf(PITCH_TOP, PITCH_EDIT, t)
 	_distance = lerpf(DIST_TOP, DIST_EDIT, t)
@@ -203,8 +223,8 @@ func _mount_3d_library(layer: CanvasLayer) -> void:
 	dock.anchor_top = 1.0
 	dock.offset_left = 12
 	dock.offset_right = -88
-	dock.offset_top = -168
-	dock.offset_bottom = -16
+	dock.offset_top = -300
+	dock.offset_bottom = -140
 	dock.theme = Studio.theme
 	dock.visible = false
 	_lib_dock = dock
@@ -699,6 +719,17 @@ func _orbit() -> void:
 	_camera.look_at_from_position(_target + offset, _target)
 	if _dim_overlay and _show_dims:
 		_dim_overlay.queue_redraw()
+
+
+func _process(delta: float) -> void:
+	if _chrome == null or not _chrome.has_method("stick_vector"):
+		return
+	var v: Vector2 = _chrome.stick_vector()
+	if v.length() < 0.08:
+		return
+	_yaw -= v.x * delta * 1.8
+	_pitch = clampf(_pitch - v.y * delta * 1.3, -1.25, -0.08)
+	_orbit()
 
 
 func _unhandled_input(event: InputEvent) -> void:
