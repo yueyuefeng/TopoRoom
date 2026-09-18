@@ -29,7 +29,10 @@ plan live in [joyplan-interaction-spec.md](./joyplan-interaction-spec.md).
 Optional polish (same host, still Visualization-only):
 
 - **Load-bearing hatch** — denser diagonal ticks on shear/exterior strokes in `plan_canvas.gd`.
-- **3D dimension overlay** — `尺寸` chip in `edit_3d.gd` unprojects wall lengths; does not write SceneIR.
+- **3D dimension overlay** — `标尺` sheet in `edit_3d.gd` / `photo_stub.gd` (`ruler_sheet.gd`).
+- **Phase B–E** — loupe, room m² type, library tabs, snap haptics, toolbar,
+  L/W/H sheet, FAB extrude, 3D library, coach: see
+  [joyplan-interaction-spec.md](./joyplan-interaction-spec.md).
 
 Out of scope (not mapped): Elevation Index CAD dark mode; electric/furniture library.
 
