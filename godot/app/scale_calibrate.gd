@@ -8,7 +8,7 @@ const PageIslands := preload("res://app/ui/page_islands.gd")
 
 var _img: Image
 var _photo: TextureRect
-var _wash: ColorRect
+var _scale_layer: Control
 var _mm: LineEdit
 var _hint: Label
 var _loupe: Control
@@ -36,15 +36,19 @@ func _ready() -> void:
 	_photo = TextureRect.new()
 	_photo.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_photo)
 
-	_wash = ColorRect.new()
-	_wash.color = Tokens.PAGE_WASH
-	_wash.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_wash)
+	_scale_layer = Control.new()
+	_scale_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_scale_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scale_layer.draw.connect(_draw_scale)
+	add_child(_scale_layer)
+	resized.connect(func():
+		if _scale_layer:
+			_scale_layer.queue_redraw()
+	)
 
 	var title := PageIslands.scale_title(func(): _hint.text = "把比例尺放到已知边上，输入真实长度。")
 	# Island copy must stay in this screen file for clone invariants.
@@ -151,7 +155,8 @@ func load_image(path: String) -> bool:
 	_photo.texture = ImageTexture.create_from_image(_img)
 	_a = Vector2(_img.get_width() * 0.28, _img.get_height() * 0.52)
 	_b = Vector2(_img.get_width() * 0.72, _img.get_height() * 0.52)
-	queue_redraw()
+	if _scale_layer:
+		_scale_layer.queue_redraw()
 	return true
 
 
@@ -186,20 +191,25 @@ func _ctrl_to_img(p: Vector2) -> Vector2:
 	return Vector2(q.x * float(_img.get_width()), q.y * float(_img.get_height()))
 
 
-func _draw() -> void:
-	if _img == null:
+func _draw_scale() -> void:
+	if _img == null or _scale_layer == null:
 		return
+	var r := _fitted()
+	if r.size.x > 1.0 and r.size.y > 1.0:
+		_scale_layer.draw_rect(r, Tokens.PAGE_WASH, true)
 	var pa := _img_to_ctrl(_a)
 	var pb := _img_to_ctrl(_b)
-	draw_line(pa, pb, Tokens.PRIMARY, 3.0)
+	_scale_layer.draw_line(pa, pb, Tokens.PRIMARY, 4.0)
 	_draw_handle(pa)
 	_draw_handle(pb)
 
 
 func _draw_handle(p: Vector2) -> void:
-	draw_circle(p, _handle_r + 3.0, Color.WHITE)
-	draw_circle(p, _handle_r, Tokens.PRIMARY)
-	draw_circle(p, 4.0, Color.WHITE)
+	if _scale_layer == null:
+		return
+	_scale_layer.draw_circle(p, _handle_r + 4.0, Color.WHITE)
+	_scale_layer.draw_circle(p, _handle_r, Tokens.PRIMARY)
+	_scale_layer.draw_circle(p, 4.0, Color.WHITE)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -217,7 +227,8 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			_drag = 0
 			_loupe.visible = false
-			queue_redraw()
+			if _scale_layer:
+				_scale_layer.queue_redraw()
 	elif event is InputEventMouseMotion and _drag != 0:
 		_set_handle(_drag, _ctrl_to_img((event as InputEventMouseMotion).position))
 		_show_loupe(_ctrl_to_img((event as InputEventMouseMotion).position))
@@ -232,7 +243,8 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			_drag = 0
 			_loupe.visible = false
-			queue_redraw()
+			if _scale_layer:
+				_scale_layer.queue_redraw()
 	elif event is InputEventScreenDrag and _drag != 0:
 		var sd := event as InputEventScreenDrag
 		_set_handle(_drag, _ctrl_to_img(sd.position))
@@ -253,7 +265,14 @@ func _set_handle(which: int, img_pt: Vector2) -> void:
 		_a = img_pt
 	else:
 		_b = img_pt
-	queue_redraw()
+	if _scale_layer:
+		_scale_layer.queue_redraw()
+
+
+func preview_loupe() -> void:
+	if _img == null:
+		return
+	_show_loupe(_a)
 
 
 func _show_loupe(img_pt: Vector2) -> void:

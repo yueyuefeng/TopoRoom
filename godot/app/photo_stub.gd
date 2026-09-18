@@ -157,6 +157,7 @@ func _mount_ctx() -> void:
 	_ctx_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
 	_ctx = Studio.hbox(4)
 	_ctx_wrap.add_child(_ctx)
+	_ctx_wrap.z_index = 14
 	add_child(_ctx_wrap)
 
 
@@ -169,6 +170,7 @@ func _mount_bottom_dock() -> void:
 			_snack.show_message("已保存", "ok")
 	)
 	_bottom_dock.visible = false
+	_bottom_dock.z_index = 12
 	add_child(_bottom_dock)
 
 
@@ -179,6 +181,7 @@ func _mount_library() -> void:
 	_lib_host.anchor_top = 1.0
 	_lib_host.offset_top = -int(size.y * 0.34) if size.y > 1.0 else -360
 	_lib_host.visible = false
+	_lib_host.z_index = 8
 	_lib_host.add_child(_make_library())
 	add_child(_lib_host)
 
@@ -253,7 +256,11 @@ func _layout_library() -> void:
 	var h := size.y
 	if h <= 1.0:
 		h = get_viewport_rect().size.y
-	_lib_host.offset_top = -int(h * 0.34)
+	var sheet_h := int(h * 0.34)
+	_lib_host.offset_top = -sheet_h
+	if _bottom_dock:
+		_bottom_dock.offset_top = -(sheet_h + 78)
+		_bottom_dock.offset_bottom = -(sheet_h + 18)
 
 
 func _sync_islands() -> void:
@@ -318,6 +325,8 @@ func _show_preview(path: String) -> void:
 
 func _show_review() -> void:
 	_mode = "review"
+	if _calibrate:
+		_calibrate.visible = false
 	_preview.visible = false
 	_canvas.visible = true
 	_canvas.interactive = true

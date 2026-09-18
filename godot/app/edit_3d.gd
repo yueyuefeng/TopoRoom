@@ -28,10 +28,12 @@ var _status: Label
 var _sel_label: Label
 var _lwh: Label
 var _lwh_row: HBoxContainer
+var _lwh_wrap: Control
 var _numeric: Control
 var _ruler: Control
 var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
+var _ctx_wrap: Control
 var _dim_chip: Button
 var _dim_overlay: Control
 var _show_dims := false
@@ -122,19 +124,20 @@ func _build_hud() -> void:
 	root.add_child(_minimap)
 
 	_lwh = Studio.label("", Tokens.FONT_CHIP, Tokens.TEXT)
-	var lwh_wrap := PageIslands.readout_pill()
-	lwh_wrap.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	lwh_wrap.offset_left = 12
-	lwh_wrap.offset_top = 192
-	lwh_wrap.offset_right = 240
-	lwh_wrap.offset_bottom = 228
+	_lwh_wrap = PageIslands.readout_pill()
+	_lwh_wrap.visible = false
+	_lwh_wrap.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_lwh_wrap.offset_left = 12
+	_lwh_wrap.offset_top = 192
+	_lwh_wrap.offset_right = 240
+	_lwh_wrap.offset_bottom = 228
 	var lwh_col := Studio.vbox(2)
 	lwh_col.add_child(_lwh)
 	_lwh_row = Studio.hbox(4)
 	_lwh_row.visible = false
 	lwh_col.add_child(_lwh_row)
-	lwh_wrap.add_child(lwh_col)
-	root.add_child(lwh_wrap)
+	_lwh_wrap.add_child(lwh_col)
+	root.add_child(_lwh_wrap)
 
 	var rail := PageIslands.right_circles([
 		["settings", "⚙", func(): Session._log("设置 P1")],
@@ -179,14 +182,15 @@ func _build_hud() -> void:
 	_sel_label.visible = false
 	root.add_child(_sel_label)
 	_ctx = Studio.hbox(4)
-	var ctx_wrap := PageIslands.readout_pill()
-	ctx_wrap.set_anchors_preset(Control.PRESET_CENTER)
-	ctx_wrap.offset_left = -120
-	ctx_wrap.offset_right = 120
-	ctx_wrap.offset_top = 40
-	ctx_wrap.offset_bottom = 84
-	ctx_wrap.add_child(_ctx)
-	root.add_child(ctx_wrap)
+	_ctx_wrap = PageIslands.readout_pill()
+	_ctx_wrap.visible = false
+	_ctx_wrap.set_anchors_preset(Control.PRESET_CENTER)
+	_ctx_wrap.offset_left = -120
+	_ctx_wrap.offset_right = 120
+	_ctx_wrap.offset_top = 40
+	_ctx_wrap.offset_bottom = 84
+	_ctx_wrap.add_child(_ctx)
+	root.add_child(_ctx_wrap)
 
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
@@ -1025,10 +1029,13 @@ func _rebuild_lwh() -> void:
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
 	if pick != KIND_OPENING and pick != KIND_WALL:
-		_lwh.visible = true
-		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		if _lwh_wrap:
+			_lwh_wrap.visible = false
+		_lwh.visible = false
 		_lwh_row.visible = false
 		return
+	if _lwh_wrap:
+		_lwh_wrap.visible = true
 	_lwh.visible = false
 	_lwh_row.visible = true
 	var dims := _lwh_dims()
@@ -1143,6 +1150,8 @@ func _rebuild_ctx() -> void:
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
+		if _ctx_wrap:
+			_ctx_wrap.visible = true
 		_ctx.visible = true
 		var oid := str(_selected.get("opening_id", ""))
 		_ctx_chip("翻转", func(): Session.flip_opening(oid))
@@ -1152,7 +1161,11 @@ func _rebuild_ctx() -> void:
 		return
 	if pick != KIND_WALL:
 		_ctx.visible = false
+		if _ctx_wrap:
+			_ctx_wrap.visible = false
 		return
+	if _ctx_wrap:
+		_ctx_wrap.visible = true
 	_ctx.visible = true
 	var wid := str(_selected.get("wall_id", ""))
 	var shear := Studio.chip("承重", func(): Session.set_wall_kind(wid, "shearWall"), true)
