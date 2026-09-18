@@ -37,6 +37,9 @@ struct RasterAnalyzeOptions {
   double door_height_mm = 2100;
   double window_height_mm = 1400;
   double window_sill_mm = 900;
+  // User scale calibration (original-image millimetres per pixel). 0 = auto
+  // from median 200 mm shear-bar thickness.
+  double mm_per_px_override = 0;
 };
 
 struct RasterImage {

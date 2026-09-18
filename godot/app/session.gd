@@ -405,7 +405,7 @@ func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	return _ok("已识别墙体：四边承重 + 一道隔墙。尺寸仍以量房命令为准。")
 
 
-func import_photo_vision(image_uri: String) -> String:
+func import_photo_vision(image_uri: String, mm_per_px: float = 0.0) -> String:
 	if host == null:
 		return _fail("no core")
 	if image_uri.is_empty() or image_uri.begins_with("fixture:"):
@@ -424,7 +424,7 @@ func import_photo_vision(image_uri: String) -> String:
 	keep_preview = false
 	last_vision = {}
 	guide_mark_host_ok(true)
-	var d: Dictionary = host.import_vision_image(stored)
+	var d: Dictionary = host.import_vision_image(stored, mm_per_px)
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "vision")))
 	last_vision = d

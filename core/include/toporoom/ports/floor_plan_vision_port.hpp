@@ -43,6 +43,7 @@ struct DetectedColumn {
 struct VisionRequest {
   std::string image_uri;
   std::vector<std::uint8_t> image_bytes;
+  double mm_per_px_override = 0;
 };
 
 struct VisionResult {

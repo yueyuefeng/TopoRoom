@@ -4,8 +4,9 @@ extends Control
 const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const MediaPickerScript := preload("res://app/media_picker.gd")
+const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
 
-var _mode := "pick"  # pick | preview | review | demolish
+var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
 var _preview: TextureRect
 var _phase: Label
@@ -18,6 +19,7 @@ var _pending: Callable
 var _picker: Node
 var _image_uri := ""
 var _thumb_path := ""
+var _calibrate: Control
 
 
 func _ready() -> void:
@@ -110,6 +112,16 @@ func _ready() -> void:
 	_picker.image_ready.connect(_on_image)
 	_picker.cancelled.connect(func(): _snack.show_message("已取消", "info"))
 	_picker.failed.connect(func(msg: String): _snack.show_message(msg, "error"))
+
+	_calibrate = ScaleCalibrate.new()
+	_calibrate.visible = false
+	_calibrate.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_calibrate.calibrated.connect(_on_calibrated)
+	_calibrate.skipped.connect(func():
+		_calibrate.visible = false
+		_run_vision(_image_uri, 0.0)
+	)
+	add_child(_calibrate)
 
 	_show_pick()
 	var intent: String = Session.photo_intent
@@ -294,11 +306,13 @@ func _back() -> void:
 		return
 	if _mode == "review":
 		if not _image_uri.is_empty() and not _image_uri.begins_with("fixture:"):
-			_show_preview(_thumb_path if not _thumb_path.is_empty() else _image_uri)
+			_show_calibrate(_thumb_path if not _thumb_path.is_empty() else _image_uri)
 			return
 		_show_pick()
 		return
-	if _mode == "preview":
+	if _mode == "calibrate" or _mode == "preview":
+		if _calibrate:
+			_calibrate.visible = false
 		_show_pick()
 		return
 	get_tree().change_scene_to_file("res://app/main.tscn")
@@ -315,9 +329,11 @@ func _run_fake(uri: String) -> void:
 	_refresh()
 
 
-func _run_vision(uri: String) -> void:
+func _run_vision(uri: String, mm_per_px: float = 0.0) -> void:
 	_image_uri = uri
-	Session.import_photo_vision(uri)
+	if _calibrate:
+		_calibrate.visible = false
+	Session.import_photo_vision(uri, mm_per_px)
 	if Session.last_error.is_empty():
 		if not Session.last_import_path.is_empty():
 			_thumb_path = Session.last_import_path
@@ -330,7 +346,7 @@ func _run_example() -> void:
 	var res_path := "res://fixtures/apt-plan-user-01.png"
 	if FileAccess.file_exists(res_path):
 		var stored: String = Session.store_imported_image(res_path)
-		_run_vision(stored if not stored.is_empty() else ProjectSettings.globalize_path(res_path))
+		_show_calibrate(stored if not stored.is_empty() else ProjectSettings.globalize_path(res_path))
 		return
 	_run_fake("fixture:photo")
 
@@ -368,7 +384,28 @@ func _on_image(path: String) -> void:
 		stored = path
 	_thumb_path = stored
 	_load_thumb(stored)
-	_run_vision(stored)
+	_show_calibrate(stored)
+
+
+func _show_calibrate(path: String) -> void:
+	_mode = "calibrate"
+	_phase.text = "标定"
+	_image_uri = path
+	_thumb_path = path
+	if _calibrate == null or not _calibrate.has_method("load_image"):
+		_run_vision(path, 0.0)
+		return
+	if not _calibrate.load_image(path):
+		_run_vision(path, 0.0)
+		return
+	_calibrate.visible = true
+	_calibrate.move_to_front()
+
+
+func _on_calibrated(mm_per_px: float, _px: float, real_mm: float) -> void:
+	_calibrate.visible = false
+	_snack.show_message("比例 %d mm / %s" % [int(round(real_mm)), "边"], "ok")
+	_run_vision(_image_uri, mm_per_px)
 
 
 func _load_thumb(path: String) -> void:

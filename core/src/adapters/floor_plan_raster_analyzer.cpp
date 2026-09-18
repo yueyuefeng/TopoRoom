@@ -337,6 +337,10 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
   const int median_th = thicks[thicks.size() / 2];
   double mm_per_px = options.structural_thickness_mm / std::max(1, median_th);
   mm_per_px = std::max(12.0, std::min(28.0, mm_per_px));
+  if (options.mm_per_px_override >= 0.5) {
+    const double sx = image.width > 0 ? static_cast<double>(source.width) / static_cast<double>(image.width) : 1.0;
+    mm_per_px = std::max(0.5, options.mm_per_px_override * sx);
+  }
   out.mm_per_px = mm_per_px;
 
   // 阳台 / 飘窗 / 落地窗 grey sits outside the black shear bbox. Cropping to
@@ -970,7 +974,9 @@ ports::VisionResult RasterVisionAdapter::detect_walls(const ports::VisionRequest
     out.error = err.empty() ? "image not found" : err;
     return out;
   }
-  return analyze_floor_plan_raster(image);
+  RasterAnalyzeOptions opt;
+  opt.mm_per_px_override = request.mm_per_px_override;
+  return analyze_floor_plan_raster(image, opt);
 }
 
 }  // namespace toporoom::adapters

@@ -178,3 +178,24 @@ TEST(FloorPlanRaster, MissingPathCApiFails) {
             0);
   toporoom_document_destroy(doc);
 }
+
+TEST(FloorPlanRaster, ScaleOverrideHonorsCalibration) {
+  RasterImage image;
+  std::string err;
+  ASSERT_TRUE(load_raster_image(fixture_png(), {}, &image, &err)) << err;
+  toporoom::adapters::RasterAnalyzeOptions opt;
+  opt.mm_per_px_override = 20.0;
+  const auto detected = analyze_floor_plan_raster(image, opt);
+  ASSERT_TRUE(detected.ok) << detected.error;
+  EXPECT_NEAR(detected.mm_per_px, 20.0, 0.05);
+  TopoRoomDocument* cdoc = toporoom_document_create("doc_scale_cal");
+  ASSERT_NE(cdoc, nullptr);
+  TopoRoomVisionCounts counts{};
+  char cerr[256] = {};
+  ASSERT_EQ(toporoom_vision_import_image_ex(cdoc, fixture_png().c_str(), 20.0, &counts, cerr,
+                                           sizeof(cerr)),
+            0)
+      << cerr;
+  EXPECT_NEAR(counts.mm_per_px, 20.0, 0.05);
+  toporoom_document_destroy(cdoc);
+}
