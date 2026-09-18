@@ -3,11 +3,12 @@
 References are stills from the user-supplied JoyPlan video. Product captures
 are rendered from `godot/app/capture_ui.gd`.
 
-Boot: **system photo picker** (`ref_picker.jpg`). There is no dual-card
-camera/gallery home.
+Boot: **usable home** (`s1_home.png`) with 示例户型 / 相册导入 / 拍照.
+示例户型 needs no permissions. Picker is opt-in; cancel stays on this home.
 
 | Ours | Reference | Screen |
 |------|-----------|--------|
+| [s1_home.png](./s1_home.png) | [ref_picker.jpg](./ref_picker.jpg) | Home: 示例户型 / 相册导入 / 拍照 |
 | [s2_scale.png](./s2_scale.png) | [ref_s2_scale.jpg](./ref_s2_scale.jpg) | Scale setting + black Exit / Adjust / enter length / orange OK |
 | [s3_2d.png](./s3_2d.png) | [ref_s3_2d.jpg](./ref_s3_2d.jpg) | 4-mode capsule, L/∠, green FAB, undo/redo, orange select |
 | [s4_library_sheet.png](./s4_library_sheet.png) | [ref_s4_library.jpg](./ref_s4_library.jpg) | 2D + library sheet / green + |
@@ -27,4 +28,4 @@ camera/gallery home.
 | Direct | https://litter.catbox.moe/i352c3.apk |
 | Mirror | https://gofile.io/d/LgzMX1WS |
 
-Same signature as **0.1.0** so the phone can upgrade without uninstall. Keystore: `godot/android/keystore/debug.keystore`. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn`, which opens the system picker (`pick_gallery`). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
+Same signature as **0.1.0** so the phone can upgrade without uninstall. Keystore: `godot/android/keystore/debug.keystore`. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn` (示例户型 / 相册导入 / 拍照). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
