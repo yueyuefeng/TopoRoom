@@ -4,10 +4,10 @@ extends Node3D
 
 const Lighting := preload("res://app/lighting.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
-const OpeningLibrary := preload("res://app/opening_library.gd")
+const OpeningLibrary := preload("res://app/_legacy/opening_library.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
-const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
-const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const RulerSheet := preload("res://app/_legacy/ui/ruler_sheet.gd")
+const CoachMarks := preload("res://app/_legacy/ui/coach_marks.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -291,7 +291,7 @@ func _draw_dim_overlay() -> void:
 
 func _go_2d() -> void:
 	if Session.screen == "photo":
-		get_tree().change_scene_to_file("res://app/photo_stub.tscn")
+		get_tree().change_scene_to_file("res://app/_legacy/photo_stub.tscn")
 		return
 	get_tree().change_scene_to_file("res://app/main.tscn")
 

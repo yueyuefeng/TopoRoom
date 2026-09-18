@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://app/capture_ui.gd" id="1_cap"]
+[ext_resource type="Script" path="res://app/_legacy/capture_ui.gd" id="1_cap"]
 
 [node name="CaptureUI" type="Control"]
 layout_mode = 3

@@ -34,7 +34,7 @@ func _ready() -> void:
 	var col: VBoxContainer = hud.column
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
-	row.add_child(Studio.chip("3D 编辑", func(): get_tree().change_scene_to_file("res://app/edit_3d.tscn")))
+	row.add_child(Studio.chip("3D 编辑", func(): get_tree().change_scene_to_file("res://app/_legacy/edit_3d.tscn")))
 	var grow := Control.new()
 	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(grow)

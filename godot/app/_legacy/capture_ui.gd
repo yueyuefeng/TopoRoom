@@ -24,7 +24,7 @@ func _ready() -> void:
 	await get_tree().create_timer(0.25).timeout
 	await _shot(out_dir.path_join("toporoom-ui-guide.png"))
 	main.visible = false
-	var photo: Control = preload("res://app/photo_stub.tscn").instantiate()
+	var photo: Control = preload("res://app/_legacy/photo_stub.tscn").instantiate()
 	add_child(photo)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
@@ -83,7 +83,7 @@ func _ready() -> void:
 		main.visible = false
 	if Session.has_core():
 		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
-		var edit: Node3D = preload("res://app/edit_3d.tscn").instantiate()
+		var edit: Node3D = preload("res://app/_legacy/edit_3d.tscn").instantiate()
 		add_child(edit)
 		await get_tree().process_frame
 		await get_tree().process_frame
