@@ -48,3 +48,19 @@ TEST(Wall, RejectsNonPositiveThickness) {
   props.kind = WallKind::Interior;
   EXPECT_THROW(Wall::create(props), DomainError);
 }
+
+TEST(Wall, WithThicknessKeepsLengthAndOpenings) {
+  WallProps props;
+  props.id = "wall_a";
+  props.start = PointMm::of(0, 0);
+  props.end = PointMm::of(4000, 0);
+  props.thickness = LengthMm::of(200);
+  props.height = LengthMm::of(2800);
+  props.kind = WallKind::Exterior;
+  const Wall wall = Wall::create(props);
+  const Wall thick = wall.with_thickness(LengthMm::of(120));
+  EXPECT_EQ(thick.thickness().value(), 120);
+  EXPECT_EQ(thick.length_mm().value(), 4000);
+  EXPECT_EQ(thick.height().value(), 2800);
+  EXPECT_THROW(wall.with_thickness(LengthMm::of(0)), DomainError);
+}

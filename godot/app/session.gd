@@ -626,6 +626,8 @@ func rotate_opening(opening_id: String) -> String:
 
 
 func duplicate_opening(opening_id: String) -> String:
+	if host == null:
+		return _fail("no core")
 	var op: Dictionary = find_opening(opening_id)
 	if op.is_empty():
 		return _fail("opening not found")
@@ -638,7 +640,22 @@ func duplicate_opening(opening_id: String) -> String:
 		next = offset - width - gap
 	if next < 0.0:
 		return _fail("墙上放不下再复制一个")
-	return add_opening(str(op.get("kind", "door")), str(op.get("wall_id", "")), next)
+	var kind := str(op.get("kind", "door"))
+	opening_serial += 1
+	var nid := "op_%s_%d" % [kind, opening_serial]
+	var d: Dictionary = host.add_opening(
+		host.first_storey_id(), str(op.get("wall_id", "")), nid, kind,
+		width, float(op.get("height_mm", 2100)), next, float(op.get("sill_mm", 0))
+	)
+	if not d.get("ok", false):
+		opening_serial -= 1
+		return _fail(str(d.get("error", "opening")))
+	host.guide_note_opening()
+	host.guide_sync_from_document(false)
+	auto_save()
+	mark_favorite(kind)
+	set_swing(nid, swing_for(opening_id))
+	return _ok("复制%s" % Tokens.opening_label(kind))
 
 
 func resize_wall_length(wall_id: String, length_mm: float) -> String:
@@ -648,6 +665,15 @@ func resize_wall_length(wall_id: String, length_mm: float) -> String:
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "resize_wall")))
 	return _after_structural_edit("墙长 %s %smm" % [wall_id, str(length_mm)])
+
+
+func set_wall_thickness_mm(wall_id: String, thickness_mm: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.set_wall_thickness(host.first_storey_id(), wall_id, thickness_mm)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "set_wall_thickness")))
+	return _after_structural_edit("墙厚 %s %smm" % [wall_id, str(thickness_mm)])
 
 
 func rebuild_probe() -> Dictionary:

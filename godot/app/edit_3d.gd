@@ -3,6 +3,8 @@ extends Node3D
 ## Dragged triangle vertices are never written back. Lighting is Visualization-only.
 
 const Lighting := preload("res://app/lighting.gd")
+const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
+const OpeningLibrary := preload("res://app/opening_library.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -20,6 +22,9 @@ var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
 var _lwh: Label
+var _lwh_row: HBoxContainer
+var _numeric: Control
+var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
 var _dim_chip: Button
 var _dim_overlay: Control
@@ -82,6 +87,9 @@ func _build_hud() -> void:
 	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
 	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_lwh)
+	_lwh_row = Studio.hbox(Tokens.S1)
+	_lwh_row.visible = false
+	col.add_child(_lwh_row)
 	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
@@ -111,6 +119,8 @@ func _build_hud() -> void:
 	fab.offset_right = -20
 	fab.offset_bottom = -32
 	hud.layer.add_child(fab)
+	_numeric = NumericSheet.new()
+	hud.layer.add_child(_numeric)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -799,8 +809,110 @@ func _update_hud() -> void:
 		sel += "  · 拖动中，松开后经 C API 提交"
 	_sel_label.text = sel
 	if _lwh:
-		_lwh.text = _lwh_text()
+		_rebuild_lwh()
 	_rebuild_ctx()
+
+
+func _rebuild_lwh() -> void:
+	if _lwh_row == null:
+		if _lwh:
+			_lwh.text = _lwh_text()
+		return
+	for c in _lwh_row.get_children():
+		_lwh_row.remove_child(c)
+		c.queue_free()
+	var pick := str(_selected.get("pick", ""))
+	if pick != KIND_OPENING and pick != KIND_WALL:
+		_lwh.visible = true
+		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		_lwh_row.visible = false
+		return
+	_lwh.visible = false
+	_lwh_row.visible = true
+	var dims := _lwh_dims()
+	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
+	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
+	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+
+
+func _lwh_chip(text: String, cb: Callable) -> void:
+	var b := Studio.chip(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lwh_row.add_child(b)
+
+
+func _lwh_dims() -> Dictionary:
+	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		var op := _opening_by_id(str(_selected.get("opening_id", "")))
+		var f := _wall_by_id(str(_selected.get("wall_id", "")))
+		return {
+			"l": float(op.get("widthMm", _drag.get("width_mm", 0))),
+			"w": float(f.get("thickness", 200)),
+			"h": float(op.get("heightMm", _drag.get("height_mm", 0))),
+			"opening": true,
+			"id": str(_selected.get("opening_id", "")),
+			"wall_id": str(_selected.get("wall_id", "")),
+		}
+	var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
+	var h := float(_drag.get("height_mm", f2.height)) if str(_drag.get("pick", "")) == HANDLE_WALL_HEIGHT else float(f2.get("height", 2800))
+	return {
+		"l": float(f2.get("length", 0)),
+		"w": float(f2.get("thickness", 200)),
+		"h": h,
+		"opening": false,
+		"id": str(_selected.get("wall_id", "")),
+	}
+
+
+func _edit_dim(which: String) -> void:
+	if _numeric == null:
+		return
+	var dims := _lwh_dims()
+	if str(dims.get("id", "")).is_empty():
+		return
+	var titles: Dictionary = {"l": "洞口宽", "w": "墙厚", "h": "洞口高"} if bool(dims.get("opening", false)) else {"l": "墙长", "w": "墙厚", "h": "墙高"}
+	var min_mm := 80.0 if which == "w" else 200.0
+	var max_mm := 800.0 if which == "w" else 20000.0
+	if which == "h":
+		min_mm = 400.0
+		max_mm = 6000.0
+	_pending_dim = {"which": which, "dims": dims}
+	if _numeric.committed.is_connected(_on_numeric_commit):
+		_numeric.committed.disconnect(_on_numeric_commit)
+	_numeric.committed.connect(_on_numeric_commit, CONNECT_ONE_SHOT)
+	_numeric.present(str(titles.get(which, "尺寸")), float(dims.get(which, 0)), min_mm, max_mm)
+
+
+func _on_numeric_commit(value_mm: float) -> void:
+	var which := str(_pending_dim.get("which", ""))
+	var dims: Dictionary = _pending_dim.get("dims", {})
+	_pending_dim = {}
+	if which.is_empty() or dims.is_empty():
+		return
+	if bool(dims.get("opening", false)):
+		var op := _opening_by_id(str(dims.get("id", "")))
+		if op.is_empty():
+			return
+		if which == "w":
+			Session.set_wall_thickness_mm(str(dims.get("wall_id", "")), value_mm)
+			return
+		Session.update_opening_geom(
+			str(dims.get("id", "")),
+			str(op.get("kind", "door")),
+			value_mm if which == "l" else float(op.get("widthMm", 0)),
+			value_mm if which == "h" else float(op.get("heightMm", 0)),
+			float(op.get("offsetMm", 0)),
+			float(op.get("sillHeightMm", 0))
+		)
+		return
+	var id := str(dims.get("id", ""))
+	if which == "l":
+		Session.resize_wall_length(id, value_mm)
+	elif which == "w":
+		Session.set_wall_thickness_mm(id, value_mm)
+	else:
+		Session.set_wall_height_mm(id, value_mm)
 
 
 func _lwh_text() -> String:

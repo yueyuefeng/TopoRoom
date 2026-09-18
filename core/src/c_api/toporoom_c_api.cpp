@@ -279,6 +279,19 @@ int toporoom_document_set_wall_height(TopoRoomDocument* doc, const char* storey_
   }
 }
 
+int toporoom_document_set_wall_thickness(TopoRoomDocument* doc, const char* storey_id,
+                                         const char* wall_id, double thickness_mm,
+                                         char* errbuf, int errbuf_len) {
+  if (!doc || !storey_id || !wall_id) return 1;
+  try {
+    doc->impl.set_wall_thickness(storey_id, wall_id,
+                                 toporoom::domain::LengthMm::of(thickness_mm));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
 int toporoom_document_set_wall_kind(TopoRoomDocument* doc, const char* storey_id,
                                     const char* wall_id, const char* kind, char* errbuf,
                                     int errbuf_len) {

@@ -102,6 +102,12 @@ Wall Wall::with_height(LengthMm height) const {
   return Wall::create(std::move(props));
 }
 
+Wall Wall::with_thickness(LengthMm thickness) const {
+  auto props = snapshot();
+  props.thickness = thickness;
+  return Wall::create(std::move(props));
+}
+
 Wall Wall::with_kind(WallKind kind) const {
   auto props = snapshot();
   props.kind = kind;

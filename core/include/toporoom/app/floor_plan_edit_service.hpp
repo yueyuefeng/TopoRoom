@@ -87,6 +87,13 @@ struct SetWallHeightCommand {
   double height_mm = 0;
 };
 
+struct SetWallThicknessCommand {
+  std::string document_id;
+  std::string storey_id;
+  std::string wall_id;
+  double thickness_mm = 0;
+};
+
 struct SetWallKindCommand {
   std::string document_id;
   std::string storey_id;
@@ -168,6 +175,7 @@ class FloorPlanEditService {
   CommandResult resize_wall(const ResizeWallCommand& command);
   CommandResult delete_wall(const DeleteWallCommand& command);
   CommandResult set_wall_height(const SetWallHeightCommand& command);
+  CommandResult set_wall_thickness(const SetWallThicknessCommand& command);
   CommandResult set_wall_kind(const SetWallKindCommand& command);
   CommandResult demolish_wall(const DemolishWallCommand& command);
   CommandResult split_wall(const SplitWallCommand& command);

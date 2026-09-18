@@ -41,6 +41,7 @@ using toporoom::app::SetRoomAttributesCommand;
 using toporoom::app::SetStoreyHeightCommand;
 using toporoom::app::SetStoreyHeightTool;
 using toporoom::app::SetWallHeightCommand;
+using toporoom::app::SetWallThicknessCommand;
 using toporoom::app::ToolRegistry;
 using toporoom::app::UpdateHostedComponentCommand;
 using toporoom::app::UpdateOpeningCommand;
@@ -257,6 +258,20 @@ TEST(EditingWorkflows, DuplicateOpeningPlacesSiblingOnSameWall) {
   EXPECT_TRUE(has_event(result.events, "OpeningAdded"));
   ASSERT_EQ(result.scene.storeys[0].walls[0].openings.size(), 2u);
   EXPECT_NEAR(result.scene.storeys[0].walls[0].openings[1].offset_mm, 1900, 1e-6);
+}
+
+TEST(EditingWorkflows, SetWallThicknessWritesSceneIR) {
+  Harness h;
+  h.edits.add_wall(h.wall("wall_s", 0, 0, 4000, 0));
+  SetWallThicknessCommand thick;
+  thick.document_id = "doc_edit";
+  thick.storey_id = h.storey_id;
+  thick.wall_id = "wall_s";
+  thick.thickness_mm = 120;
+  auto result = h.edits.set_wall_thickness(thick);
+  EXPECT_TRUE(has_event(result.events, "WallGeometryChanged"));
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].thickness_mm, 120, 1e-6);
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].end.x, 4000, 1e-6);
 }
 
 TEST(EditingWorkflows, RoomAttributesClearHeightIsNotStoreyHeight) {

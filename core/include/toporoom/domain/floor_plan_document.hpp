@@ -105,6 +105,8 @@ class FloorPlanDocument {
   void delete_wall(const std::string& storey_id, const std::string& wall_id);
   void set_wall_height(const std::string& storey_id, const std::string& wall_id,
                        LengthMm height_mm);
+  void set_wall_thickness(const std::string& storey_id, const std::string& wall_id,
+                          LengthMm thickness_mm);
   Wall set_wall_kind(const std::string& storey_id, const std::string& wall_id,
                      WallKind kind);
   // Full 拆除. ShearWall requires force=true (JoyPlan 承重确认).

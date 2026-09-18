@@ -6,6 +6,7 @@ const Snackbar := preload("res://app/ui/snackbar.gd")
 const MediaPickerScript := preload("res://app/media_picker.gd")
 const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
+const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -23,6 +24,8 @@ var _thumb_path := ""
 var _calibrate: Control
 var _readout: Label
 var _readout_bar: Control
+var _lwh_row: HBoxContainer
+var _numeric: Control
 var _ctx: HBoxContainer
 var _fab: Button
 var _snap_wall := ""
@@ -77,7 +80,12 @@ func _ready() -> void:
 	_readout = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_SECTION, Tokens.TEXT)
 	_readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_readout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	read_panel.add_child(_readout)
+	var read_col := Studio.vbox(4)
+	read_col.add_child(_readout)
+	_lwh_row = Studio.hbox(Tokens.S1)
+	_lwh_row.visible = false
+	read_col.add_child(_lwh_row)
+	read_panel.add_child(read_col)
 	read_m.add_child(read_panel)
 	root.add_child(read_m)
 	_readout_bar = read_m
@@ -139,6 +147,8 @@ func _ready() -> void:
 
 	_confirm = _build_confirm()
 	add_child(_confirm)
+	_numeric = NumericSheet.new()
+	add_child(_numeric)
 
 	_picker = MediaPickerScript.new()
 	add_child(_picker)
@@ -610,7 +620,7 @@ func _refresh_selection() -> void:
 		if _readout_bar:
 			_readout_bar.visible = show
 		_readout.visible = show
-		_readout.text = _lwh_text()
+		_rebuild_lwh()
 	if _fab:
 		_fab.visible = _mode == "review" or _mode == "demolish"
 	if _ctx == null or not is_instance_valid(_ctx):
@@ -650,32 +660,112 @@ func _ctx_btn(text: String, cb: Callable) -> void:
 	_ctx.add_child(b)
 
 
-func _lwh_text() -> String:
+func _rebuild_lwh() -> void:
+	if _lwh_row == null or not is_instance_valid(_lwh_row):
+		if _readout:
+			_readout.text = _lwh_text()
+		return
+	for c in _lwh_row.get_children():
+		_lwh_row.remove_child(c)
+		c.queue_free()
 	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
 	var wid: String = str(_canvas.selected_id) if _canvas else ""
+	if oid.is_empty() and wid.is_empty():
+		_readout.visible = true
+		_readout.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		_lwh_row.visible = false
+		return
+	_readout.visible = false
+	_lwh_row.visible = true
+	var dims: Dictionary = _lwh_dims()
+	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
+	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
+	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+
+
+func _lwh_chip(text: String, cb: Callable) -> void:
+	var b := Studio.chip(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lwh_row.add_child(b)
+
+
+func _lwh_dims() -> Dictionary:
+	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
 	if not oid.is_empty():
-		for w in _walls():
-			for op in w.get("openings", []):
-				if typeof(op) != TYPE_DICTIONARY or str(op.get("id", "")) != oid:
-					continue
-				return "L %d    W %d    H %d" % [
-					int(round(float(op.get("widthMm", 0)))),
-					int(round(float(w.get("thicknessMm", 200)))),
-					int(round(float(op.get("heightMm", 0)))),
-				]
-	if not wid.is_empty():
-		for w in _walls():
-			if str(w.get("id", "")) != wid:
-				continue
-			var a: Dictionary = w.get("start", {})
-			var b: Dictionary = w.get("end", {})
-			var length: float = Vector2(
-				float(b.get("x", 0)) - float(a.get("x", 0)),
-				float(b.get("y", 0)) - float(a.get("y", 0))
-			).length()
-			return "L %d    W %d    H %d" % [
-				int(round(length)),
-				int(round(float(w.get("thicknessMm", 200)))),
-				int(round(float(w.get("heightMm", 2800)))),
-			]
-	return "点选墙或门窗，看长宽高"
+		var op: Dictionary = Session.find_opening(oid)
+		return {
+			"l": float(op.get("width_mm", 0)),
+			"w": float(op.get("thickness_mm", 200)),
+			"h": float(op.get("height_mm", 0)),
+			"opening": true,
+			"id": oid,
+		}
+	var wid: String = str(_canvas.selected_id) if _canvas else ""
+	var wall: Dictionary = Session.find_wall(wid)
+	return {
+		"l": float(wall.get("length_mm", 0)),
+		"w": float(wall.get("thickness_mm", 200)),
+		"h": float(wall.get("height_mm", 2800)),
+		"opening": false,
+		"id": wid,
+	}
+
+
+func _edit_dim(which: String) -> void:
+	if _numeric == null:
+		return
+	var dims: Dictionary = _lwh_dims()
+	if str(dims.get("id", "")).is_empty():
+		return
+	var titles_wall := {"l": "墙长", "w": "墙厚", "h": "墙高"}
+	var titles_op := {"l": "洞口宽", "w": "墙厚", "h": "洞口高"}
+	var titles: Dictionary = titles_op if bool(dims.get("opening", false)) else titles_wall
+	var value := float(dims.get(which, 0))
+	var min_mm := 80.0 if which == "w" else 200.0
+	var max_mm := 800.0 if which == "w" else 20000.0
+	if which == "h":
+		min_mm = 400.0
+		max_mm = 6000.0
+	_numeric.present(str(titles.get(which, "尺寸")), value, min_mm, max_mm)
+	if _numeric.committed.is_connected(_on_numeric_commit):
+		_numeric.committed.disconnect(_on_numeric_commit)
+	_pending_dim = {"which": which, "dims": dims}
+	_numeric.committed.connect(_on_numeric_commit, CONNECT_ONE_SHOT)
+
+
+var _pending_dim: Dictionary = {}
+
+
+func _on_numeric_commit(value_mm: float) -> void:
+	var which := str(_pending_dim.get("which", ""))
+	var dims: Dictionary = _pending_dim.get("dims", {})
+	_pending_dim = {}
+	if which.is_empty() or dims.is_empty():
+		return
+	var is_op := bool(dims.get("opening", false))
+	var id := str(dims.get("id", ""))
+	if is_op:
+		var op: Dictionary = Session.find_opening(id)
+		if op.is_empty():
+			return
+		if which == "w":
+			Session.set_wall_thickness_mm(str(op.get("wall_id", "")), value_mm)
+			return
+		var width := value_mm if which == "l" else float(op.get("width_mm", 0))
+		var height := value_mm if which == "h" else float(op.get("height_mm", 0))
+		Session.update_opening_geom(
+			id,
+			str(op.get("kind", "door")),
+			width,
+			height,
+			float(op.get("offset_mm", 0)),
+			float(op.get("sill_mm", 0))
+		)
+		return
+	if which == "l":
+		Session.resize_wall_length(id, value_mm)
+	elif which == "w":
+		Session.set_wall_thickness_mm(id, value_mm)
+	else:
+		Session.set_wall_height_mm(id, value_mm)
+

@@ -49,6 +49,10 @@ int toporoom_document_set_wall_height(TopoRoomDocument* doc, const char* storey_
                                       const char* wall_id, double height_mm, char* errbuf,
                                       int errbuf_len);
 
+int toporoom_document_set_wall_thickness(TopoRoomDocument* doc, const char* storey_id,
+                                         const char* wall_id, double thickness_mm,
+                                         char* errbuf, int errbuf_len);
+
 /* kind: "shearWall" | "masonry" | "partition" | "exterior" | "interior". */
 int toporoom_document_set_wall_kind(TopoRoomDocument* doc, const char* storey_id,
                                     const char* wall_id, const char* kind, char* errbuf,

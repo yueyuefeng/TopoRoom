@@ -198,6 +198,17 @@ void FloorPlanDocument::set_wall_height(const std::string& storey_id,
   bump_semantics();
 }
 
+void FloorPlanDocument::set_wall_thickness(const std::string& storey_id,
+                                           const std::string& wall_id,
+                                           LengthMm thickness_mm) {
+  Storey storey = require_storey(storey_id);
+  const Wall& current = storey.wall_by_id(wall_id);
+  if (current.thickness().value() == thickness_mm.value()) return;
+  replace_storey(storey.replace_wall(current.with_thickness(thickness_mm)));
+  record(WallGeometryChanged{id_, storey_id, wall_id});
+  bump_semantics();
+}
+
 namespace {
 
 void assert_demolish_allowed(const Wall& wall, bool force) {
