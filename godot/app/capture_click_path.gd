@@ -34,11 +34,23 @@ func _ready() -> void:
 		await _shot(docs, out_dir, "04_pick_source.png")
 	neu.queue_free()
 
-	var gold := Session.load_gold_sample()
+	var gold_src := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	var sim_dir := OS.get_user_data_dir().path_join("cache_imports")
+	DirAccess.make_dir_recursive_absolute(sim_dir)
+	var sim_png := sim_dir.path_join("import_sim.png")
+	DirAccess.copy_absolute(gold_src, sim_png)
+	var sim_jpg := sim_dir.path_join("import_sim.jpg")
+	var sim_img := Image.new()
+	if sim_img.load(sim_png) == OK:
+		sim_img.save_jpg(sim_jpg, 0.92)
+	var gold := Session.store_imported_image(sim_jpg if FileAccess.file_exists(sim_jpg) else sim_png)
 	if gold.is_empty():
-		gold = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+		gold = Session.load_gold_sample()
+	if gold.is_empty():
+		gold = gold_src
 		Session.last_import_path = gold
 		Session.last_import_uri = gold
+	print("OK gallery-sim stored %s" % gold)
 	var scale: Control = preload("res://app/joyplan_flow/scale_calibrate.tscn").instantiate()
 	add_child(scale)
 	await get_tree().process_frame
