@@ -55,21 +55,26 @@ func _ready() -> void:
 	col.add_child(actions)
 
 
-func _row(en: String, flag: String, zh: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
+func _row(en: String, flag: String, zh: String) -> Control:
+	var row := Button.new()
+	row.flat = true
+	row.focus_mode = Control.FOCUS_NONE
+	row.custom_minimum_size = Vector2(0, 40)
+	row.pressed.connect(func(): _toggle(flag))
+	var inner := HBoxContainer.new()
+	inner.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lab := Studio.label("%s  %s" % [en, zh], Tokens.FONT_BODY, Tokens.TEXT)
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(lab)
+	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(lab)
 	var mark := Studio.label("✓" if Session.ruler_on(flag) or flag == "select_all" else "", Tokens.FONT_TITLE, Tokens.PAGE_PURPLE)
 	mark.custom_minimum_size = Vector2(28, 28)
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_checks[flag] = mark
-	var tap := Button.new()
-	tap.flat = true
-	tap.focus_mode = Control.FOCUS_NONE
-	tap.set_anchors_preset(PRESET_FULL_RECT)
-	tap.pressed.connect(func(): _toggle(flag))
-	row.add_child(mark)
-	row.add_child(tap)
+	inner.add_child(mark)
+	row.add_child(inner)
 	return row
 
 

@@ -17,6 +17,9 @@ func _ready() -> void:
 	await _shot(out_dir.path_join("s1_home.png"))
 	home.queue_free()
 
+	var gold := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	Session.last_import_path = gold
+	Session.last_import_uri = gold
 	var scale: Control = preload("res://app/joyplan_flow/scale_calibrate.tscn").instantiate()
 	add_child(scale)
 	await get_tree().process_frame

@@ -15,6 +15,7 @@ var _mm: LineEdit
 var _hint: Label
 var _loupe: Control
 var _loupe_tex: TextureRect
+var _loupe_cross: Control
 var _a := Vector2(80, 200)
 var _b := Vector2(280, 200)
 var _drag := 0
@@ -68,6 +69,8 @@ func _ready() -> void:
 	var path := Session.last_import_path
 	if path.is_empty():
 		path = Session.last_import_uri
+	if path.is_empty():
+		path = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
 	if not load_image(path):
 		_make_demo()
 
@@ -138,8 +141,24 @@ func _build_loupe() -> void:
 	_loupe_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_loupe_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_loupe_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+void fragment() {
+	vec2 p = UV - vec2(0.5);
+	if (dot(p, p) > 0.25) discard;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	_loupe_tex.material = mat
 	clip.add_child(_loupe_tex)
 	_loupe.add_child(clip)
+	_loupe_cross = Control.new()
+	_loupe_cross.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_loupe_cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe_cross.draw.connect(_draw_loupe_cross)
+	_loupe.add_child(_loupe_cross)
 	add_child(_loupe)
 
 
@@ -161,6 +180,9 @@ func load_image(path: String) -> bool:
 
 
 func _make_demo() -> void:
+	var fixture := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	if FileAccess.file_exists(fixture) and load_image(fixture):
+		return
 	_img = Image.create(720, 960, false, Image.FORMAT_RGB8)
 	_img.fill(Color("EDE8E2"))
 	for y in range(80, 880):
@@ -225,7 +247,6 @@ func _queue_scale() -> void:
 	if overlay:
 		overlay.queue_redraw()
 	queue_redraw()
-	_queue_scale()
 
 
 func _draw_loupe_ring() -> void:
@@ -240,16 +261,18 @@ func _draw_loupe_ring() -> void:
 
 
 func _draw_loupe_cross() -> void:
-	if _loupe == null:
+	if _loupe_cross == null:
 		return
-	var s: Vector2 = _loupe.size
+	var s: Vector2 = _loupe_cross.size
+	if s.x < 8.0:
+		s = Vector2(LOUPE_DST + 16, LOUPE_DST + 16)
 	var c := s * 0.5
 	var ink := Color(0.15, 0.15, 0.18)
-	_loupe.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), Color.WHITE, 3.0)
-	_loupe.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), Color.WHITE, 3.0)
-	_loupe.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), ink, 1.2)
-	_loupe.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), ink, 1.2)
-	_loupe.draw_arc(c, 10.0, 0.0, TAU, 32, ink, 1.4)
+	_loupe_cross.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), Color.WHITE, 3.0)
+	_loupe_cross.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), Color.WHITE, 3.0)
+	_loupe_cross.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), ink, 1.2)
+	_loupe_cross.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), ink, 1.2)
+	_loupe_cross.draw_arc(c, 10.0, 0.0, TAU, 32, ink, 1.4)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -267,8 +290,7 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			_drag = 0
 			_loupe.visible = false
-			queue_redraw()
-	_queue_scale()
+			_queue_scale()
 	elif event is InputEventMouseMotion and _drag != 0:
 		_set_handle(_drag, _ctrl_to_img((event as InputEventMouseMotion).position))
 		_show_loupe(_ctrl_to_img((event as InputEventMouseMotion).position))
@@ -283,8 +305,7 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			_drag = 0
 			_loupe.visible = false
-			queue_redraw()
-	_queue_scale()
+			_queue_scale()
 	elif event is InputEventScreenDrag and _drag != 0:
 		var sd := event as InputEventScreenDrag
 		_set_handle(_drag, _ctrl_to_img(sd.position))
@@ -323,6 +344,8 @@ func _show_loupe(img_pt: Vector2) -> void:
 	crop.resize(LOUPE_DST, LOUPE_DST, Image.INTERPOLATE_NEAREST)
 	_loupe_tex.texture = ImageTexture.create_from_image(crop)
 	_loupe.queue_redraw()
+	if _loupe_cross:
+		_loupe_cross.queue_redraw()
 	var ctrl := _img_to_ctrl(img_pt)
 	var lw := float(LOUPE_DST + 16)
 	var above := ctrl.y - lw - 24.0

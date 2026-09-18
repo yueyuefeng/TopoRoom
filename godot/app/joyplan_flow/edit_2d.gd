@@ -7,7 +7,7 @@ const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
 
-var _canvas: Control
+var _canvas: PlanCanvas
 var _library: Control
 var _readout: Label
 var _readout_wrap: PanelContainer
@@ -58,6 +58,7 @@ func _ready() -> void:
 	))
 
 	var grab := Button.new()
+	grab.name = "LibraryGrab"
 	grab.text = "——  素材库"
 	grab.focus_mode = Control.FOCUS_NONE
 	grab.set_anchors_preset(PRESET_CENTER_BOTTOM)
@@ -109,13 +110,14 @@ func _refresh() -> void:
 
 
 func _toggle_library() -> void:
-	_library.visible = not _library.visible
-	if _library.visible:
-		_library.move_to_front()
+	show_library(not _library.visible)
 
 
 func show_library(on: bool = true) -> void:
 	_library.visible = on
+	var grab := get_node_or_null("LibraryGrab")
+	if grab:
+		grab.visible = not on
 	if on:
 		_library.move_to_front()
 
@@ -168,7 +170,7 @@ func _place_ctx() -> void:
 		_ctx = null
 	var actions: Array = []
 	if not _canvas.selected_opening_id.is_empty():
-		var oid := _canvas.selected_opening_id
+		var oid: String = str(_canvas.selected_opening_id)
 		actions = [
 			["设置", func(): _edit_dim("l")],
 			["翻转", func(): Session.flip_opening(oid); Haptics.snap()],
@@ -176,7 +178,7 @@ func _place_ctx() -> void:
 			["删除", func(): Session.delete_opening(oid)],
 		]
 	elif not _canvas.selected_id.is_empty():
-		var wid := _canvas.selected_id
+		var wid: String = str(_canvas.selected_id)
 		actions = [
 			["设置", func(): _edit_dim("l")],
 			["复制", func(): pass],

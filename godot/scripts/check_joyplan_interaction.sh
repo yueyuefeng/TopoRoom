@@ -96,6 +96,7 @@ has "$root/godot/app/session.gd" "func flip_opening"
 has "$root/godot/app/media_picker.gd" "TopoRoomMedia"
 has "$root/godot/export_presets.cfg" "permissions/camera=true"
 has "$root/godot/export_presets.cfg" "VIBRATE"
+has "$root/godot/export_presets.cfg" "app/_legacy/"
 
 # Tokens
 has "$root/godot/app/theme/tokens.gd" "3478F6"

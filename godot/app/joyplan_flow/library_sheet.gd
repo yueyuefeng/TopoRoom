@@ -22,14 +22,22 @@ var _tabs: Array[Button] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	set_anchors_preset(PRESET_BOTTOM_WIDE)
+	set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+	anchor_left = 0.0
+	anchor_right = 1.0
 	anchor_top = 1.0
-	offset_top = -420
+	anchor_bottom = 1.0
+	offset_left = 0
+	offset_right = 0
+	offset_top = -400
 	offset_bottom = 0
+	grow_horizontal = Control.GROW_DIRECTION_BOTH
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var sb := FlowIslands.white_sheet_style()
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
@@ -44,6 +52,7 @@ func _ready() -> void:
 	_grid.columns = 4
 	_grid.add_theme_constant_override("h_separation", 10)
 	_grid.add_theme_constant_override("v_separation", 10)
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(_grid)
 	_coach = PanelContainer.new()
@@ -62,6 +71,7 @@ func _ready() -> void:
 func _tab_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var names := ["收藏", "门", "窗", "梁管", "电气"]
 	for i in names.size():
 		var idx: int = i
@@ -69,6 +79,7 @@ func _tab_row() -> HBoxContainer:
 		b.text = names[i]
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_override("font", Studio.font)
 		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(func():
@@ -109,9 +120,10 @@ func _rebuild() -> void:
 
 func _cell(kind: String) -> Control:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(72, 84)
+	b.custom_minimum_size = Vector2(72, 88)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
-	b.text = _label(kind)
+	b.text = "%s\n%s" % [_glyph(kind), _label(kind)]
 	b.add_theme_font_override("font", Studio.font)
 	b.add_theme_font_size_override("font_size", 12)
 	var n := FlowIslands.frost(Tokens.SURFACE_MUTED, 16)
@@ -121,6 +133,22 @@ func _cell(kind: String) -> Control:
 	b.add_theme_stylebox_override("pressed", n)
 	b.gui_input.connect(func(ev: InputEvent): _on_cell(kind, ev, b))
 	return b
+
+
+func _glyph(kind: String) -> String:
+	match kind:
+		"door":
+			return "▯"
+		"window":
+			return "▣"
+		"archway":
+			return "∩"
+		"beam":
+			return "━"
+		"outlet":
+			return "⊕"
+		_:
+			return "▢"
 
 
 func _label(kind: String) -> String:

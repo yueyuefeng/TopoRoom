@@ -128,8 +128,8 @@ func opening_material(kind: String, selected: bool) -> StandardMaterial3D:
 
 
 func _apply_day() -> void:
-	_environment.background_color = Color(0.62, 0.76, 0.92)
-	_environment.ambient_light_color = Color(0.86, 0.89, 0.94)
+	_environment.background_color = Color(0.86, 0.86, 0.88)
+	_environment.ambient_light_color = Color(0.90, 0.90, 0.92)
 	_environment.ambient_light_energy = 0.42
 	sun.light_color = Color(1.0, 0.98, 0.92)
 	sun.light_energy = 1.15
