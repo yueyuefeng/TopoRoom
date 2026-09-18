@@ -262,6 +262,7 @@ func _sync_islands() -> void:
 		_bottom_dock.visible = editing
 	if _lib_host:
 		_lib_host.visible = editing
+		_layout_library()
 	if _dock_sheet:
 		_dock_sheet.visible = _mode == "pick" or _mode == "preview"
 	if _readout_bar:
@@ -639,6 +640,7 @@ func _rebuild_ctx_pill() -> void:
 	_ctx_wrap.visible = true
 	if not oid.is_empty():
 		_ctx_btn("设置", func(): _edit_dim("l"))
+		_ctx_btn("翻转", func(): Session.flip_opening(oid))
 		_ctx_btn("复制", func(): Session.duplicate_opening(oid))
 		_ctx_btn("删除", func(): Session.delete_opening(oid))
 	elif _mode == "review":
