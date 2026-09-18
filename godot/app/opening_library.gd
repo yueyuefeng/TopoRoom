@@ -124,11 +124,17 @@ func _maybe_coach() -> void:
 	var lab := Studio.label("长按门或窗，拖到墙段上松手", Tokens.FONT_CAPTION, Tokens.TEXT_ON_ACCENT, true)
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lab)
-	row.add_child(Studio.ghost("知道了", func():
+	var skip := Button.new()
+	skip.text = "知道了"
+	skip.focus_mode = Control.FOCUS_NONE
+	skip.add_theme_font_override("font", Studio.font)
+	skip.add_theme_color_override("font_color", Tokens.TEXT_ON_ACCENT)
+	skip.pressed.connect(func():
 		Session.mark_coach("library")
 		if _coach:
 			_coach.visible = false
-	))
+	)
+	row.add_child(skip)
 	_coach.add_child(row)
 	add_child(_coach)
 	move_child(_coach, 0)
