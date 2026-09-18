@@ -38,18 +38,13 @@ func _build_chrome() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
 	var pad := MarginContainer.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pad.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	pad.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	pad.add_theme_constant_override("margin_left", 22)
 	pad.add_theme_constant_override("margin_right", 22)
 	pad.add_theme_constant_override("margin_top", 36)
 	pad.add_theme_constant_override("margin_bottom", 28)
-	scroll.add_child(pad)
+	add_child(pad)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -59,7 +54,8 @@ func _build_chrome() -> void:
 	var brand := Studio.display("拓间")
 	brand.add_theme_font_size_override("font_size", Tokens.FONT_DISPLAY)
 	col.add_child(brand)
-	var sub := Studio.caption("从户型图开始 · 示例可离线打开")
+	var sub := Studio.label("从户型图开始 · 示例可离线打开", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
+	sub.clip_text = true
 	col.add_child(sub)
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
@@ -84,21 +80,32 @@ func _build_chrome() -> void:
 		func(): _open_camera()
 	))
 
-	var recents := PanelContainer.new()
-	recents.add_theme_stylebox_override("panel", FlowIslands.frost(Tokens.PAGE_ISLAND, 18))
+	var recents := Button.new()
+	recents.theme_type_variation = "ActionCard"
+	recents.custom_minimum_size = Vector2(0, 76)
 	recents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	recents.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var rec_pad := MarginContainer.new()
-	rec_pad.add_theme_constant_override("margin_left", 6)
-	rec_pad.add_theme_constant_override("margin_right", 6)
-	rec_pad.add_theme_constant_override("margin_top", 4)
-	rec_pad.add_theme_constant_override("margin_bottom", 8)
-	var rec_col := VBoxContainer.new()
-	rec_col.add_theme_constant_override("separation", 6)
-	rec_col.add_child(Studio.label("最近方案", Tokens.FONT_SECTION, Tokens.TEXT))
-	rec_col.add_child(Studio.caption("还没有方案。先打开示例户型，或从相册导入。"))
-	rec_pad.add_child(rec_col)
-	recents.add_child(rec_pad)
+	recents.focus_mode = Control.FOCUS_NONE
+	recents.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rec_row := Studio.vbox(4)
+	rec_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rec_row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rec_row.offset_left = 18
+	rec_row.offset_right = -18
+	rec_row.offset_top = 12
+	rec_row.offset_bottom = -12
+	var rec_title := Studio.label("最近方案", Tokens.FONT_SECTION, Tokens.TEXT)
+	rec_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rec_title.clip_text = true
+	rec_title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var rec_body := Studio.label("还没有方案。先打开示例户型，或从相册导入。", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
+	rec_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rec_body.clip_text = true
+	rec_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rec_body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	rec_row.add_child(rec_title)
+	rec_row.add_child(rec_body)
+	recents.add_child(rec_row)
 	col.add_child(recents)
 
 
