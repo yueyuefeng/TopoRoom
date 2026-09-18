@@ -9,6 +9,7 @@ const OpeningLibrary := preload("res://app/opening_library.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const JoyplanChrome := preload("res://app/ui/joyplan_chrome.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -33,6 +34,8 @@ var _coach: Control
 var _ctx: HBoxContainer
 var _fab: Button
 var _fab_place_tries := 0
+var _chrome: Control
+var _header: Control
 var _snap_wall := ""
 const Haptics := preload("res://app/ui/haptics.gd")
 
@@ -66,6 +69,7 @@ func _ready() -> void:
 	top_row.add_child(Studio.chip("标尺", func(): _open_ruler()))
 	top.add_child(top_row)
 	root.add_child(top)
+	_header = top
 
 	var read_m := MarginContainer.new()
 	read_m.add_theme_constant_override("margin_left", Tokens.S2)
@@ -175,6 +179,18 @@ func _ready() -> void:
 	_coach = CoachMarks.new()
 	add_child(_coach)
 
+	_chrome = JoyplanChrome.new()
+	_chrome.active_mode = "plan"
+	_chrome.show_rail = false
+	_chrome.show_bottom = false
+	_chrome.show_joystick = false
+	_chrome.visible = false
+	add_child(_chrome)
+	_chrome.back_pressed.connect(_back)
+	_chrome.mode_pressed.connect(_on_chrome_mode)
+	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
+	_chrome.floor_pressed.connect(func(): _snack.show_message("本方案一层。多层楼层切换是 P1。", "info"))
+
 	_picker = MediaPickerScript.new()
 	add_child(_picker)
 	_picker.image_ready.connect(_on_image)
@@ -209,6 +225,32 @@ func _ready() -> void:
 func _coach_start(steps: Array) -> void:
 	if _coach and _coach.has_method("start"):
 		_coach.start(steps)
+
+
+func _on_chrome_mode(id: String) -> void:
+	if id == "plan":
+		return
+	if id == "cube":
+		_enter_3d()
+	elif id == "roam":
+		get_tree().change_scene_to_file("res://app/roam.tscn")
+	elif id == "expand":
+		if _dock:
+			_dock.visible = not _chrome.compact
+
+
+func _sync_chrome() -> void:
+	var work := _mode == "review" or _mode == "demolish"
+	if _chrome:
+		_chrome.visible = work
+		if work and _chrome.has_method("set_active_mode"):
+			_chrome.set_active_mode("plan")
+	if _header:
+		_header.visible = not work
+	if _readout_bar:
+		_readout_bar.visible = false if work else _readout_bar.visible
+	if work and _fab:
+		_fab.visible = false
 
 
 func _open_ruler() -> void:
@@ -344,6 +386,7 @@ func _show_review() -> void:
 	demolish.custom_minimum_size = Vector2(0, 44)
 	_dock.add_child(demolish)
 	_refresh()
+	_sync_chrome()
 	_coach_start([
 		{"id": "review_walls", "text": "点墙切换承重（暖色）和隔墙（深灰）。认准了再进 3D。"},
 		{"id": "library", "text": "长按底栏门或窗，拖到墙段上松手。收藏夹会记住常用构件。"},
@@ -367,6 +410,7 @@ func _show_demolish() -> void:
 	_dock.add_child(_make_library())
 	_dock.add_child(Studio.ghost("返回确认承重", func(): _show_review()))
 	_refresh()
+	_sync_chrome()
 
 
 func _back() -> void:
@@ -654,6 +698,7 @@ func _refresh() -> void:
 	if _canvas and _canvas.has_method("set_sceneir_json"):
 		_canvas.set_sceneir_json(Session.sceneir_json())
 	_refresh_selection()
+	_sync_chrome()
 
 
 func _refresh_selection() -> void:
@@ -698,7 +743,8 @@ func _sync_fab() -> void:
 	if _fab == null:
 		return
 	var overlay_up := _confirm != null and is_instance_valid(_confirm) and _confirm.visible
-	_fab.visible = (_mode == "review" or _mode == "demolish") and not overlay_up
+	if _fab:
+		_fab.visible = (_mode == "review" or _mode == "demolish") and not overlay_up and (_chrome == null or not _chrome.visible)
 	if overlay_up:
 		move_child.call_deferred(_confirm, get_child_count() - 1)
 		return
@@ -751,6 +797,8 @@ func _rebuild_lwh() -> void:
 		_readout.visible = true
 		_readout.text = "点选墙或门窗，点 L/W/H 改尺寸"
 		_lwh_row.visible = false
+		if _chrome and _chrome.has_method("set_lwh"):
+			_chrome.set_lwh(0, 0, 0)
 		return
 	_readout.visible = false
 	_lwh_row.visible = true
@@ -758,6 +806,8 @@ func _rebuild_lwh() -> void:
 	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
 	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
 	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+	if _chrome and _chrome.has_method("set_lwh"):
+		_chrome.set_lwh(float(dims.get("l", 0)), float(dims.get("w", 0)), float(dims.get("h", 0)))
 
 
 func _lwh_chip(text: String, cb: Callable) -> void:
