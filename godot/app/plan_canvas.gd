@@ -165,7 +165,10 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 		draw_line(qa, qb, color, width - 1.0)
 		var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()
 		if okind == "door":
-			draw_line(qa, qa + n * 10.0, color, 1.5)
+			var swing := Session.swing_for(oid)
+			var hinge: Vector2 = qa if swing > 0 else qb
+			var nn := n * (10.0 * float(swing))
+			draw_line(hinge, hinge + nn, color, 1.5)
 		elif okind == "window":
 			draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
 	return count

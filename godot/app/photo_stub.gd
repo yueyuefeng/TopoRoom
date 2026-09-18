@@ -459,7 +459,10 @@ func _load_thumb(path: String) -> void:
 func _make_library() -> Control:
 	var lib := OpeningLibrary.new()
 	lib.previewed.connect(_on_library_preview)
-	lib.preview_ended.connect(func(): _canvas.clear_drop_preview())
+	lib.preview_ended.connect(func():
+		_snap_wall = ""
+		_canvas.clear_drop_preview()
+	)
 	lib.dropped.connect(_on_library_drop)
 	lib.tapped.connect(_on_library_tap)
 	return lib
@@ -625,9 +628,10 @@ func _refresh_selection() -> void:
 		_ctx.add_child(hint)
 		return
 	if not oid.is_empty():
-		var cap := Studio.caption("已选门窗 · 长宽高见顶栏")
-		cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_ctx.add_child(cap)
+		_ctx_btn("翻转", func(): Session.flip_opening(oid))
+		_ctx_btn("旋转", func(): Session.rotate_opening(oid))
+		_ctx_btn("复制", func(): Session.duplicate_opening(oid))
+		_ctx_btn("删除", func(): Session.delete_opening(oid))
 		return
 	if _mode == "review":
 		_ctx_btn("标为承重", func(): _set_selected_kind("shearWall"))

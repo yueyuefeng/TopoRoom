@@ -828,12 +828,16 @@ func _rebuild_ctx() -> void:
 		_ctx.remove_child(c)
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		_ctx.visible = true
+		var oid := str(_selected.get("opening_id", ""))
+		_ctx_chip("翻转", func(): Session.flip_opening(oid))
+		_ctx_chip("旋转", func(): Session.rotate_opening(oid))
+		_ctx_chip("复制", func(): Session.duplicate_opening(oid))
+		_ctx_chip("删除", func(): Session.delete_opening(oid))
+		return
 	if pick != KIND_WALL:
-		_ctx.visible = pick == KIND_OPENING
-		if pick == KIND_OPENING:
-			var cap := Studio.caption("拖偏移 / 宽度手柄改门窗。尺寸只经命令写回。")
-			cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_ctx.add_child(cap)
+		_ctx.visible = false
 		return
 	_ctx.visible = true
 	var wid := str(_selected.get("wall_id", ""))
@@ -843,6 +847,12 @@ func _rebuild_ctx() -> void:
 	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ctx.add_child(shear)
 	_ctx.add_child(mason)
+
+
+func _ctx_chip(text: String, cb: Callable) -> void:
+	var b := Studio.chip(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ctx.add_child(b)
 
 
 func _opening_by_id(oid: String) -> Dictionary:

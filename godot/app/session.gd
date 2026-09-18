@@ -530,6 +530,126 @@ func update_opening_geom(opening_id: String, kind: String, width_mm: float, heig
 	return _after_structural_edit("更新洞口 %s" % opening_id)
 
 
+func delete_opening(opening_id: String) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.delete_opening(host.first_storey_id(), opening_id)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "delete_opening")))
+	opening_swing.erase(opening_id)
+	save_ux_prefs()
+	return _after_structural_edit("删除洞口 %s" % opening_id)
+
+
+func find_opening(opening_id: String) -> Dictionary:
+	if opening_id.is_empty():
+		return {}
+	for w in _scene_walls():
+		var length := _wall_len(w)
+		for op in w.get("openings", []):
+			if typeof(op) != TYPE_DICTIONARY or str(op.get("id", "")) != opening_id:
+				continue
+			return {
+				"id": opening_id,
+				"wall_id": str(w.get("id", "")),
+				"kind": str(op.get("kind", "door")),
+				"width_mm": float(op.get("widthMm", 0)),
+				"height_mm": float(op.get("heightMm", 0)),
+				"offset_mm": float(op.get("offsetMm", 0)),
+				"sill_mm": float(op.get("sillHeightMm", 0)),
+				"wall_length_mm": length,
+				"thickness_mm": float(w.get("thicknessMm", 200)),
+				"wall_height_mm": float(w.get("heightMm", 2800)),
+			}
+	return {}
+
+
+func find_wall(wall_id: String) -> Dictionary:
+	for w in _scene_walls():
+		if str(w.get("id", "")) != wall_id:
+			continue
+		return {
+			"id": wall_id,
+			"kind": str(w.get("kind", "masonry")),
+			"length_mm": _wall_len(w),
+			"thickness_mm": float(w.get("thicknessMm", 200)),
+			"height_mm": float(w.get("heightMm", 2800)),
+			"start": w.get("start", {}),
+			"end": w.get("end", {}),
+		}
+	return {}
+
+
+func _scene_walls() -> Array:
+	var parsed: Variant = JSON.parse_string(sceneir_json())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return []
+	var storeys: Array = parsed.get("storeys", [])
+	if storeys.is_empty() or typeof(storeys[0]) != TYPE_DICTIONARY:
+		return []
+	return storeys[0].get("walls", [])
+
+
+func _wall_len(w: Dictionary) -> float:
+	var a: Dictionary = w.get("start", {})
+	var b: Dictionary = w.get("end", {})
+	return Vector2(float(b.get("x", 0)) - float(a.get("x", 0)), float(b.get("y", 0)) - float(a.get("y", 0))).length()
+
+
+func flip_opening(opening_id: String) -> String:
+	var op: Dictionary = find_opening(opening_id)
+	if op.is_empty():
+		return _fail("opening not found")
+	var length := float(op.get("wall_length_mm", 0))
+	var width := float(op.get("width_mm", 0))
+	var offset := float(op.get("offset_mm", 0))
+	var flipped := clampf(length - offset - width, 0.0, maxf(length - width, 0.0))
+	set_swing(opening_id, -swing_for(opening_id))
+	return update_opening_geom(
+		opening_id,
+		str(op.get("kind", "door")),
+		width,
+		float(op.get("height_mm", 2100)),
+		flipped,
+		float(op.get("sill_mm", 0))
+	)
+
+
+func rotate_opening(opening_id: String) -> String:
+	if find_opening(opening_id).is_empty():
+		return _fail("opening not found")
+	set_swing(opening_id, -swing_for(opening_id))
+	last_error = ""
+	_log("旋转门窗开向")
+	emit_signal("document_changed")
+	return ""
+
+
+func duplicate_opening(opening_id: String) -> String:
+	var op: Dictionary = find_opening(opening_id)
+	if op.is_empty():
+		return _fail("opening not found")
+	var width := float(op.get("width_mm", 0))
+	var length := float(op.get("wall_length_mm", 0))
+	var offset := float(op.get("offset_mm", 0))
+	var gap := 200.0
+	var next := offset + width + gap
+	if next + width > length + 0.5:
+		next = offset - width - gap
+	if next < 0.0:
+		return _fail("墙上放不下再复制一个")
+	return add_opening(str(op.get("kind", "door")), str(op.get("wall_id", "")), next)
+
+
+func resize_wall_length(wall_id: String, length_mm: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var d: Dictionary = host.resize_wall(host.first_storey_id(), wall_id, length_mm)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "resize_wall")))
+	return _after_structural_edit("墙长 %s %smm" % [wall_id, str(length_mm)])
+
+
 func rebuild_probe() -> Dictionary:
 	if host == null:
 		return {"ok": false, "status": "", "error": "no core"}
