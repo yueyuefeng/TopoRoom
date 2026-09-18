@@ -618,8 +618,27 @@ func _draw_drop_preview() -> void:
 	draw_line(qa, qb, color, 6.0)
 	draw_circle(qa, 5.0, color)
 	draw_circle(qb, 5.0, color)
+	_draw_drag_dims(a, b, qa, qb, length, float(drop_preview.get("offset_mm", 0)), float(drop_preview.get("width_mm", 900)))
 	var label := Tokens.opening_label(kind)
 	draw_string(_font(), (qa + qb) * 0.5 + Vector2(-18, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+func _draw_drag_dims(wall_a: Vector2, wall_b: Vector2, qa: Vector2, qb: Vector2, length_mm: float, offset_mm: float, width_mm: float) -> void:
+	var n := Vector2(-(wall_b - wall_a).y, (wall_b - wall_a).x).normalized() * 16.0
+	var left_mm := offset_mm
+	var right_mm := maxf(length_mm - offset_mm - width_mm, 0.0)
+	_dim_run(wall_a + n, qa + n, left_mm, Tokens.PAGE_DIM_RED)
+	_dim_run(qb + n, wall_b + n, right_mm, Tokens.TEXT)
+
+
+func _dim_run(p0: Vector2, p1: Vector2, mm: float, ink: Color) -> void:
+	if p0.distance_to(p1) < 8.0:
+		return
+	draw_line(p0, p1, ink, 1.4)
+	draw_circle(p0, 3.0, ink)
+	draw_circle(p1, 3.0, ink)
+	var mid := (p0 + p1) * 0.5 + Vector2(0, -8)
+	draw_string(_font(), mid + Vector2(-16, 0), "%d" % int(round(mm)), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ink)
 
 
 func _gui_input(event: InputEvent) -> void:

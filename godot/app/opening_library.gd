@@ -1,5 +1,5 @@
 extends VBoxContainer
-## Bottom-sheet door/window library: tabs 收藏/门/窗, tap or long-press drag + snap.
+## S4 Bottom library sheet: tabs + grid, long-press drag, blue coach.
 
 signal dropped(kind: String, global_pos: Vector2)
 signal previewed(kind: String, global_pos: Vector2)
@@ -9,7 +9,7 @@ signal tapped(kind: String)
 const LONG_MS := 0.38
 const MOVE_CANCEL_PX := 14.0
 
-var _tab := 0  # 0 favorite, 1 door, 2 window
+var _tab := 0  # favorite, door, window, beam, electric
 var _kind := ""
 var _press_pos := Vector2.ZERO
 var _dragging := false
@@ -17,23 +17,27 @@ var _timer: Timer
 var _ghost: PanelContainer
 var _ghost_label: Label
 var _layer: CanvasLayer
-var _items: HBoxContainer
+var _items: GridContainer
 var _coach: PanelContainer
 var _tabs: HBoxContainer
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_theme_constant_override("separation", 6)
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_theme_constant_override("separation", 8)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(0, 118)
-	_tabs = Studio.segmented(PackedStringArray(["收藏", "门", "窗"]), 0, func(i: int, _n: String):
+	custom_minimum_size = Vector2(0, 220)
+	_tabs = Studio.segmented(PackedStringArray(["收藏", "门", "窗", "梁管", "电气"]), 0, func(i: int, _n: String):
 		_tab = i
 		_rebuild_items()
 	)
 	add_child(_tabs)
-	add_child(Studio.caption("长按拖到墙上，或点选墙后轻点"))
-	_items = Studio.hbox(Tokens.S1)
+	_items = GridContainer.new()
+	_items.columns = 4
+	_items.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_items.add_theme_constant_override("h_separation", 8)
+	_items.add_theme_constant_override("v_separation", 8)
 	add_child(_items)
 	_rebuild_items()
 	_maybe_coach()
@@ -53,14 +57,8 @@ func _ready() -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Tokens.SURFACE
 	sb.border_color = Tokens.PRIMARY
-	sb.border_width_left = 2
-	sb.border_width_top = 2
-	sb.border_width_right = 2
-	sb.border_width_bottom = 2
-	sb.corner_radius_top_left = Tokens.R_MD
-	sb.corner_radius_top_right = Tokens.R_MD
-	sb.corner_radius_bottom_left = Tokens.R_MD
-	sb.corner_radius_bottom_right = Tokens.R_MD
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(Tokens.R_MD)
 	sb.content_margin_left = 12
 	sb.content_margin_right = 12
 	sb.content_margin_top = 8
@@ -73,10 +71,23 @@ func _ready() -> void:
 
 func _kinds_for_tab() -> Array:
 	if _tab == 1:
-		return [["door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT],
-			["archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)]]
+		return [
+			["door", "单开门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT],
+			["door", "子母门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT],
+			["archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)],
+			["door", "推拉门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT],
+		]
 	if _tab == 2:
-		return [["window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT]]
+		return [
+			["window", "普通窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT],
+			["window", "落地窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT],
+			["window", "飘窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT],
+			["window", "阳台", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT],
+		]
+	if _tab == 3:
+		return [["beam", "梁", Tokens.TEXT_SECONDARY, Tokens.SURFACE_MUTED]]
+	if _tab == 4:
+		return [["electric", "插座", Tokens.TEXT_SECONDARY, Tokens.SURFACE_MUTED]]
 	var fav: Array = []
 	var seen := {}
 	for k in Session.favorite_kinds:
@@ -114,14 +125,16 @@ func _maybe_coach() -> void:
 	_coach = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Tokens.PRIMARY
-	sb.set_corner_radius_all(Tokens.R_MD)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
+	sb.set_corner_radius_all(Tokens.R_PILL)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	sb.shadow_color = Color(0.12, 0.25, 0.55, 0.28)
+	sb.shadow_size = 10
 	_coach.add_theme_stylebox_override("panel", sb)
 	var row := Studio.hbox(Tokens.S1)
-	var lab := Studio.label("长按门或窗，拖到墙段上松手", Tokens.FONT_CAPTION, Tokens.TEXT_ON_ACCENT, true)
+	var lab := Studio.label("长按控件拖到平面图", Tokens.FONT_CAPTION, Tokens.TEXT_ON_ACCENT, true)
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lab)
 	var skip := Button.new()
@@ -137,34 +150,43 @@ func _maybe_coach() -> void:
 	row.add_child(skip)
 	_coach.add_child(row)
 	add_child(_coach)
-	move_child(_coach, 0)
 
 
 func _item(kind: String, title: String, ink: Color, fill: Color) -> Control:
 	var p := PanelContainer.new()
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.custom_minimum_size = Vector2(0, 48)
+	p.custom_minimum_size = Vector2(0, 72)
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fill
-	sb.corner_radius_top_left = Tokens.R_MD
-	sb.corner_radius_top_right = Tokens.R_MD
-	sb.corner_radius_bottom_left = Tokens.R_MD
-	sb.corner_radius_bottom_right = Tokens.R_MD
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
+	sb.set_corner_radius_all(Tokens.R_MD)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
 	sb.content_margin_top = 8
 	sb.content_margin_bottom = 8
 	p.add_theme_stylebox_override("panel", sb)
-	var lab := Studio.label(title, Tokens.FONT_SECTION, ink)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var glyph := "门" if kind == "door" else ("窗" if kind == "window" else ("口" if kind == "archway" else "·"))
+	var g := Studio.label(glyph, Tokens.FONT_TITLE, ink)
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lab := Studio.label(title, Tokens.FONT_CAPTION, ink)
 	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(lab)
+	col.add_child(g)
+	col.add_child(lab)
+	p.add_child(col)
 	p.gui_input.connect(func(ev: InputEvent): _on_item_input(kind, ev))
 	return p
 
 
 func _on_item_input(kind: String, ev: InputEvent) -> void:
+	if kind == "beam" or kind == "electric":
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			Session._log("梁管 / 电气为 P1")
+		return
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
 		if mb.button_index != MOUSE_BUTTON_LEFT:

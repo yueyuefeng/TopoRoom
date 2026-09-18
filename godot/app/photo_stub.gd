@@ -96,6 +96,7 @@ func _ready() -> void:
 	_picker.image_ready.connect(_on_image)
 	_picker.cancelled.connect(func(): _snack.show_message("已取消", "info"))
 	_picker.failed.connect(func(msg: String): _snack.show_message(msg, "error"))
+	resized.connect(_layout_library)
 
 	_calibrate = ScaleCalibrate.new()
 	_calibrate.visible = false
@@ -176,7 +177,7 @@ func _mount_library() -> void:
 	_lib_host.add_theme_stylebox_override("panel", PageIslands.white_sheet_style())
 	_lib_host.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_lib_host.anchor_top = 1.0
-	_lib_host.offset_top = -280
+	_lib_host.offset_top = -int(size.y * 0.34) if size.y > 1.0 else -360
 	_lib_host.visible = false
 	_lib_host.add_child(_make_library())
 	add_child(_lib_host)
@@ -244,6 +245,15 @@ func _clear_dock() -> void:
 	for c in _dock.get_children():
 		_dock.remove_child(c)
 		c.queue_free()
+
+
+func _layout_library() -> void:
+	if _lib_host == null:
+		return
+	var h := size.y
+	if h <= 1.0:
+		h = get_viewport_rect().size.y
+	_lib_host.offset_top = -int(h * 0.34)
 
 
 func _sync_islands() -> void:
