@@ -671,10 +671,15 @@ func _place_ctx() -> void:
 	if anchor == Vector2.ZERO:
 		_ctx_wrap.position = Vector2(24, 120)
 		return
-	var local: Vector2 = anchor - global_position + Vector2(-40, -52)
+	var local: Vector2 = anchor - global_position + Vector2(-70, -72)
+	var max_y := size.y - 280.0
+	if _lib_host and _lib_host.visible:
+		max_y = size.y - absf(_lib_host.offset_top) - 96.0
+	if _bottom_dock and _bottom_dock.visible:
+		max_y = minf(max_y, size.y + _bottom_dock.offset_top - 56.0)
 	_ctx_wrap.position = Vector2(
-		clampf(local.x, 12.0, maxf(size.x - 220.0, 12.0)),
-		clampf(local.y, 80.0, maxf(size.y - 320.0, 80.0))
+		clampf(local.x, 12.0, maxf(size.x - 240.0, 12.0)),
+		clampf(local.y, 80.0, maxf(max_y, 80.0))
 	)
 
 

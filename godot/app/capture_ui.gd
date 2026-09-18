@@ -5,6 +5,8 @@ extends Control
 func _ready() -> void:
 	var out_dir := "/opt/cursor/artifacts"
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	if Session.coach_seen.has("library"):
+		Session.coach_seen.erase("library")
 	for step in ["calibrate", "review_walls", "lwh", "fab", "place_3d"]:
 		Session.mark_coach(step)
 	# Leave "library" unmarked so the blue long-press coach is visible (S4).
@@ -66,19 +68,18 @@ func _ready() -> void:
 			photo._snack.visible = false
 		if photo._coach:
 			photo._coach.visible = false
-		photo._canvas.selected_id = "wall_s"
+		photo._canvas.selected_id = "wall_n"
 		photo._canvas.queue_redraw()
 		photo._refresh_selection()
 		await get_tree().process_frame
 		await get_tree().create_timer(0.25).timeout
 		await _shot(out_dir.path_join("toporoom-ui-photo-review.png"))
-		var mid: Vector2 = photo._canvas.selection_anchor()
-		if mid != Vector2.ZERO:
-			photo._on_library_preview("door", mid)
-			await get_tree().process_frame
-			await get_tree().create_timer(0.2).timeout
-			await _shot(out_dir.path_join("toporoom-ui-library-drag.png"))
-			photo._canvas.clear_drop_preview()
+		var cpos: Vector2 = photo._canvas.size * Vector2(0.5, 0.42)
+		photo._canvas.set_drop_preview("door", cpos)
+		await get_tree().process_frame
+		await get_tree().create_timer(0.2).timeout
+		await _shot(out_dir.path_join("toporoom-ui-library-drag.png"))
+		photo._canvas.clear_drop_preview()
 		if photo.has_method("_show_demolish"):
 			photo._show_demolish()
 		photo._canvas.selected_id = "wall_p"
@@ -111,6 +112,9 @@ func _ready() -> void:
 			edit._sync_dims_from_prefs()
 		await get_tree().create_timer(0.8).timeout
 		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		Session.set_ruler("dims_3d", true)
+		if edit.has_method("_sync_dims_from_prefs"):
+			edit._sync_dims_from_prefs()
 		if edit.has_method("_open_ruler"):
 			edit._open_ruler()
 			await get_tree().process_frame

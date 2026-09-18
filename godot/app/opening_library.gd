@@ -140,8 +140,14 @@ func _maybe_coach() -> void:
 	var skip := Button.new()
 	skip.text = "知道了"
 	skip.focus_mode = Control.FOCUS_NONE
+	skip.flat = true
 	skip.add_theme_font_override("font", Studio.font)
+	skip.add_theme_font_size_override("font_size", Tokens.FONT_CAPTION)
 	skip.add_theme_color_override("font_color", Tokens.TEXT_ON_ACCENT)
+	skip.add_theme_color_override("font_hover_color", Tokens.TEXT_ON_ACCENT)
+	skip.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	skip.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	skip.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
 	skip.pressed.connect(func():
 		Session.mark_coach("library")
 		if _coach:
@@ -149,6 +155,10 @@ func _maybe_coach() -> void:
 	)
 	row.add_child(skip)
 	_coach.add_child(row)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(spacer)
 	add_child(_coach)
 
 

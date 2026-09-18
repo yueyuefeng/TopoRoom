@@ -41,6 +41,7 @@ var _hud_layer: CanvasLayer
 var _minimap: Control
 var _lib_dock: Control
 var _stick: Control
+var _status_snack: Control
 var _stick_knob: Control
 var _stick_held := false
 var _stick_vec := Vector2.ZERO
@@ -201,7 +202,9 @@ func _build_hud() -> void:
 	snack.offset_top = -80
 	snack.offset_bottom = -16
 	_hud_layer.add_child(snack)
-	Session.log_line.connect(func(text: String): snack.show_message(text))
+	_status_snack = snack
+	if not Session.log_line.is_connected(_on_host_log):
+		Session.log_line.connect(_on_host_log)
 
 	_numeric = NumericSheet.new()
 	_hud_layer.add_child(_numeric)
@@ -1243,3 +1246,13 @@ func _opening_by_id(oid: String) -> Dictionary:
 			if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == oid:
 				return op
 	return {}
+
+
+func _on_host_log(text: String) -> void:
+	if is_instance_valid(_status_snack) and _status_snack.has_method("show_message"):
+		_status_snack.show_message(text)
+
+
+func _exit_tree() -> void:
+	if Session.log_line.is_connected(_on_host_log):
+		Session.log_line.disconnect(_on_host_log)

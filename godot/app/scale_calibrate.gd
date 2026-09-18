@@ -133,6 +133,16 @@ func _build_loupe() -> void:
 	_loupe_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_loupe_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.add_child(_loupe_tex)
+	var sh := Shader.new()
+	sh.code = """shader_type canvas_item;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	if (dot(p, p) > 1.0) discard;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	_loupe_tex.material = mat
 	_loupe_cross = Control.new()
 	_loupe_cross.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_loupe_cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
