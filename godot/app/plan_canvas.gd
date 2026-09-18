@@ -6,6 +6,7 @@ signal opening_clicked(opening_id, wall_id)
 
 var snapshot: Dictionary = {}
 var show_chrome: bool = true
+var joyplan_look: bool = false
 var interactive: bool = false
 var selected_id: String = ""
 var selected_opening_id: String = ""
@@ -84,8 +85,8 @@ func _draw() -> void:
 
 
 func _draw_paper() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Tokens.PAPER)
-	if Session.ruler_on("grid"):
+	draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE if joyplan_look else Tokens.PAPER)
+	if Session.ruler_on("grid") and not joyplan_look:
 		var step := 24.0
 		var x := 0.0
 		while x < size.x:
@@ -95,7 +96,8 @@ func _draw_paper() -> void:
 		while y < size.y:
 			draw_line(Vector2(0, y), Vector2(size.x, y), Tokens.GRID, 1.0)
 			y += step
-	draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
+	if not joyplan_look:
+		draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
 
 
 func _draw_empty() -> void:
@@ -116,9 +118,11 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	var p0 := _map(x0, y0, min_x, min_y, ox, oy, scale)
 	var p1 := _map(x1, y1, min_x, min_y, ox, oy, scale)
 	var kind := str(w.get("kind", "exterior"))
-	var stroke := Tokens.wall_stroke(kind)
+	var stroke := Tokens.WALL_JOY if joyplan_look else Tokens.wall_stroke(kind)
 	var thickness_mm := float(w.get("thicknessMm", 200))
 	var width: float = clampf(6.0 + thickness_mm / 80.0, 7.0, 14.0)
+	if joyplan_look:
+		width = clampf(8.0 + thickness_mm / 70.0, 8.0, 16.0)
 	var wid := str(w.get("id", ""))
 	var length: float = max(Vector2(x1 - x0, y1 - y0).length(), 1.0)
 	_segments.append({
@@ -130,9 +134,10 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	if selected_id == wid and selected_opening_id.is_empty():
 		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
 	draw_line(p0, p1, stroke, width)
-	if Tokens.is_load_bearing_kind(kind):
+	if Tokens.is_load_bearing_kind(kind) and not joyplan_look:
 		_draw_shear_hatch(p0, p1, width, stroke)
-	_draw_dim(p0, p1, length)
+	if not joyplan_look:
+		_draw_dim(p0, p1, length)
 
 	var ux := (x1 - x0) / length
 	var uy := (y1 - y0) / length
@@ -211,13 +216,22 @@ func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
 
 func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, max_x: float, max_y: float, ox: float, oy: float, scale: float) -> void:
 	var palette: Array[Color] = [
-		Color(0.98, 0.90, 0.70, 0.38),
-		Color(0.86, 0.91, 0.97, 0.38),
-		Color(0.91, 0.86, 0.80, 0.38),
-		Color(0.88, 0.93, 0.86, 0.40),
-		Color(0.94, 0.88, 0.92, 0.38),
-		Color(0.90, 0.90, 0.86, 0.36),
+		Color(0.93, 0.93, 0.94, 0.50),
+		Color(0.96, 0.90, 0.82, 0.42),
+		Color(0.90, 0.92, 0.95, 0.42),
+		Color(0.92, 0.94, 0.90, 0.42),
+		Color(0.94, 0.90, 0.92, 0.40),
+		Color(0.91, 0.91, 0.88, 0.40),
 	]
+	if not joyplan_look:
+		palette = [
+			Color(0.98, 0.90, 0.70, 0.38),
+			Color(0.86, 0.91, 0.97, 0.38),
+			Color(0.91, 0.86, 0.80, 0.38),
+			Color(0.88, 0.93, 0.86, 0.40),
+			Color(0.94, 0.88, 0.92, 0.38),
+			Color(0.90, 0.90, 0.86, 0.36),
+		]
 	var named: Array = []
 	for room in rooms:
 		if typeof(room) == TYPE_DICTIONARY:
@@ -232,6 +246,8 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		if poly.size() < 3:
 			continue
 		var fill: Color = palette[i % palette.size()]
+		if joyplan_look and not selected_id.is_empty() and _pocket_touches_selected(poly):
+			fill = Tokens.PAGE_ORANGE
 		draw_colored_polygon(poly, fill)
 		var c: Vector2 = pk.get("centroid", Vector2.ZERO)
 		var area: float = float(pk.get("area_m2", 0))
@@ -249,14 +265,51 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		var sub_size := 13
 		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
 		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x if show_area else 0.0
-		var bw := maxf(tw, sw) + 20.0
-		var bh := 38.0 if show_area else 26.0
-		var box := Rect2(c - Vector2(bw * 0.5, 22.0 if show_area else 14.0), Vector2(bw, bh))
-		draw_rect(box, Color(1, 1, 1, 0.82), true)
-		draw_rect(box, Tokens.HAIRLINE, false, 1.0)
-		draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
-		if show_area:
-			draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+		if joyplan_look:
+			draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+			if show_area:
+				draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+		else:
+			var bw := maxf(tw, sw) + 20.0
+			var bh := 38.0 if show_area else 26.0
+			var box := Rect2(c - Vector2(bw * 0.5, 22.0 if show_area else 14.0), Vector2(bw, bh))
+			draw_rect(box, Color(1, 1, 1, 0.82), true)
+			draw_rect(box, Tokens.HAIRLINE, false, 1.0)
+			draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+			if show_area:
+				draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+
+
+func _pocket_touches_selected(poly: PackedVector2Array) -> bool:
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY:
+			continue
+		if str(seg.get("id", "")) != selected_id:
+			continue
+		var mid: Vector2 = (seg.a + seg.b) * 0.5
+		if Geometry2D.is_point_in_polygon(mid, poly):
+			return true
+		if mid.distance_to(_poly_centroid(poly)) < 80.0:
+			return true
+	return false
+
+
+func _poly_centroid(poly: PackedVector2Array) -> Vector2:
+	var acc := Vector2.ZERO
+	for p in poly:
+		acc += p
+	return acc / float(maxi(poly.size(), 1))
+
+
+func selected_anchor() -> Vector2:
+	if not selected_opening_id.is_empty():
+		for op in _openings:
+			if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == selected_opening_id:
+				return (op.a + op.b) * 0.5
+	for seg in _segments:
+		if typeof(seg) == TYPE_DICTIONARY and str(seg.get("id", "")) == selected_id:
+			return (seg.a + seg.b) * 0.5
+	return size * 0.5
 
 
 func _format_area_m2(area: float) -> String:
@@ -576,8 +629,24 @@ func _draw_drop_preview() -> void:
 	draw_line(qa, qb, color, 6.0)
 	draw_circle(qa, 5.0, color)
 	draw_circle(qb, 5.0, color)
+	var n := Vector2(-(b - a).y, (b - a).x).normalized()
+	_draw_drag_dim(a, qa, n, Color(0.12, 0.12, 0.14), float(drop_preview.get("offset_mm", 0)))
+	var rest := float(drop_preview.get("length_mm", 1)) - float(drop_preview.get("offset_mm", 0)) - float(drop_preview.get("width_mm", 900))
+	_draw_drag_dim(qb, b, n, Tokens.DANGER, rest)
 	var label := Tokens.opening_label(kind)
 	draw_string(_font(), (qa + qb) * 0.5 + Vector2(-18, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+func _draw_drag_dim(p0: Vector2, p1: Vector2, n: Vector2, ink: Color, mm: float) -> void:
+	if p0.distance_to(p1) < 10.0:
+		return
+	var a: Vector2 = p0 + n * 12.0
+	var b: Vector2 = p1 + n * 12.0
+	draw_line(p0, a, ink, 1.0)
+	draw_line(p1, b, ink, 1.0)
+	draw_line(a, b, ink, 1.4)
+	var txt := "%d" % int(round(mm))
+	draw_string(_font(), (a + b) * 0.5 + Vector2(-14, -4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ink)
 
 
 func _gui_input(event: InputEvent) -> void:
