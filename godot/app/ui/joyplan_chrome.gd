@@ -103,6 +103,7 @@ func _build_top() -> void:
 
 	var cluster := VBoxContainer.new()
 	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cluster.add_theme_constant_override("separation", 6)
 	var modes := PanelContainer.new()
 	modes.add_theme_stylebox_override("panel", _frost_pill())
@@ -141,7 +142,9 @@ func _build_top() -> void:
 	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(grow)
 	_floor_btn = _pill_btn("1F", func(): floor_pressed.emit())
+	_floor_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_floor_btn)
+	set_active_mode(active_mode)
 
 
 func _build_rail() -> void:
@@ -186,10 +189,14 @@ func _build_bottom() -> void:
 	row.add_child(grow)
 	if show_joystick:
 		_stick = _make_stick()
+		_stick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(_stick)
-	row.add_child(_circle_btn("☀", func(): lighting_pressed.emit(), 48))
+	var sun := _circle_btn("☀", func(): lighting_pressed.emit(), 48)
+	sun.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sun)
 	var go := _circle_btn("➤", func(): primary_pressed.emit(), 56)
 	_tint_green(go)
+	go.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(go)
 	_bottom.add_child(row)
 	add_child(_bottom)
@@ -267,6 +274,8 @@ func _circle_btn(glyph: String, cb: Callable, size: float) -> Button:
 	b.text = glyph
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(size, size)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.add_theme_font_override("font", Studio.font)
 	b.add_theme_font_size_override("font_size", 16 if size < 50 else 18)
 	b.pressed.connect(cb)
@@ -286,6 +295,8 @@ func _icon_btn(glyph: String, cb: Callable, size: float, selected: bool) -> Butt
 	b.text = glyph
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(size, size)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.add_theme_font_override("font", Studio.font)
 	b.add_theme_font_size_override("font_size", 16 if size < 50 else 18)
 	b.pressed.connect(cb)
@@ -313,7 +324,7 @@ func _text_btn(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(52, 28)
+	b.custom_minimum_size = Vector2(64, 28)
 	b.add_theme_font_override("font", Studio.font)
 	b.add_theme_font_size_override("font_size", 12)
 	b.pressed.connect(cb)

@@ -261,12 +261,14 @@ func _sync_chrome() -> void:
 	var work := _mode == "review" or _mode == "demolish"
 	if _chrome:
 		_chrome.visible = work
-		if work and _chrome.has_method("set_active_mode"):
+		if work:
 			_chrome.set_active_mode("plan")
 	if _header:
 		_header.visible = not work
+	if _hint:
+		_hint.visible = not work
 	if _readout_bar:
-		_readout_bar.visible = false if work else _readout_bar.visible
+		_readout_bar.visible = false if work else false
 	if work and _fab:
 		_fab.visible = false
 
@@ -720,6 +722,13 @@ func _refresh() -> void:
 
 
 func _refresh_selection() -> void:
+	if _chrome and _chrome.visible:
+		if _readout_bar:
+			_readout_bar.visible = false
+		if _fab:
+			_fab.visible = false
+		if _hint:
+			_hint.visible = false
 	if _readout:
 		var show := _mode == "review" or _mode == "demolish"
 		if _readout_bar:

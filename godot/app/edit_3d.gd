@@ -1004,10 +1004,14 @@ func _rebuild_lwh() -> void:
 	var pick := str(_selected.get("pick", ""))
 	if pick != KIND_OPENING and pick != KIND_WALL:
 		_lwh.visible = false
-		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
 		_lwh_row.visible = false
 		if _chrome and _chrome.has_method("set_lwh"):
-			_chrome.set_lwh(0, 0, 0)
+			var walls: Array = _walls()
+			if walls.size() > 0:
+				var f := _frame(walls[0])
+				_chrome.set_lwh(float(f.get("length", 0)), float(f.get("thickness", 200)), float(f.get("height", 2800)))
+			else:
+				_chrome.set_lwh(0, 200, 2800)
 		return
 	_lwh.visible = false
 	_lwh_row.visible = false
