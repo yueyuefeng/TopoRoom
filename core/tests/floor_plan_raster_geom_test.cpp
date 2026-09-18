@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 
 #include <gtest/gtest.h>
@@ -13,12 +14,18 @@ using toporoom::adapters::apply_vision_result;
 using toporoom::adapters::classify_window_subtype;
 using toporoom::adapters::close_exterior_loop;
 using toporoom::adapters::detected_wall_to_seg;
+using toporoom::adapters::envelope_bbox_area_mm2;
+using toporoom::adapters::envelope_interior_area_mm2;
+using toporoom::adapters::envelope_point_is_interior;
 using toporoom::adapters::largest_exterior_gap_mm;
 using toporoom::adapters::load_raster_image;
 using toporoom::adapters::merge_collinear_segments;
+using toporoom::adapters::RasterCoverSpan;
 using toporoom::adapters::RasterImage;
 using toporoom::adapters::RasterSeg;
+using toporoom::adapters::seal_outer_envelope;
 using toporoom::adapters::snap_endpoints;
+using toporoom::adapters::split_at_nodes;
 using toporoom::domain::CreateFloorPlanProps;
 using toporoom::domain::FloorPlanDocument;
 using toporoom::domain::WindowSubtype;
@@ -107,6 +114,22 @@ TEST(RasterGeom, SplitAtNodesMakesTeeNotAGap) {
   EXPECT_LE(largest_exterior_gap_mm(box, 50), 150.0);
 }
 
+TEST(RasterGeom, SealOuterEnvelopeFillsBalconyL) {
+  // Living rectangle with a south-east balcony: east glass + south glass missing.
+  std::vector<RasterSeg> open = {
+      hseg(0, 4000, 3000),
+      vseg(0, 0, 3000),
+      hseg(0, 2500, 0),
+      vseg(2500, 0, 800),
+      hseg(2500, 4000, 800),
+      vseg(4000, 800, 3000),
+  };
+  std::vector<RasterCoverSpan> glass = {{4000, 0, 4000, 800}, {2500, 0, 4000, 0}};
+  const auto sealed = seal_outer_envelope(open, glass, 50, 2500);
+  EXPECT_GE(envelope_interior_area_mm2(sealed, 40), 8.0e6);
+  EXPECT_LE(largest_exterior_gap_mm(sealed, 50), 150.0);
+}
+
 TEST(RasterGeom, ClassifyWindowSubtypeBayAndFloorCeiling) {
   EXPECT_EQ(classify_window_subtype(900, 1400, 2800, false), WindowSubtype::Standard);
   EXPECT_EQ(classify_window_subtype(0, 2600, 2800, false), WindowSubtype::FloorCeiling);
@@ -123,10 +146,73 @@ TEST(FloorPlanRaster, GoldenExteriorIsClosedLoop) {
   std::vector<RasterSeg> segs;
   segs.reserve(detected.walls.size());
   for (const auto& w : detected.walls) segs.push_back(detected_wall_to_seg(w));
+  std::vector<RasterCoverSpan> covers;
+  for (const auto& op : detected.openings) {
+    RasterCoverSpan c;
+    c.x0 = op.center_x - 0.5 * op.width_mm * op.along_x;
+    c.y0 = op.center_y - 0.5 * op.width_mm * op.along_y;
+    c.x1 = op.center_x + 0.5 * op.width_mm * op.along_x;
+    c.y1 = op.center_y + 0.5 * op.width_mm * op.along_y;
+    covers.push_back(c);
+  }
+  // Walls alone must enclose the apartment (3D extrusion has no missing exterior
+  // slab). Glass covers may be openings on those walls, not air.
+  const double walls_interior = envelope_interior_area_mm2(segs, 50.0);
+  const double bbox = envelope_bbox_area_mm2(segs);
+  EXPECT_GE(walls_interior, 45.0e6) << "walls interior mm2=" << walls_interior;
+  ASSERT_GT(bbox, 1.0e6);
+  EXPECT_GE(walls_interior / bbox, 0.38) << "fill=" << (walls_interior / bbox);
+  EXPECT_GE(envelope_interior_area_mm2(segs, covers, 50.0), 45.0e6);
   EXPECT_LE(largest_exterior_gap_mm(segs, 120), 150.0);
+
+  double minx = 1e18, miny = 1e18, maxx = -1e18, maxy = -1e18;
+  for (const auto& s : segs) {
+    minx = std::min({minx, s.x0, s.x1});
+    miny = std::min({miny, s.y0, s.y1});
+    maxx = std::max({maxx, s.x0, s.x1});
+    maxy = std::max({maxy, s.y0, s.y1});
+  }
+  const double dx = maxx - minx;
+  const double dy = maxy - miny;
+  auto dist_to_wall = [&](double x, double y) {
+    double best = 1e18;
+    for (const auto& s : segs) {
+      const double wx = s.x1 - s.x0;
+      const double wy = s.y1 - s.y0;
+      const double len2 = wx * wx + wy * wy;
+      double t = len2 < 1.0 ? 0.0 : std::max(0.0, std::min(1.0, ((x - s.x0) * wx + (y - s.y0) * wy) / len2));
+      best = std::min(best, std::hypot(x - (s.x0 + t * wx), y - (s.y0 + t * wy)));
+    }
+    return best;
+  };
+  for (const auto& op : detected.openings) {
+    EXPECT_LE(dist_to_wall(op.center_x, op.center_y), 180.0)
+        << "opening " << op.id << " not on a wall";
+  }
+  // Gold layout: 客餐厅 mid-east, 阳台 south-east. Must be enclosed pockets,
+  // not leaked to the page exterior (the 3D "missing slab" failure).
+  EXPECT_TRUE(envelope_point_is_interior(segs, minx + 0.70 * dx, miny + 0.42 * dy, 50.0))
+      << "living leaked";
+  EXPECT_TRUE(envelope_point_is_interior(segs, minx + 0.80 * dx, miny + 0.08 * dy, 50.0))
+      << "balcony leaked";
 
   auto doc = FloorPlanDocument::create(CreateFloorPlanProps{"doc_closed"});
   ASSERT_EQ(apply_vision_result(doc, detected, &err), 0) << err;
+  std::vector<RasterSeg> applied;
+  for (const auto& wall : doc.to_scene_ir().storeys[0].walls) {
+    RasterSeg s;
+    s.x0 = wall.start.x;
+    s.y0 = wall.start.y;
+    s.x1 = wall.end.x;
+    s.y1 = wall.end.y;
+    s.thickness_mm = wall.thickness_mm;
+    s.kind = wall.kind;
+    applied.push_back(s);
+  }
+  EXPECT_GE(envelope_interior_area_mm2(applied, 50.0), 45.0e6);
+  EXPECT_TRUE(envelope_point_is_interior(applied, minx + 0.70 * dx, miny + 0.42 * dy, 50.0));
+  EXPECT_TRUE(envelope_point_is_interior(applied, minx + 0.80 * dx, miny + 0.08 * dy, 50.0));
+
   char status[32] = {};
   char rerr[256] = {};
   TopoRoomDocument* cdoc = toporoom_document_create("doc_c_closed");

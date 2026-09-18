@@ -27,6 +27,14 @@ struct BayBump {
   char ori = 'H';  // front opening orientation
 };
 
+// Opening / glass span that still counts as envelope coverage (not a void).
+struct RasterCoverSpan {
+  double x0 = 0;
+  double y0 = 0;
+  double x1 = 0;
+  double y1 = 0;
+};
+
 // Merge collinear fragments of the same WallKind. Adjacent or gapped segments
 // whose gap is ≤ gap_merge_mm are joined (openings then sit on the long wall).
 std::vector<RasterSeg> merge_collinear_segments(const std::vector<RasterSeg>& segs,
@@ -43,6 +51,28 @@ std::vector<RasterSeg> close_exterior_loop(const std::vector<RasterSeg>& segs, d
 // Largest jump on the rectilinear outer cycle after snapping (0 = closed).
 // Interior degree-1 vertices (door gaps) are not counted.
 double largest_exterior_gap_mm(const std::vector<RasterSeg>& segs, double snap_mm);
+
+// Axis-aligned bounding box area of segment endpoints (mm²).
+double envelope_bbox_area_mm2(const std::vector<RasterSeg>& segs);
+
+// Flood-fill interior after stamping walls (and optional glass covers). Used to
+// prove the outer envelope actually encloses the apartment, not just a bedroom.
+double envelope_interior_area_mm2(const std::vector<RasterSeg>& segs, double cell_mm);
+double envelope_interior_area_mm2(const std::vector<RasterSeg>& segs,
+                                  const std::vector<RasterCoverSpan>& covers, double cell_mm);
+
+// True when (x,y) is in a flood-closed pocket (not exterior, not on a stamped wall).
+bool envelope_point_is_interior(const std::vector<RasterSeg>& segs, double x, double y,
+                                double cell_mm);
+
+// Project endpoints onto orthogonal segments they already T-join.
+std::vector<RasterSeg> join_t_junctions(const std::vector<RasterSeg>& segs, double snap_mm);
+
+// Add missing outer-hull masonry so every exterior edge is a wall (openings sit
+// on those walls; glass covers keep 落地窗/阳台 from being treated as air).
+std::vector<RasterSeg> seal_outer_envelope(const std::vector<RasterSeg>& segs,
+                                           const std::vector<RasterCoverSpan>& covers,
+                                           double snap_mm, double max_fill_mm);
 
 // Split axis-aligned segments at crossings and T-junctions so the graph
 // sees corner/T vertices, not only raw endpoints.

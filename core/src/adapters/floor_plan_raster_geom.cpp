@@ -760,6 +760,306 @@ std::vector<RasterSeg> close_exterior_loop(const std::vector<RasterSeg>& segs, d
   return snap_endpoints(work, snap_mm);
 }
 
+namespace {
+
+struct EnvelopeGrid {
+  double minx = 0;
+  double miny = 0;
+  double cell = 50;
+  int W = 0;
+  int H = 0;
+  std::vector<std::uint8_t> g;  // 0 empty, 1 occupied, 2 exterior
+};
+
+EnvelopeGrid stamp_envelope(const std::vector<RasterSeg>& segs,
+                            const std::vector<RasterCoverSpan>& covers, double cell_mm,
+                            double wall_half_mm = -1.0) {
+  EnvelopeGrid grid;
+  grid.cell = std::max(20.0, cell_mm);
+  if (segs.empty() && covers.empty()) return grid;
+  double minx = 1e18, miny = 1e18, maxx = -1e18, maxy = -1e18;
+  auto acc = [&](double x, double y) {
+    minx = std::min(minx, x);
+    miny = std::min(miny, y);
+    maxx = std::max(maxx, x);
+    maxy = std::max(maxy, y);
+  };
+  for (const auto& s : segs) {
+    acc(s.x0, s.y0);
+    acc(s.x1, s.y1);
+  }
+  for (const auto& c : covers) {
+    acc(c.x0, c.y0);
+    acc(c.x1, c.y1);
+  }
+  if (maxx <= minx || maxy <= miny) return grid;
+  const double pad = 4.0 * grid.cell;
+  grid.minx = minx - pad;
+  grid.miny = miny - pad;
+  grid.W = static_cast<int>(std::ceil((maxx - minx + 2.0 * pad) / grid.cell)) + 2;
+  grid.H = static_cast<int>(std::ceil((maxy - miny + 2.0 * pad) / grid.cell)) + 2;
+  if (grid.W < 4 || grid.H < 4) return grid;
+  grid.g.assign(static_cast<std::size_t>(grid.W) * static_cast<std::size_t>(grid.H), 0);
+  auto at = [&](int x, int y) -> std::uint8_t& {
+    return grid.g[static_cast<std::size_t>(y * grid.W + x)];
+  };
+  auto stamp = [&](double x0, double y0, double x1, double y1, double half) {
+    const int n = std::max(2, static_cast<int>(std::hypot(x1 - x0, y1 - y0) / (grid.cell * 0.45)));
+    const int r = std::max(1, static_cast<int>(std::ceil(half / grid.cell)));
+    for (int i = 0; i <= n; ++i) {
+      const double t = static_cast<double>(i) / static_cast<double>(n);
+      const double x = x0 + t * (x1 - x0);
+      const double y = y0 + t * (y1 - y0);
+      const int cx = static_cast<int>(std::lround((x - grid.minx) / grid.cell));
+      const int cy = static_cast<int>(std::lround((y - grid.miny) / grid.cell));
+      for (int dy = -r; dy <= r; ++dy) {
+        for (int dx = -r; dx <= r; ++dx) {
+          const int xx = cx + dx;
+          const int yy = cy + dy;
+          if (xx >= 0 && yy >= 0 && xx < grid.W && yy < grid.H) at(xx, yy) = 1;
+        }
+      }
+    }
+  };
+  for (const auto& s : segs) {
+    const double half =
+        wall_half_mm > 0.0 ? wall_half_mm : std::max(40.0, 0.5 * s.thickness_mm);
+    stamp(s.x0, s.y0, s.x1, s.y1, half);
+  }
+  for (const auto& c : covers) {
+    stamp(c.x0, c.y0, c.x1, c.y1, 40.0);
+  }
+  if (grid.g[0] == 0) grid.g[0] = 2;
+  std::vector<int> stack{0};
+  const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+  while (!stack.empty()) {
+    const int cur = stack.back();
+    stack.pop_back();
+    const int cx = cur % grid.W;
+    const int cy = cur / grid.W;
+    for (const auto& d : dirs) {
+      const int nx = cx + d[0];
+      const int ny = cy + d[1];
+      if (nx < 0 || ny < 0 || nx >= grid.W || ny >= grid.H) continue;
+      if (at(nx, ny) != 0) continue;
+      at(nx, ny) = 2;
+      stack.push_back(ny * grid.W + nx);
+    }
+  }
+  return grid;
+}
+
+}  // namespace
+
+double envelope_bbox_area_mm2(const std::vector<RasterSeg>& segs) {
+  if (segs.empty()) return 0;
+  double minx = 1e18, miny = 1e18, maxx = -1e18, maxy = -1e18;
+  for (const auto& s : segs) {
+    minx = std::min({minx, s.x0, s.x1});
+    miny = std::min({miny, s.y0, s.y1});
+    maxx = std::max({maxx, s.x0, s.x1});
+    maxy = std::max({maxy, s.y0, s.y1});
+  }
+  return std::max(0.0, maxx - minx) * std::max(0.0, maxy - miny);
+}
+
+double envelope_interior_area_mm2(const std::vector<RasterSeg>& segs, double cell_mm) {
+  return envelope_interior_area_mm2(segs, {}, cell_mm);
+}
+
+double envelope_interior_area_mm2(const std::vector<RasterSeg>& segs,
+                                  const std::vector<RasterCoverSpan>& covers, double cell_mm) {
+  const auto grid = stamp_envelope(segs, covers, cell_mm, 28.0);
+  if (grid.g.empty()) return 0;
+  int interior = 0;
+  for (std::uint8_t v : grid.g) {
+    if (v == 0) ++interior;
+  }
+  return static_cast<double>(interior) * grid.cell * grid.cell;
+}
+
+bool envelope_point_is_interior(const std::vector<RasterSeg>& segs, double x, double y,
+                                double cell_mm) {
+  const auto grid = stamp_envelope(segs, {}, cell_mm, 28.0);
+  if (grid.g.empty() || grid.W < 2) return false;
+  const int cx = static_cast<int>(std::lround((x - grid.minx) / grid.cell));
+  const int cy = static_cast<int>(std::lround((y - grid.miny) / grid.cell));
+  if (cx < 0 || cy < 0 || cx >= grid.W || cy >= grid.H) return false;
+  return grid.g[static_cast<std::size_t>(cy * grid.W + cx)] == 0;
+}
+
+std::vector<RasterSeg> join_t_junctions(const std::vector<RasterSeg>& segs, double snap_mm) {
+  if (segs.size() < 2) return segs;
+  std::vector<RasterSeg> out = segs;
+  for (auto& s : out) normalize(&s);
+  auto project = [&](RasterSeg* s, bool start) {
+    double x = start ? s->x0 : s->x1;
+    double y = start ? s->y0 : s->y1;
+    const bool horiz = is_horizontal(*s);
+    double best = snap_mm + 1.0;
+    double nx = x;
+    double ny = y;
+    for (const auto& o : out) {
+      RasterSeg oo = o;
+      normalize(&oo);
+      if (is_horizontal(oo) == horiz) continue;
+      if (horiz) {
+        if (std::abs(x - oo.x0) > snap_mm) continue;
+        if (y < std::min(oo.y0, oo.y1) - snap_mm || y > std::max(oo.y0, oo.y1) + snap_mm) continue;
+        const double d = std::abs(x - oo.x0);
+        if (d < best) {
+          best = d;
+          nx = oo.x0;
+          ny = y;
+        }
+      } else {
+        if (std::abs(y - oo.y0) > snap_mm) continue;
+        if (x < std::min(oo.x0, oo.x1) - snap_mm || x > std::max(oo.x0, oo.x1) + snap_mm) continue;
+        const double d = std::abs(y - oo.y0);
+        if (d < best) {
+          best = d;
+          nx = x;
+          ny = oo.y0;
+        }
+      }
+    }
+    if (best <= snap_mm) {
+      if (start) {
+        s->x0 = nx;
+        s->y0 = ny;
+      } else {
+        s->x1 = nx;
+        s->y1 = ny;
+      }
+      normalize(s);
+    }
+  };
+  for (auto& s : out) {
+    project(&s, true);
+    project(&s, false);
+  }
+  std::vector<RasterSeg> kept;
+  kept.reserve(out.size());
+  for (auto& s : out) {
+    normalize(&s);
+    if (length_of(s) >= 40.0) kept.push_back(s);
+  }
+  return kept;
+}
+
+std::vector<RasterSeg> seal_outer_envelope(const std::vector<RasterSeg>& segs,
+                                           const std::vector<RasterCoverSpan>& covers,
+                                           double snap_mm, double max_fill_mm) {
+  auto work = join_t_junctions(close_exterior_loop(segs, snap_mm, max_fill_mm), snap_mm);
+  work = snap_endpoints(work, snap_mm);
+
+  const auto grid = stamp_envelope(work, covers, std::max(40.0, snap_mm * 0.35));
+  if (grid.W >= 4 && grid.H >= 4) {
+    auto val = [&](int x, int y) -> std::uint8_t {
+      if (x < 0 || y < 0 || x >= grid.W || y >= grid.H) return 2;
+      return grid.g[static_cast<std::size_t>(y * grid.W + x)];
+    };
+    auto to_mm_x = [&](double gx) { return grid.minx + gx * grid.cell; };
+    auto to_mm_y = [&](double gy) { return grid.miny + gy * grid.cell; };
+    auto covered = [&](double x, double y) {
+      for (const auto& s : work) {
+        double t = 0;
+        const double dx = s.x1 - s.x0;
+        const double dy = s.y1 - s.y0;
+        const double len2 = dx * dx + dy * dy;
+        if (len2 < 1.0) continue;
+        t = std::max(0.0, std::min(1.0, ((x - s.x0) * dx + (y - s.y0) * dy) / len2));
+        const double qx = s.x0 + t * dx;
+        const double qy = s.y0 + t * dy;
+        if (std::hypot(x - qx, y - qy) <= std::max(snap_mm, 0.6 * s.thickness_mm)) return true;
+      }
+      return false;
+    };
+    auto add_fill = [&](double x0, double y0, double x1, double y1) {
+      if (std::hypot(x1 - x0, y1 - y0) < 80.0) return;
+      const double mx = 0.5 * (x0 + x1);
+      const double my = 0.5 * (y0 + y1);
+      if (covered(mx, my)) return;
+      RasterSeg fill;
+      fill.kind = domain::WallKind::Masonry;
+      fill.thickness_mm = 120;
+      fill.x0 = x0;
+      fill.y0 = y0;
+      fill.x1 = x1;
+      fill.y1 = y1;
+      normalize(&fill);
+      if (length_of(fill) >= 80.0) work.push_back(fill);
+    };
+    // Horizontal boundary runs (between exterior and building).
+    for (int y = 0; y < grid.H - 1; ++y) {
+      int run0 = -1;
+      for (int x = 0; x <= grid.W; ++x) {
+        const bool edge = x < grid.W && ((val(x, y) == 2) != (val(x, y + 1) == 2)) &&
+                          (val(x, y) != 2 || val(x, y + 1) != 2);
+        if (edge) {
+          if (run0 < 0) run0 = x;
+        } else if (run0 >= 0) {
+          add_fill(to_mm_x(run0), to_mm_y(y + 0.5), to_mm_x(x), to_mm_y(y + 0.5));
+          run0 = -1;
+        }
+      }
+    }
+    // Vertical boundary runs.
+    for (int x = 0; x < grid.W - 1; ++x) {
+      int run0 = -1;
+      for (int y = 0; y <= grid.H; ++y) {
+        const bool edge = y < grid.H && ((val(x, y) == 2) != (val(x + 1, y) == 2)) &&
+                          (val(x, y) != 2 || val(x + 1, y) != 2);
+        if (edge) {
+          if (run0 < 0) run0 = y;
+        } else if (run0 >= 0) {
+          add_fill(to_mm_x(x + 0.5), to_mm_y(run0), to_mm_x(x + 0.5), to_mm_y(y));
+          run0 = -1;
+        }
+      }
+    }
+  }
+
+  work = join_t_junctions(work, snap_mm);
+  work = merge_collinear_segments(work, snap_mm, std::max(snap_mm * 2.0, 240.0));
+  work = close_exterior_loop(work, snap_mm, max_fill_mm);
+  work = join_t_junctions(work, snap_mm);
+  work = snap_endpoints(work, snap_mm);
+  std::vector<RasterSeg> filtered;
+  filtered.reserve(work.size());
+  for (auto s : work) {
+    normalize(&s);
+    if (s.kind == domain::WallKind::ShearWall) {
+      filtered.push_back(s);
+      continue;
+    }
+    bool covered = false;
+    for (const auto& o : work) {
+      RasterSeg oo = o;
+      normalize(&oo);
+      if (oo.kind != domain::WallKind::ShearWall) continue;
+      if (is_horizontal(s) != is_horizontal(oo)) continue;
+      if (is_horizontal(s)) {
+        if (std::abs(s.y0 - oo.y0) > snap_mm) continue;
+        const double ov = std::min(s.x1, oo.x1) - std::max(s.x0, oo.x0);
+        if (ov > 0.72 * length_of(s)) {
+          covered = true;
+          break;
+        }
+      } else {
+        if (std::abs(s.x0 - oo.x0) > snap_mm) continue;
+        const double ov = std::min(s.y1, oo.y1) - std::max(s.y0, oo.y0);
+        if (ov > 0.72 * length_of(s)) {
+          covered = true;
+          break;
+        }
+      }
+    }
+    if (!covered) filtered.push_back(s);
+  }
+  return filtered.empty() ? work : filtered;
+}
+
 domain::WindowSubtype classify_window_subtype(double sill_mm, double height_mm, double storey_mm,
                                               bool on_bay_bump) {
   if (on_bay_bump) return domain::WindowSubtype::Bay;

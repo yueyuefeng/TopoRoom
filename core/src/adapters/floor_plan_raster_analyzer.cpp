@@ -319,19 +319,6 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     return out;
   }
 
-  const int gx0 = std::max(0, bx0 - 6);
-  const int gy0 = std::max(0, by0 - 6);
-  const int gx1 = std::min(w - 1, bx1 + 8);
-  const int gy1 = std::min(h - 1, by1 + 20);
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      if (x < gx0 || x > gx1 || y < gy0 || y > gy1) {
-        gray_raw[static_cast<std::size_t>(y * w + x)] = 0;
-        win_raw[static_cast<std::size_t>(y * w + x)] = 0;
-      }
-    }
-  }
-
   std::vector<Bar> shear_bars = extract_bars(black, w, h, 10, 4, 50, 0.65);
   if (shear_bars.empty()) {
     out.error = "no structural wall bars";
@@ -352,10 +339,38 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
   mm_per_px = std::max(12.0, std::min(28.0, mm_per_px));
   out.mm_per_px = mm_per_px;
 
+  // 阳台 / 飘窗 / 落地窗 grey sits outside the black shear bbox. Cropping to
+  // bx1+8 dropped the entire glass perimeter (gold sample: +57px east, +34px
+  // south). Keep ~1.7 m of outset so thin envelope strokes become walls.
+  const int outset = std::max(48, static_cast<int>(std::ceil(1700.0 / mm_per_px)));
+  const int gx0 = std::max(0, bx0 - outset);
+  const int gy0 = std::max(0, by0 - outset);
+  const int gx1 = std::min(w - 1, bx1 + outset);
+  const int gy1 = std::min(h - 1, by1 + outset);
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      if (x < gx0 || x > gx1 || y < gy0 || y > gy1) {
+        gray_raw[static_cast<std::size_t>(y * w + x)] = 0;
+        win_raw[static_cast<std::size_t>(y * w + x)] = 0;
+      }
+    }
+  }
+
   std::vector<Bar> gray_bars = extract_bars(gray_raw, w, h, 20, 3, 14, 0.65);
+  std::vector<std::uint8_t> env_mask(static_cast<std::size_t>(w * h), 0);
+  for (int y = gy0; y <= gy1; ++y) {
+    for (int x = gx0; x <= gx1; ++x) {
+      const int i = y * w + x;
+      if (!gray_raw[static_cast<std::size_t>(i)] && !win_raw[static_cast<std::size_t>(i)]) continue;
+      const bool on_ring = x <= bx0 + outset || x >= bx1 - outset || y <= by0 + outset ||
+                           y >= by1 - outset;
+      if (on_ring) env_mask[static_cast<std::size_t>(i)] = 1;
+    }
+  }
+  std::vector<Bar> env_stroke_bars = extract_bars(env_mask, w, h, 24, 1, 14, 0.5);
   std::vector<Bar> masonry_bars;
   std::vector<Bar> envelope_windows;
-  masonry_bars.reserve(gray_bars.size());
+  masonry_bars.reserve(gray_bars.size() + env_stroke_bars.size());
   for (const Bar& g : gray_bars) {
     bool on_black = false;
     for (const Bar& s : shear_bars) {
@@ -365,18 +380,24 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
       }
     }
     if (on_black) continue;
-    const bool env = near_envelope(g, bx0, by0, bx1, by1, 22);
-    if (env && g.length <= 90 && g.thickness <= 12) {
-      envelope_windows.push_back(g);
-      continue;
+    masonry_bars.push_back(g);
+  }
+  for (const Bar& g : env_stroke_bars) {
+    bool on_black = false;
+    for (const Bar& s : shear_bars) {
+      if (overlap_frac(g, s) > 0.5) {
+        on_black = true;
+        break;
+      }
     }
+    if (on_black) continue;
     masonry_bars.push_back(g);
   }
 
   std::vector<Bar> thin = extract_bars(win_raw, w, h, 24, 1, 3, 0.5);
   std::vector<Bar> env_thin;
   for (const Bar& t : thin) {
-    if (near_envelope(t, bx0, by0, bx1, by1, 24)) env_thin.push_back(t);
+    if (near_envelope(t, bx0, by0, bx1, by1, outset)) env_thin.push_back(t);
   }
   std::vector<char> used(env_thin.size(), 0);
   for (std::size_t i = 0; i < env_thin.size(); ++i) {
@@ -398,6 +419,7 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
           win.length = ox1 - ox0 + 1;
           win.thickness = win.y1 - win.y0 + 1;
           envelope_windows.push_back(win);
+          masonry_bars.push_back(win);
           used[i] = 1;
           used[j] = 1;
           break;
@@ -417,12 +439,17 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
           win.length = oy1 - oy0 + 1;
           win.thickness = win.x1 - win.x0 + 1;
           envelope_windows.push_back(win);
+          masonry_bars.push_back(win);
           used[i] = 1;
           used[j] = 1;
           break;
         }
       }
     }
+  }
+  for (std::size_t i = 0; i < env_thin.size(); ++i) {
+    if (used[i]) continue;
+    masonry_bars.push_back(env_thin[i]);
   }
 
   const double origin_x = static_cast<double>(bx0);
@@ -473,10 +500,12 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     emit_seg(b, domain::WallKind::Masonry);
   }
 
-  pending = merge_collinear_segments(pending, 120.0, 2800.0);
+  pending = merge_collinear_segments(pending, 120.0, 400.0);
   pending = snap_endpoints(pending, 120.0);
+  pending = join_t_junctions(pending, 160.0);
   pending = close_exterior_loop(pending, 120.0, 3600.0);
-  pending = merge_collinear_segments(pending, 120.0, 2800.0);
+  pending = join_t_junctions(pending, 160.0);
+  pending = merge_collinear_segments(pending, 120.0, 400.0);
   pending = snap_endpoints(pending, 120.0);
   const auto bays = detect_bay_bumps(pending);
   si = 0;
@@ -620,7 +649,6 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     }
   };
 
-  bool need_hosts = false;
   for (const auto& op : out.openings) {
     double best = 1e18;
     for (const auto& w : out.walls) {
@@ -629,7 +657,6 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
                                            w.end_y, &t));
     }
     if (best <= 420.0) continue;
-    need_hosts = true;
     RasterSeg host;
     host.kind = op.kind == domain::OpeningKind::Window ? domain::WallKind::Masonry
                                                        : domain::WallKind::ShearWall;
@@ -652,12 +679,19 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     host = extend_segment_to_hits(host, pending, 3600.0, 120.0);
     pending.push_back(host);
   }
-  if (need_hosts) {
-    pending = merge_collinear_segments(pending, 120.0, 2800.0);
-    pending = snap_endpoints(pending, 120.0);
-    pending = close_exterior_loop(pending, 120.0, 3600.0);
-    pending = merge_collinear_segments(pending, 120.0, 2800.0);
-    pending = snap_endpoints(pending, 120.0);
+  {
+    std::vector<RasterCoverSpan> covers;
+    covers.reserve(out.openings.size());
+    for (const auto& op : out.openings) {
+      RasterCoverSpan c;
+      c.x0 = op.center_x - 0.5 * op.width_mm * op.along_x;
+      c.y0 = op.center_y - 0.5 * op.width_mm * op.along_y;
+      c.x1 = op.center_x + 0.5 * op.width_mm * op.along_x;
+      c.y1 = op.center_y + 0.5 * op.width_mm * op.along_y;
+      covers.push_back(c);
+    }
+    pending = seal_outer_envelope(pending, covers, 120.0, 3600.0);
+    pending = join_t_junctions(pending, 160.0);
     rebuild_walls();
   }
 
