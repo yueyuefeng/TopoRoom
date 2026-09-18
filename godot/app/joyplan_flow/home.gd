@@ -1,12 +1,10 @@
 extends Control
-## Usable home: 示例户型 / 相册导入 / 拍照. Never a blank single-pill void.
-## Gallery is opt-in (Chinese OEM pickers often fail silently).
+## JoyPlan home: hero interior + 2×2 cards + dark capsule nav. Never a blank pill.
 
-const GOLD := "res://fixtures/apt-plan-user-01.png"
-const MediaPickerScript := preload("res://app/media_picker.gd")
+const HERO := "res://fixtures/joyplan-home-hero.jpg"
 const Snackbar := preload("res://app/ui/snackbar.gd")
+const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
 
-var _picker: Node
 var _snack: PanelContainer
 
 
@@ -14,139 +12,93 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	Studio.apply_to(self)
 	Session.screen = FlowRouter.SCREEN_HOME
-	_build_chrome()
-	_picker = MediaPickerScript.new()
-	_picker.image_ready.connect(_on_image)
-	_picker.failed.connect(_on_fail)
-	_picker.cancelled.connect(_on_cancel)
-	add_child(_picker)
+	_build()
 	_snack = Snackbar.new()
-	_snack.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	_snack.anchor_top = 1.0
+	_snack.set_anchors_preset(PRESET_TOP_WIDE)
 	_snack.offset_left = 24
 	_snack.offset_right = -24
-	_snack.offset_top = -88
-	_snack.offset_bottom = -28
+	_snack.offset_top = 24
+	_snack.offset_bottom = 80
 	add_child(_snack)
-	Session.log_line.connect(func(t: String): _toast(t))
+	Session.log_line.connect(func(t: String): _soon(t))
 
 
-func _build_chrome() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.96, 0.93, 0.94)
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
+func _build() -> void:
+	var hero := TextureRect.new()
+	hero.set_anchors_preset(PRESET_TOP_WIDE)
+	hero.anchor_bottom = 0.48
+	hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero.texture = _hero_texture()
+	add_child(hero)
+
+	var lower := ColorRect.new()
+	lower.color = Color("D6D0C6")
+	lower.set_anchors_preset(PRESET_FULL_RECT)
+	lower.anchor_top = 0.46
+	lower.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(lower)
+	var dado := ColorRect.new()
+	dado.color = Color("7EAA6C")
+	dado.set_anchors_preset(PRESET_TOP_WIDE)
+	dado.anchor_top = 0.46
+	dado.offset_top = -22
+	dado.offset_bottom = 6
+	dado.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(dado)
 
 	var pad := MarginContainer.new()
-	pad.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	pad.set_anchors_preset(PRESET_FULL_RECT)
+	pad.anchor_top = 0.48
+	pad.offset_bottom = -100
 	pad.add_theme_constant_override("margin_left", 22)
 	pad.add_theme_constant_override("margin_right", 22)
-	pad.add_theme_constant_override("margin_top", 36)
-	pad.add_theme_constant_override("margin_bottom", 28)
+	pad.add_theme_constant_override("margin_top", 12)
+	pad.add_theme_constant_override("margin_bottom", 8)
 	add_child(pad)
 	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
 	pad.add_child(col)
 
-	var brand := Studio.display("拓间")
-	brand.add_theme_font_size_override("font_size", Tokens.FONT_DISPLAY)
-	col.add_child(brand)
-	var sub := Studio.label("从户型图开始 · 示例可离线打开", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
-	sub.clip_text = true
-	col.add_child(sub)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	col.add_child(spacer)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	top.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top.add_child(JoyplanChrome.color_btn("我的项目", Color(0.941, 0.769, 0.0, 0.94), Color.WHITE, func(): FlowRouter.projects(self), 1))
+	top.add_child(JoyplanChrome.color_btn("AI厨房", Color(0.231, 0.478, 0.910, 0.94), Color.WHITE, func(): _soon("即将支持"), 1))
+	col.add_child(top)
 
-	col.add_child(Studio.action_card(
-		"示例户型",
-		"内置样张，无需相册或相机权限",
-		"图",
-		func(): _open_sample()
-	))
-	col.add_child(Studio.action_card(
-		"相册导入",
-		"从系统相册选择一张户型图",
-		"相",
-		func(): _open_gallery()
-	))
-	col.add_child(Studio.action_card(
-		"拍照",
-		"拍摄户型图；不可用时留在首页",
-		"摄",
-		func(): _open_camera()
+	var bot := HBoxContainer.new()
+	bot.add_theme_constant_override("separation", 12)
+	bot.custom_minimum_size = Vector2(0, 86)
+	bot.add_child(JoyplanChrome.color_btn("AI设计", Color(0.22, 0.20, 0.18, 0.88), Color.WHITE, func(): _soon("即将支持"), 86))
+	bot.add_child(JoyplanChrome.color_btn("拍照速记Pro", Color(0.22, 0.20, 0.18, 0.88), Color.WHITE, func(): _soon("即将支持"), 86))
+	col.add_child(bot)
+
+	add_child(JoyplanChrome.bottom_nav(
+		"home",
+		func(): pass,
+		func(): FlowRouter.projects(self),
+		func(): _soon("即将支持"),
+		true
 	))
 
-	var recents := Button.new()
-	recents.theme_type_variation = "ActionCard"
-	recents.custom_minimum_size = Vector2(0, 76)
-	recents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	recents.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	recents.focus_mode = Control.FOCUS_NONE
-	recents.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var rec_row := Studio.vbox(4)
-	rec_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rec_row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	rec_row.offset_left = 18
-	rec_row.offset_right = -18
-	rec_row.offset_top = 12
-	rec_row.offset_bottom = -12
-	var rec_title := Studio.label("最近方案", Tokens.FONT_SECTION, Tokens.TEXT)
-	rec_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rec_title.clip_text = true
-	rec_title.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	var rec_body := Studio.label("还没有方案。先打开示例户型，或从相册导入。", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
-	rec_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rec_body.clip_text = true
-	rec_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rec_body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	rec_row.add_child(rec_title)
-	rec_row.add_child(rec_body)
-	recents.add_child(rec_row)
-	col.add_child(recents)
+
+func _hero_texture() -> Texture2D:
+	var img := Image.new()
+	var buf := FileAccess.get_file_as_bytes(HERO)
+	if buf.is_empty() or img.load_jpg_from_buffer(buf) != OK:
+		img = Image.create(720, 640, false, Image.FORMAT_RGB8)
+		img.fill(Color("D8C8B8"))
+		return ImageTexture.create_from_image(img)
+	var w := img.get_width()
+	var h := img.get_height()
+	var top := int(h * 0.038)
+	var crop_h := int(h * 0.40)
+	img = img.get_region(Rect2i(0, top, w, maxi(crop_h, 8)))
+	return ImageTexture.create_from_image(img)
 
 
-func _open_sample() -> void:
-	var stored := Session.load_gold_sample()
-	if stored.is_empty():
-		_toast("无法打开示例户型图")
-		return
-	FlowRouter.scale(self)
-
-
-func _open_gallery() -> void:
-	_picker.pick_gallery()
-
-
-func _open_camera() -> void:
-	if OS.get_name() == "Android" and not _picker.available_on_android():
-		_toast("当前设备没有可用相机插件")
-		return
-	_picker.capture_photo()
-
-
-func _on_image(path: String) -> void:
-	var stored := Session.store_imported_image(path)
-	if stored.is_empty() and Session.last_error != "":
-		_toast(Session.last_error)
-		return
-	if stored.is_empty():
-		_toast("没有收到照片")
-		return
-	FlowRouter.scale(self)
-
-
-func _on_fail(msg: String) -> void:
-	_toast(msg if not msg.is_empty() else "打开相机或相册失败")
-
-
-func _on_cancel() -> void:
-	pass
-
-
-func _toast(text: String) -> void:
+func _soon(text: String = "即将支持") -> void:
 	if _snack and _snack.has_method("show_message"):
 		_snack.show_message(text)

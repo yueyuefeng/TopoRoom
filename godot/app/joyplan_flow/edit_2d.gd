@@ -15,6 +15,9 @@ var _ctx: Control
 var _numeric: Control
 var _snack: PanelContainer
 var _pending_dim: Dictionary = {}
+var _add_menu: Control
+const PickModal := preload("res://app/joyplan_flow/pick_source_modal.gd")
+const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
 
 
 func _ready() -> void:
@@ -38,7 +41,7 @@ func _ready() -> void:
 	_canvas.load_photo(photo_path)
 
 	add_child(FlowIslands.top_bar(
-		func(): FlowRouter.home(self),
+		func(): FlowRouter.generate(self),
 		FlowIslands.mode_capsule(0, func(): pass, func(): _go_3d(), func(): _toast("Walk"), func(): _toast("Crop")),
 		func(): pass
 	))
@@ -77,7 +80,7 @@ func _ready() -> void:
 		func(): _toast("暂无重做栈（C++ 命令尚未提供 redo）")
 	))
 	add_child(FlowIslands.tool_cluster(func(): _toast("平移画布"), func(): _toggle_library()))
-	add_child(FlowIslands.plus_fab(func(): _toggle_library()))
+	add_child(FlowIslands.plus_fab(func(): _show_add_menu()))
 
 	var grab := Button.new()
 	grab.name = "LibraryGrab"
@@ -138,6 +141,73 @@ func _toast(text: String) -> void:
 
 func _toggle_library() -> void:
 	show_library(not _library.visible)
+
+
+func _show_add_menu() -> void:
+	if _add_menu and is_instance_valid(_add_menu):
+		_add_menu.queue_free()
+		_add_menu = null
+		return
+	_add_menu = PanelContainer.new()
+	_add_menu.add_theme_stylebox_override("panel", JoyplanChrome.fill(Color.WHITE, 20))
+	_add_menu.set_anchors_preset(PRESET_CENTER_BOTTOM)
+	_add_menu.anchor_left = 0.5
+	_add_menu.anchor_right = 0.5
+	_add_menu.anchor_top = 1.0
+	_add_menu.offset_left = -170
+	_add_menu.offset_right = 170
+	_add_menu.offset_top = -360
+	_add_menu.offset_bottom = -120
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	var head := HBoxContainer.new()
+	head.add_child(Control.new())
+	var grow := Control.new()
+	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(grow)
+	head.add_child(JoyplanChrome.icon_btn("✕", func(): _show_add_menu(), 36, Tokens.TEXT_SECONDARY))
+	col.add_child(head)
+	col.add_child(_add_row("自由绘制", Color("3B7AE8"), func(): _toast("即将支持")))
+	col.add_child(_add_row("导入户型图", Color("34C759"), func(): _import_from_2d()))
+	col.add_child(_add_row("手绘草图&房间", Color("8E8E93"), func(): _toast("即将支持")))
+	_add_menu.add_child(col)
+	add_child(_add_menu)
+	_add_menu.move_to_front()
+
+
+func _add_row(title: String, swatch: Color, cb: Callable) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 56)
+	b.flat = true
+	b.pressed.connect(cb)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 8
+	row.offset_right = -8
+	row.add_theme_constant_override("separation", 12)
+	var chip := ColorRect.new()
+	chip.color = swatch
+	chip.custom_minimum_size = Vector2(36, 36)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(chip)
+	var lab := Studio.label(title, Tokens.FONT_SECTION, Tokens.TEXT)
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lab)
+	b.add_child(row)
+	return b
+
+
+func _import_from_2d() -> void:
+	if _add_menu:
+		_add_menu.queue_free()
+		_add_menu = null
+	var modal: Control = PickModal.new()
+	modal.picked.connect(func(_path: String): FlowRouter.scale(self))
+	add_child(modal)
 
 
 func show_library(on: bool = true) -> void:

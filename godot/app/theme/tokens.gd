@@ -52,6 +52,10 @@ const PAGE_PURPLE := Color("7B61FF")
 const PAGE_ORANGE := Color(1.0, 0.62, 0.32, 0.50)
 const PAGE_SELECT := Color("F08A3A") ## selected wall ink (frames)
 const PAGE_OK := Color("FF5C39") ## S2 OK
+const JP_ORANGE := Color("FF6A00")
+const JP_ORANGE_DEEP := Color("FF4500")
+const JP_YELLOW := Color("F0C400")
+const JP_BLUE := Color("3B7AE8")
 const PAGE_ROOM := Color(0.93, 0.93, 0.94, 0.55)
 
 # --- 3D HUD glass ---

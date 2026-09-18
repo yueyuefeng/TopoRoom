@@ -4,10 +4,11 @@ extends Control
 signal calibrated(mm_per_px: float, pixel_len: float, real_mm: float)
 signal cancelled
 
-const TITLE := "Scale setting"
+const TITLE := "1/2 临摹图比例"
 const LOUPE_SRC := 36
 const LOUPE_DST := 120
 const LOUPE_ZOOM := 3.1
+const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
 
 var _img: Image
 var _photo: TextureRect
@@ -30,40 +31,31 @@ func _ready() -> void:
 	Session.screen = FlowRouter.SCREEN_SCALE
 
 	_photo = TextureRect.new()
-	_photo.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_photo.set_anchors_preset(PRESET_FULL_RECT)
+	_photo.offset_top = 56
+	_photo.offset_bottom = -328
 	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_photo)
 
-	var wash := ColorRect.new()
-	wash.color = Color(1, 0.72, 0.82, 0.22)
-	wash.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(wash)
-
 	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	overlay.set_anchors_preset(PRESET_FULL_RECT)
+	overlay.offset_top = 56
+	overlay.offset_bottom = -328
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.draw.connect(_draw_scale)
 	overlay.name = "ScaleOverlay"
 	add_child(overlay)
 
-	add_child(FlowIslands.top_bar(
-		func(): cancelled.emit(); FlowRouter.home(self),
-		FlowIslands.scale_title(func(): _hint.text = "Place the scale on a known measurement"),
-		func(): pass
+	add_child(JoyplanChrome.step_bar(
+		"1/2 临摹图比例",
+		"下一步",
+		func(): cancelled.emit(); FlowRouter.new_plan(self),
+		func(): _commit()
 	))
-	# Hide back/1F to match the frame: title only.
-	var top := get_child(get_child_count() - 1)
-	if top is MarginContainer:
-		for c in top.get_children():
-			if c is HBoxContainer:
-				for b in c.get_children():
-					if b is Button:
-						b.visible = false
 
-	_build_sheet()
+	_build_keypad()
 	_build_loupe()
 	_build_reset()
 
@@ -71,8 +63,8 @@ func _ready() -> void:
 	_snack.set_anchors_preset(PRESET_TOP_WIDE)
 	_snack.offset_left = 24
 	_snack.offset_right = -24
-	_snack.offset_top = 72
-	_snack.offset_bottom = 120
+	_snack.offset_top = 64
+	_snack.offset_bottom = 112
 	add_child(_snack)
 
 	var path := Session.last_import_path
@@ -84,68 +76,80 @@ func _ready() -> void:
 		_make_demo()
 
 
-func _build_sheet() -> void:
-	var bar := ColorRect.new()
-	bar.color = Color(0.05, 0.05, 0.06, 0.96)
-	bar.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	bar.anchor_top = 1.0
-	bar.offset_top = -118
-	bar.offset_bottom = 0
-	bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(bar)
+func _build_keypad() -> void:
+	var sheet := ColorRect.new()
+	sheet.color = Color.WHITE
+	sheet.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	sheet.anchor_top = 1.0
+	sheet.offset_top = -328
+	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(sheet)
 	var pad := MarginContainer.new()
 	pad.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	pad.add_theme_constant_override("margin_left", 16)
 	pad.add_theme_constant_override("margin_right", 16)
-	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_top", 8)
 	pad.add_theme_constant_override("margin_bottom", 10)
-	bar.add_child(pad)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	pad.add_child(row)
-	var exit_b := Button.new()
-	exit_b.text = "Exit"
-	exit_b.focus_mode = Control.FOCUS_NONE
-	exit_b.flat = true
-	exit_b.add_theme_font_override("font", Studio.font)
-	exit_b.add_theme_color_override("font_color", Color.WHITE)
-	exit_b.pressed.connect(func(): cancelled.emit(); FlowRouter.home(self))
-	row.add_child(exit_b)
-	var mid := VBoxContainer.new()
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mid.add_theme_constant_override("separation", 2)
-	var adj := Studio.label("Adjust floor plan  ↑", Tokens.FONT_CAPTION, Color.WHITE)
-	adj.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mid.add_child(adj)
-	_hint = Studio.label("Please enter the length of the scale", Tokens.FONT_CAPTION, Color(0.85, 0.85, 0.88))
+	sheet.add_child(pad)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	pad.add_child(col)
+	_hint = Studio.label("请输入标注线的实际长度(mm)", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mid.add_child(_hint)
+	col.add_child(_hint)
 	_mm = LineEdit.new()
-	_mm.text = "900"
+	_mm.text = str(int(round(Session.last_scale_mm))) if Session.last_scale_mm >= 10.0 else "900"
 	_mm.placeholder_text = "900"
 	_mm.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_mm.custom_minimum_size = Vector2(0, 28)
-	_mm.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
-	_mm.add_theme_color_override("font_color", Color.WHITE)
+	_mm.custom_minimum_size = Vector2(0, 40)
+	_mm.virtual_keyboard_enabled = false
 	_mm.add_theme_font_override("font", Studio.font)
-	_mm.add_theme_font_size_override("font_size", 14)
+	_mm.add_theme_font_size_override("font_size", 22)
 	var mm_sb := StyleBoxFlat.new()
-	mm_sb.bg_color = Color(0.14, 0.14, 0.16, 1)
-	mm_sb.set_corner_radius_all(8)
+	mm_sb.bg_color = Color("F3F3F3")
+	mm_sb.set_corner_radius_all(10)
 	_mm.add_theme_stylebox_override("normal", mm_sb)
-	mid.add_child(_mm)
-	row.add_child(mid)
-	var ok_b := Button.new()
-	ok_b.text = "OK"
-	ok_b.focus_mode = Control.FOCUS_NONE
-	ok_b.flat = true
-	ok_b.add_theme_font_override("font", Studio.font)
-	ok_b.add_theme_color_override("font_color", Tokens.PAGE_OK)
-	ok_b.add_theme_color_override("font_hover_color", Tokens.PAGE_OK)
-	ok_b.pressed.connect(func(): _commit())
-	row.add_child(ok_b)
+	col.add_child(_mm)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for key in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "C"]:
+		grid.add_child(_key(key))
+	col.add_child(grid)
 
-	_tip_bubble()
+
+func _key(label: String) -> Button:
+	var b := Button.new()
+	b.text = label
+	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 44)
+	b.add_theme_font_override("font", Studio.font)
+	b.add_theme_font_size_override("font_size", 20)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("F2F2F2")
+	sb.set_corner_radius_all(10)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("pressed", sb)
+	b.pressed.connect(func(): _type_key(label))
+	return b
+
+
+func _type_key(label: String) -> void:
+	if label == "⌫":
+		if _mm.text.length() > 0:
+			_mm.text = _mm.text.substr(0, _mm.text.length() - 1)
+		return
+	if label == "C":
+		_mm.text = ""
+		return
+	if _mm.text.length() >= 6:
+		return
+	_mm.text += label
 
 
 func _build_reset() -> void:
@@ -163,8 +167,8 @@ func _build_reset() -> void:
 	reset.anchor_bottom = 0.5
 	reset.offset_left = -22
 	reset.offset_right = 22
-	reset.offset_top = 28
-	reset.offset_bottom = 72
+	reset.offset_top = 8
+	reset.offset_bottom = 52
 	add_child(reset)
 
 
@@ -378,6 +382,13 @@ func _draw_loupe_cross() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if _img == null:
 		return
+	var pos := Vector2.ZERO
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		pos = event.position
+	elif event is InputEventScreenTouch or event is InputEventScreenDrag:
+		pos = event.position
+	if pos.y > size.y - 328.0 or pos.y < 56.0:
+		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index != MOUSE_BUTTON_LEFT:
@@ -464,9 +475,11 @@ func _commit() -> void:
 	var px := _a.distance_to(_b)
 	var real_mm := _mm.text.strip_edges().to_float()
 	if px < 4.0 or real_mm < 10.0:
-		_hint.text = "Pull the handles apart and enter at least 10 mm."
+		_hint.text = "请拉开标注线并输入至少 10 mm"
 		return
 	var mm_per_px := real_mm / px
+	Session.last_scale_mm = real_mm
+	Session.last_scale_mm_per_px = mm_per_px
 	calibrated.emit(mm_per_px, px, real_mm)
 	_run_vision(mm_per_px)
 
@@ -483,4 +496,4 @@ func _run_vision(mm_per_px: float) -> void:
 			_snack.show_message(err)
 		if Session.has_core():
 			Session.import_photo_fake(uri if not uri.is_empty() else "fixture:photo")
-	FlowRouter.edit_2d(self)
+	FlowRouter.generate(self)
