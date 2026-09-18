@@ -27,8 +27,10 @@ var ruler_flags: Dictionary = {
 	"wall_len": true,
 	"room_area": true,
 	"opening": true,
-	"grid": true,
-	"dims_3d": false,
+	"grid": false,
+	"dims_3d": true,
+	"column": false,
+	"plumbing": false,
 }
 var opening_swing: Dictionary = {}
 var extrude_from_2d := false
