@@ -250,6 +250,12 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
 
 
+func _format_area_m2(area: float) -> String:
+	if area >= 10.0:
+		return "%d m²" % int(round(area))
+	return "%.1f m²" % area
+
+
 func _match_room_name(rooms: Array, centroid: Vector2, min_x: float, min_y: float, ox: float, oy: float, scale: float, used: Dictionary) -> String:
 	var best := ""
 	var best_d := 90.0
@@ -551,6 +557,8 @@ func _draw_drop_preview() -> void:
 	var length := float(drop_preview.get("length_mm", 1.0))
 	if length < 1.0:
 		return
+	draw_line(a, b, Tokens.PRIMARY_SOFT, 18.0)
+	draw_line(a, b, Color(Tokens.PRIMARY.r, Tokens.PRIMARY.g, Tokens.PRIMARY.b, 0.55), 8.0)
 	var t0 := float(drop_preview.get("offset_mm", 0)) / length
 	var t1 := (float(drop_preview.get("offset_mm", 0)) + float(drop_preview.get("width_mm", 900))) / length
 	var qa: Vector2 = a.lerp(b, clampf(t0, 0.0, 1.0))

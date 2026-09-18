@@ -25,6 +25,8 @@ var _readout: Label
 var _readout_bar: Control
 var _ctx: HBoxContainer
 var _fab: Button
+var _snap_wall := ""
+const Haptics := preload("res://app/ui/haptics.gd")
 
 
 func _ready() -> void:
@@ -465,18 +467,28 @@ func _make_library() -> Control:
 
 func _on_library_preview(kind: String, global_pos: Vector2) -> void:
 	var local: Vector2 = _canvas.to_canvas(global_pos)
-	_canvas.set_drop_preview(kind, local)
+	var hit: Dictionary = _canvas.set_drop_preview(kind, local)
+	var wid := str(hit.get("id", ""))
+	if wid.is_empty():
+		_snap_wall = ""
+		return
+	if wid != _snap_wall:
+		_snap_wall = wid
+		Haptics.snap()
 
 
 func _on_library_drop(kind: String, global_pos: Vector2) -> void:
 	_canvas.clear_drop_preview()
 	var local: Vector2 = _canvas.to_canvas(global_pos)
 	var hit: Dictionary = _canvas.snap_opening(local, kind)
+	_snap_wall = ""
 	if hit.is_empty() or str(hit.get("id", "")).is_empty():
+		Haptics.warn()
 		_snack.show_message("拖到墙上再松手。", "error")
 		return
 	Session.add_opening(kind, str(hit.get("id", "")), float(hit.get("offset_mm", 0)))
 	_canvas.selected_id = str(hit.get("id", ""))
+	Haptics.drop()
 	_refresh()
 
 
