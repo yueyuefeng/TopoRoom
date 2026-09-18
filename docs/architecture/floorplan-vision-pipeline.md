@@ -15,6 +15,7 @@ and `FloorPlanDocument` commands write the 方案.
 | 2026-09-17 | P0 = `FloorPlanRasterAnalyzer` geometric heuristics; **no OCR** | ADR-003. Decode with `stb_image`. No OpenCV, Tesseract, PaddleOCR, cloud API. FakeVision kept only for `fixture:photo`. |
 | 2026-09-17 | Golden fixture `apt-plan-user-01.png` | User CAD-like apartment plan. Scale = 200 mm shear-bar thickness. Room-name / mm-string OCR deferred P1. |
 | 2026-09-17 | Real gallery/camera files → raster C API | `Session.import_photo_vision` → `toporoom_vision_import_image`. Tiny Fake path unchanged. |
+| 2026-09-17 | Closed envelope + window subtypes | Merge collinear (T-junctions block room-scale joins), snap corners, split T-nodes for the graph, close outer/bbox degree-1 gaps. Additive SceneIR `opening.subtype`: `bay` (飘窗) / `floorCeiling` (落地窗). Golden: enclosed 3D (flood-fill interior ≥ 2 m²), ≥1 bay, ≥1 floor-ceiling. |
 
 ## Stages
 
@@ -35,10 +36,19 @@ and `FloorPlanDocument` commands write the 方案.
    interior gaps up to a double-leaf width. `OpeningKind::Door` on the nearest
    host wall. Quarter-circle swing arcs are **not** fully vectorized (P1).
 7. **Windows** — gray bars on the outer bbox, and wider exterior gaps.
-   `OpeningKind::Window` (sill 900 mm / height 1400 mm).
-8. **Rooms / OCR** — 主卧/客餐厅 labels are **not** OCR’d in P0. Flood-fill
-   room close is optional later.
-9. **Emit** — `add_wall` / `add_opening` → SceneIR 0.2 → Manifold rebuild →
+   `OpeningKind::Window` with additive `WindowSubtype`:
+   - **bay / 飘窗** — U-pocket (parallel walls + connector; short stub is the
+     extrusion), typically sill 400 mm
+   - **floorCeiling / 落地窗** — width ≥ 1500 mm or sill≈0 and height≈storey
+   - **standard** — sill 900 mm / height 1400 mm
+8. **Envelope close** — `merge_collinear_segments` (do not join across a
+   T-junction), `snap_endpoints`, `split_at_nodes`, `close_exterior_loop`
+   (extend to hits, outer-cycle fills, bbox degree-1 L-fills). Prefer fewer
+   long host walls; openings sit on them. Enclosure is tested by a flood-fill
+   of the wall raster (interior pocket ≥ 2 m²).
+9. **Rooms / OCR** — 主卧/客餐厅 labels are **not** OCR’d in P0. Flood-fill
+   room labels remain P1.
+10. **Emit** — `add_wall` / `add_opening` → SceneIR 0.2 → Manifold rebuild →
    Godot 2D canvas and 3D extrusions.
 
 ## Golden fixture
@@ -67,22 +77,29 @@ Regression floor: `--gtest_filter='FloorPlanRaster*'`
 (`core/tests/floor_plan_raster_vision_test.cpp`) reading
 `core/fixtures/vision/apt-plan-user-01.expected.json`.
 
-| Metric | Test floor (`expected.json`) | Golden SceneIR file |
-|--------|------------------------------|---------------------|
-| Shear walls | ≥ 12 | 22 |
-| Masonry walls | ≥ 8 | 20 |
-| Doors | ≥ 3 | 6 |
-| Windows | ≥ 3 | 7 |
-| Columns | ≥ 2 | in shear set |
-| Walls applied | ≥ 18 | 42 |
-| Openings applied | ≥ 4 | 13 |
-| mm/px | 12–28 | 200 mm / median black bar |
-| Plan bbox | width 7000–20000 mm, not Fake 4000 | ≈ 9600 × 8663 mm |
-| Rebuild | StatusGate `ok` | `ok` |
+| Metric | Test floor (`expected.json`) | This iteration (raster apply) | Prior SceneIR file |
+|--------|------------------------------|-------------------------------|---------------------|
+| Shear walls | ≥ 12 | 22 | 22 |
+| Masonry walls | ≥ 8 | 14 | 20 |
+| Doors | ≥ 3 | 6 | 6 |
+| Windows | ≥ 3 | 9 | 7 |
+| Bay / 飘窗 | ≥ 1 | 3 detected / 3 in SceneIR | (unspecified) |
+| Floor-ceiling / 落地窗 | ≥ 1 | 2 detected / ≥1 in SceneIR | (unspecified) |
+| Columns | ≥ 2 | in shear set | in shear set |
+| Walls applied | ≥ 18 | 36 | 42 |
+| Openings applied | ≥ 4 | 15 | 13 |
+| Exterior gap | ≤ 150 mm (flood interior ≥ 2 m²) | 0 (closed) | open envelope |
+| mm/px | 12–28 | 200 mm / median black bar | 200 mm / median black bar |
+| Plan bbox | width 7000–20000 mm, not Fake 4000 | ≈ 9600 × 8663 mm | ≈ 9600 × 8663 mm |
+| Rebuild | StatusGate `ok` | `ok` | `ok` |
 
 Tests: `FixtureLoadsPng`, `GoldenApartmentHasShearMasonryDoorsWindows`,
 `ApplyAndSceneIrRoundTripRebuildOk`, `GoldenSceneIrFileRoundTrip`,
-`AdapterRejectsMissingFile`, `MissingPathCApiFails`.
+`AdapterRejectsMissingFile`, `MissingPathCApiFails`,
+`GoldenExteriorIsClosedLoop`, `GoldenHasBayAndFloorCeilingWindows`,
+plus `RasterGeom.*` (`MergeCollinearJoinsFragments`, `SnapEndpointsJoinsCornerGap`,
+`CloseExteriorLoopFillsDegreeOneGap`, `CloseExteriorLoopFillsLCorner`,
+`SplitAtNodesMakesTeeNotAGap`, `ClassifyWindowSubtypeBayAndFloorCeiling`).
 
 ## How to run
 

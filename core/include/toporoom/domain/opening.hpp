@@ -17,6 +17,7 @@ struct OpeningProps {
   LengthMm height = LengthMm::zero();
   LengthMm offset_along_wall = LengthMm::zero();
   LengthMm sill_height = LengthMm::zero();
+  WindowSubtype subtype = WindowSubtype::Unspecified;
 };
 
 class Opening {
@@ -29,6 +30,7 @@ class Opening {
   LengthMm height() const noexcept { return height_; }
   LengthMm offset_along_wall() const noexcept { return offset_along_wall_; }
   LengthMm sill_height() const noexcept { return sill_height_; }
+  WindowSubtype subtype() const noexcept { return subtype_; }
 
   Opening with_width(LengthMm width) const;
   Opening with_kind(OpeningKind kind) const;
@@ -46,6 +48,7 @@ class Opening {
   LengthMm height_;
   LengthMm offset_along_wall_;
   LengthMm sill_height_;
+  WindowSubtype subtype_ = WindowSubtype::Unspecified;
 };
 
 }  // namespace toporoom::domain

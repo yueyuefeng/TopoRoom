@@ -68,6 +68,10 @@ domain::SceneIROpening parse_opening(const nlohmann::json& j) {
   o.height_mm = j.at("heightMm").get<double>();
   o.offset_mm = j.at("offsetMm").get<double>();
   o.sill_height_mm = j.at("sillHeightMm").get<double>();
+  if (j.contains("subtype") && j["subtype"].is_string()) {
+    const auto sub = domain::window_subtype_from_string(j["subtype"].get<std::string>());
+    if (sub) o.subtype = *sub;
+  }
   return o;
 }
 
@@ -236,12 +240,16 @@ std::string scene_ir_to_json(const domain::SceneIR& scene) {
     for (const auto& wall : storey.walls) {
       nlohmann::json openings = nlohmann::json::array();
       for (const auto& opening : wall.openings) {
-        openings.push_back({{"id", opening.id},
-                            {"kind", domain::to_string(opening.kind)},
-                            {"widthMm", opening.width_mm},
-                            {"heightMm", opening.height_mm},
-                            {"offsetMm", opening.offset_mm},
-                            {"sillHeightMm", opening.sill_height_mm}});
+        nlohmann::json oj = {{"id", opening.id},
+                             {"kind", domain::to_string(opening.kind)},
+                             {"widthMm", opening.width_mm},
+                             {"heightMm", opening.height_mm},
+                             {"offsetMm", opening.offset_mm},
+                             {"sillHeightMm", opening.sill_height_mm}};
+        if (opening.subtype != domain::WindowSubtype::Unspecified) {
+          oj["subtype"] = domain::to_string(opening.subtype);
+        }
+        openings.push_back(std::move(oj));
       }
       walls.push_back({{"id", wall.id},
                        {"kind", domain::to_string(wall.kind)},

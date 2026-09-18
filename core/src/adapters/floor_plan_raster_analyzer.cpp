@@ -1,3 +1,4 @@
+#include "toporoom/adapters/floor_plan_raster_geom.hpp"
 #include "toporoom/adapters/floor_plan_vision_adapters.hpp"
 
 #include <algorithm>
@@ -429,35 +430,32 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
   auto mm_x = [&](double pxv) { return (pxv - origin_x) * mm_per_px; };
   auto mm_y = [&](double pyv) { return (origin_y - pyv) * mm_per_px; };
 
-  auto emit_wall = [&](const Bar& b, domain::WallKind kind, const std::string& id) {
-    ports::DetectedWall wall;
-    wall.id = id;
-    wall.height_mm = options.wall_height_mm;
-    wall.kind = kind;
-    wall.thickness_mm = std::max(80.0, static_cast<double>(b.thickness) * mm_per_px);
+  std::vector<RasterSeg> pending;
+  auto emit_seg = [&](const Bar& b, domain::WallKind kind) {
+    RasterSeg s;
+    s.kind = kind;
+    s.thickness_mm = std::max(80.0, static_cast<double>(b.thickness) * mm_per_px);
     if (kind == domain::WallKind::ShearWall) {
-      wall.thickness_mm = std::max(wall.thickness_mm, options.structural_thickness_mm * 0.8);
+      s.thickness_mm = std::max(s.thickness_mm, options.structural_thickness_mm * 0.8);
     }
     if (b.ori == 'H') {
       const double y = mm_y(0.5 * (b.y0 + b.y1));
-      wall.start_x = mm_x(b.x0);
-      wall.end_x = mm_x(b.x1);
-      wall.start_y = y;
-      wall.end_y = y;
+      s.x0 = mm_x(b.x0);
+      s.x1 = mm_x(b.x1);
+      s.y0 = s.y1 = y;
     } else {
       const double x = mm_x(0.5 * (b.x0 + b.x1));
-      wall.start_x = x;
-      wall.end_x = x;
-      wall.start_y = mm_y(b.y1);
-      wall.end_y = mm_y(b.y0);
+      s.x0 = s.x1 = x;
+      s.y0 = mm_y(b.y1);
+      s.y1 = mm_y(b.y0);
     }
-    if (std::hypot(wall.end_x - wall.start_x, wall.end_y - wall.start_y) < 40.0) return;
-    out.walls.push_back(std::move(wall));
+    if (std::hypot(s.x1 - s.x0, s.y1 - s.y0) < 40.0) return;
+    pending.push_back(s);
   };
 
   int si = 0;
   for (const Bar& b : shear_bars) {
-    emit_wall(b, domain::WallKind::ShearWall, make_id("wall_s", si++));
+    emit_seg(b, domain::WallKind::ShearWall);
     const int short_side = std::min(b.length, b.thickness);
     const int long_side = std::max(b.length, b.thickness);
     if (long_side <= short_side * 2 + 4 && short_side >= 10) {
@@ -472,7 +470,23 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
   }
   int mi = 0;
   for (const Bar& b : masonry_bars) {
-    emit_wall(b, domain::WallKind::Masonry, make_id("wall_m", mi++));
+    emit_seg(b, domain::WallKind::Masonry);
+  }
+
+  pending = merge_collinear_segments(pending, 120.0, 2800.0);
+  pending = snap_endpoints(pending, 120.0);
+  pending = close_exterior_loop(pending, 120.0, 3600.0);
+  pending = merge_collinear_segments(pending, 120.0, 2800.0);
+  pending = snap_endpoints(pending, 120.0);
+  const auto bays = detect_bay_bumps(pending);
+  si = 0;
+  mi = 0;
+  for (auto& s : pending) {
+    if (s.kind == domain::WallKind::ShearWall) s.id = make_id("wall_s", si++);
+    else s.id = make_id("wall_m", mi++);
+    auto wall = seg_to_detected_wall(s);
+    wall.height_mm = options.wall_height_mm;
+    out.walls.push_back(std::move(wall));
   }
 
   auto emit_opening_from_bar = [&](const Bar& b, domain::OpeningKind kind, const std::string& id) {
@@ -496,8 +510,25 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
       op.sill_mm = 0;
     } else {
       op.width_mm = std::max(600.0, std::min(3200.0, op.width_mm));
-      op.height_mm = options.window_height_mm;
-      op.sill_mm = options.window_sill_mm;
+      bool on_bay = false;
+      for (const auto& bump : bays) {
+        if (point_on_bay(bump, op.center_x, op.center_y, 280.0)) {
+          on_bay = true;
+          break;
+        }
+      }
+      if (on_bay) {
+        op.height_mm = std::max(options.window_height_mm, options.wall_height_mm * 0.72);
+        op.sill_mm = 400.0;
+      } else if (op.width_mm >= 1500.0) {
+        op.sill_mm = 0;
+        op.height_mm = std::max(2300.0, options.wall_height_mm - 80.0);
+      } else {
+        op.height_mm = options.window_height_mm;
+        op.sill_mm = options.window_sill_mm;
+      }
+      op.subtype =
+          classify_window_subtype(op.sill_mm, op.height_mm, options.wall_height_mm, on_bay);
     }
     out.openings.push_back(std::move(op));
   };
@@ -529,7 +560,6 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
   const double door_min = 550.0;
   const double door_max = 1900.0;
   const double win_gap_min = 700.0;
-  const double win_gap_max = 2800.0;
   for (char ori : {'H', 'V'}) {
     std::vector<Centerline> group;
     for (const Centerline& c : lines) {
@@ -567,12 +597,91 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
           hole.length = hole.y1 - hole.y0;
           hole.thickness = 2;
         }
-        if (exterior && gap_mm >= win_gap_min && gap_mm <= win_gap_max) {
+        if (exterior && gap_mm >= win_gap_min && gap_mm <= 4200.0) {
           emit_opening_from_bar(hole, domain::OpeningKind::Window, make_id("op_w", wi++));
         } else if (!exterior && gap_mm >= door_min && gap_mm <= door_max) {
           emit_opening_from_bar(hole, domain::OpeningKind::Door, make_id("op_d", di++));
         }
         break;
+      }
+    }
+  }
+
+  auto rebuild_walls = [&]() {
+    si = 0;
+    mi = 0;
+    out.walls.clear();
+    for (auto& s : pending) {
+      if (s.kind == domain::WallKind::ShearWall) s.id = make_id("wall_s", si++);
+      else s.id = make_id("wall_m", mi++);
+      auto wall = seg_to_detected_wall(s);
+      wall.height_mm = options.wall_height_mm;
+      out.walls.push_back(std::move(wall));
+    }
+  };
+
+  bool need_hosts = false;
+  for (const auto& op : out.openings) {
+    double best = 1e18;
+    for (const auto& w : out.walls) {
+      double t = 0;
+      best = std::min(best, dist_point_seg(op.center_x, op.center_y, w.start_x, w.start_y, w.end_x,
+                                           w.end_y, &t));
+    }
+    if (best <= 420.0) continue;
+    need_hosts = true;
+    RasterSeg host;
+    host.kind = op.kind == domain::OpeningKind::Window ? domain::WallKind::Masonry
+                                                       : domain::WallKind::ShearWall;
+    host.thickness_mm = op.kind == domain::OpeningKind::Window ? 120.0 : 200.0;
+    double ax = op.along_x;
+    double ay = op.along_y;
+    const double alen = std::hypot(ax, ay);
+    if (alen < 1e-6) {
+      ax = 1;
+      ay = 0;
+    } else {
+      ax /= alen;
+      ay /= alen;
+    }
+    const double half = 0.5 * std::max(op.width_mm, 800.0) + 80.0;
+    host.x0 = op.center_x - ax * half;
+    host.y0 = op.center_y - ay * half;
+    host.x1 = op.center_x + ax * half;
+    host.y1 = op.center_y + ay * half;
+    host = extend_segment_to_hits(host, pending, 3600.0, 120.0);
+    pending.push_back(host);
+  }
+  if (need_hosts) {
+    pending = merge_collinear_segments(pending, 120.0, 2800.0);
+    pending = snap_endpoints(pending, 120.0);
+    pending = close_exterior_loop(pending, 120.0, 3600.0);
+    pending = merge_collinear_segments(pending, 120.0, 2800.0);
+    pending = snap_endpoints(pending, 120.0);
+    rebuild_walls();
+  }
+
+  double core_minx = 1e18, core_miny = 1e18, core_maxx = -1e18, core_maxy = -1e18;
+  int longs = 0;
+  for (const auto& w : out.walls) {
+    const double len = std::hypot(w.end_x - w.start_x, w.end_y - w.start_y);
+    if (len < 2200.0) continue;
+    ++longs;
+    core_minx = std::min({core_minx, w.start_x, w.end_x});
+    core_miny = std::min({core_miny, w.start_y, w.end_y});
+    core_maxx = std::max({core_maxx, w.start_x, w.end_x});
+    core_maxy = std::max({core_maxy, w.start_y, w.end_y});
+  }
+  if (longs >= 2) {
+    for (auto& op : out.openings) {
+      if (op.kind != domain::OpeningKind::Window) continue;
+      if (op.subtype == domain::WindowSubtype::Bay) continue;
+      const bool outside = op.center_x < core_minx - 120 || op.center_x > core_maxx + 120 ||
+                           op.center_y < core_miny - 120 || op.center_y > core_maxy + 120;
+      if (!outside) continue;
+      op.subtype = domain::WindowSubtype::Bay;
+      if (op.sill_mm > 80 && op.height_mm < options.wall_height_mm * 0.8) {
+        op.sill_mm = 400;
       }
     }
   }
@@ -772,6 +881,7 @@ int apply_vision_result(domain::FloorPlanDocument& doc, const ports::VisionResul
     props.height = domain::LengthMm::of(height);
     props.offset_along_wall = domain::LengthMm::of(offset);
     props.sill_height = domain::LengthMm::of(sill);
+    props.subtype = op.subtype;
     try {
       doc.add_opening(std::move(props));
       host.occupied.emplace_back(offset, offset + width);

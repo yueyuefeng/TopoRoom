@@ -86,6 +86,7 @@ FloorPlanDocument FloorPlanDocument::from_scene_ir(const SceneIR& scene) {
         opening_props.height = LengthMm::of(opening_ir.height_mm);
         opening_props.offset_along_wall = LengthMm::of(opening_ir.offset_mm);
         opening_props.sill_height = LengthMm::of(opening_ir.sill_height_mm);
+        opening_props.subtype = opening_ir.subtype;
         wall_props.openings.push_back(Opening::create(std::move(opening_props)));
       }
       storey_props.walls.push_back(Wall::create(std::move(wall_props)));
@@ -366,6 +367,7 @@ Opening FloorPlanDocument::add_opening(AddOpeningProps props) {
   opening_props.height = props.height;
   opening_props.offset_along_wall = props.offset_along_wall;
   opening_props.sill_height = props.sill_height;
+  opening_props.subtype = props.subtype;
   Opening opening = Opening::create(std::move(opening_props));
   replace_storey(storey.host_opening(props.wall_id, opening));
   record(OpeningAdded{id_, props.storey_id, props.wall_id, opening.id(), opening.kind()});
@@ -571,6 +573,7 @@ SceneIR FloorPlanDocument::to_scene_ir() const {
         opening_ir.height_mm = opening.height().value();
         opening_ir.offset_mm = opening.offset_along_wall().value();
         opening_ir.sill_height_mm = opening.sill_height().value();
+        opening_ir.subtype = opening.subtype();
         wall_ir.openings.push_back(std::move(opening_ir));
       }
       storey_ir.walls.push_back(std::move(wall_ir));

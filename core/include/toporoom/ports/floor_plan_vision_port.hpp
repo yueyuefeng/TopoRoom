@@ -22,6 +22,7 @@ struct DetectedWall {
 struct DetectedOpening {
   std::string id;
   domain::OpeningKind kind = domain::OpeningKind::Door;
+  domain::WindowSubtype subtype = domain::WindowSubtype::Unspecified;
   double center_x = 0;
   double center_y = 0;
   double width_mm = 900;

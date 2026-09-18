@@ -51,6 +51,7 @@ set(TOPOROOM_CORE_SOURCES
   src/adapters/p1_stubs.cpp
   src/adapters/floor_plan_vision_adapters.cpp
   src/adapters/floor_plan_raster_analyzer.cpp
+  src/adapters/floor_plan_raster_geom.cpp
   src/adapters/stb_image_impl.cpp
   src/c_api/toporoom_c_api.cpp
 )
@@ -167,6 +168,7 @@ if(TOPOROOM_BUILD_TESTS)
     tests/editing_workflows_test.cpp
     tests/wall_demolish_vision_test.cpp
     tests/floor_plan_raster_vision_test.cpp
+    tests/floor_plan_raster_geom_test.cpp
   )
 
   target_link_libraries(toporoom_tests
