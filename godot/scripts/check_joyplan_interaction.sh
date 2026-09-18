@@ -81,6 +81,11 @@ has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "import_photo_vision"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_on_overlay_input"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "HANDLE_HIT"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_cover_rect"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_to_overlay_local"
+has "$root/godot/app/plan_canvas.gd" "_vision_registration"
+has "$root/godot/app/plan_canvas.gd" "origin_x_px"
+has "$root/godot/app/plan_canvas.gd" "_photo_ink_ratio"
+has "$root/godot/extension/src/toporoom_host.cpp" "origin_x_px"
 has "$root/godot/app/joyplan_flow/generate_space.gd" "2/2 生成空间"
 
 # S3 / S4

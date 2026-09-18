@@ -341,7 +341,6 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     const double sx = image.width > 0 ? static_cast<double>(source.width) / static_cast<double>(image.width) : 1.0;
     mm_per_px = std::max(0.5, options.mm_per_px_override * sx);
   }
-  out.mm_per_px = mm_per_px;
 
   // 阳台 / 飘窗 / 落地窗 grey sits outside the black shear bbox. Cropping to
   // bx1+8 dropped the entire glass perimeter (gold sample: +57px east, +34px
@@ -735,8 +734,12 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
     min_x = std::min(min_x, op.center_x);
     min_y = std::min(min_y, op.center_y);
   }
+  double shift_x = 0.0;
+  double shift_y = 0.0;
   if (std::isfinite(min_x) && std::isfinite(min_y) && (min_x != 0.0 || min_y != 0.0) &&
       min_x < 1e17) {
+    shift_x = min_x;
+    shift_y = min_y;
     for (auto& wall : out.walls) {
       wall.start_x -= min_x;
       wall.end_x -= min_x;
@@ -751,6 +754,18 @@ ports::VisionResult analyze_floor_plan_raster(const RasterImage& source,
       col.center_x -= min_x;
       col.center_y -= min_y;
     }
+  }
+  {
+    const double sx = image.width > 0
+                          ? static_cast<double>(source.width) / static_cast<double>(image.width)
+                          : 1.0;
+    // SceneIR (0,0) is the translated min-mm corner. Map that point back into
+    // SOURCE pixels so the 2/2 overlay sits on the photo (Y-up mm → Y-down px).
+    out.origin_x_px = (static_cast<double>(bx0) + shift_x / mm_per_px) * sx;
+    out.origin_y_px = (static_cast<double>(by1) - shift_y / mm_per_px) * sx;
+    out.image_width = source.width;
+    out.image_height = source.height;
+    out.mm_per_px = mm_per_px / std::max(sx, 1e-9);
   }
   out.ok = !out.walls.empty();
   if (!out.ok) out.error = "no walls from raster";

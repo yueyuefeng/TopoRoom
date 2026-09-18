@@ -57,6 +57,10 @@ struct VisionResult {
   double mm_per_px = 0;
   int shear_count = 0;
   int masonry_count = 0;
+  double origin_x_px = 0;
+  double origin_y_px = 0;
+  int image_width = 0;
+  int image_height = 0;
 };
 
 // Floor-plan photo → wall centerlines. Does not write SceneIR; the app applies

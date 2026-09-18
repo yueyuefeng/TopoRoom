@@ -97,9 +97,16 @@ func _ready() -> void:
 	await _shot(docs, out_dir, "05_scale_1of2.png")
 	scale.queue_free()
 
-	if Session.sceneir_json().find("wall_") < 0:
+	if Session.sceneir_json().find("wall_") < 0 or Session.last_vision.get("origin_x_px", null) == null:
 		if Session.has_core():
-			Session.import_photo_fake("fixture:photo")
+			var err := Session.import_photo_vision(gold, Session.last_scale_mm_per_px)
+			print("OK gold vision err='%s' origin=(%s,%s) mm/px=%s walls_at=%s" % [
+				err,
+				str(Session.last_vision.get("origin_x_px", "")),
+				str(Session.last_vision.get("origin_y_px", "")),
+				str(Session.last_vision.get("mm_per_px", Session.last_scale_mm_per_px)),
+				str(Session.sceneir_json().find("\"walls\"")),
+			])
 		else:
 			Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
 	print("OK sample→vision walls=%s" % Session.sceneir_json().find("\"walls\""))
@@ -108,6 +115,16 @@ func _ready() -> void:
 	add_child(gen)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
+	if gen._canvas:
+		print("OK 2/2 registration active=%s origin=%s mm=%s img=%s segs=%s" % [
+			str(gen._canvas._reg_active),
+			str(gen._canvas._reg_origin),
+			str(gen._canvas._reg_mm),
+			str(gen._canvas._reg_img),
+			str(gen._canvas._segments.size()),
+		])
+		if not gen._canvas._reg_active:
+			push_error("2/2 overlay not registered onto floorplan photo")
 	await _shot(docs, out_dir, "06_generate_2of2.png")
 	gen.queue_free()
 
