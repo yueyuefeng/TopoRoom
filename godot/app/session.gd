@@ -28,7 +28,7 @@ var ruler_flags: Dictionary = {
 	"room_area": true,
 	"opening": true,
 	"grid": false,
-	"dims_3d": true,
+	"dims_3d": false,
 	"column": false,
 	"plumbing": false,
 }

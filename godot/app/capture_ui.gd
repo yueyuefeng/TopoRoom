@@ -51,6 +51,7 @@ func _ready() -> void:
 	await _shot(out_dir.path_join("s4_library_sheet.png"))
 	edit2.queue_free()
 
+	Session.set_ruler("dims_3d", false)
 	var edit3: Node3D = preload("res://app/joyplan_flow/edit_3d.tscn").instantiate()
 	add_child(edit3)
 	await get_tree().process_frame
