@@ -6,6 +6,10 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 has() { grep -q -- "$2" "$1" || fail "$1 missing $2"; }
 
+has "$root/docs/architecture/joyplan-page-clone-spec.md" "悬浮 island"
+has "$root/docs/architecture/joyplan-page-clone-spec.md" "S2 — Scale Calibration"
+has "$root/docs/architecture/joyplan-page-clone-spec.md" "S3 — 2D Base Edit"
+has "$root/docs/architecture/joyplan-page-clone-spec.md" "S5 — 3D Walkthrough"
 has "$root/docs/architecture/joyplan-interaction-spec.md" "证据来源"
 has "$root/docs/architecture/joyplan-interaction-spec.md" "手势与反馈表"
 has "$root/docs/architecture/joyplan-interaction-spec.md" "状态机"

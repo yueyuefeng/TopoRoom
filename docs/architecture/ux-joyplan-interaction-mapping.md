@@ -11,9 +11,11 @@ door/window → FAB 2D↔3D** onto TopoRoom. Godot never owns millimetres:
 every structural write goes `Control/gizmo → Session → TopoRoomHost → C API
 → FloorPlanDocument / SceneIR`.
 
-Canonical interaction spec (V1 + P1 PRD + W1 learning, Chinese):
+Canonical **page clone** (video S1–S8 islands, no FAB / edge bars):
+[joyplan-page-clone-spec.md](./joyplan-page-clone-spec.md). Feature inventory
+(V1 + P1 PRD + W1 learning, Chinese):
 [joyplan-interaction-spec.md](./joyplan-interaction-spec.md). Godot file
-mapping below is the host implementation notes; do not paraphrase the spec.
+mapping below is the host implementation notes; chrome must follow the page-clone spec.
 
 ## Sequence
 
