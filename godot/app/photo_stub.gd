@@ -394,6 +394,17 @@ func _run_example() -> void:
 
 func _enter_3d() -> void:
 	Session.screen = "photo"
+	Session.extrude_from_2d = true
+	if is_instance_valid(_canvas):
+		var tw := create_tween()
+		if tw:
+			tw.set_ease(Tween.EASE_IN)
+			tw.set_trans(Tween.TRANS_CUBIC)
+			tw.tween_property(_canvas, "modulate:a", 0.15, 0.18)
+			tw.tween_callback(func():
+				get_tree().change_scene_to_file("res://app/edit_3d.tscn")
+			)
+			return
 	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
 
 
@@ -663,7 +674,7 @@ func _ctx_btn(text: String, cb: Callable) -> void:
 func _rebuild_lwh() -> void:
 	if _lwh_row == null or not is_instance_valid(_lwh_row):
 		if _readout:
-			_readout.text = _lwh_text()
+			_readout.text = "点选墙或门窗，点 L/W/H 改尺寸"
 		return
 	for c in _lwh_row.get_children():
 		_lwh_row.remove_child(c)

@@ -34,6 +34,10 @@ var _pitch := -0.48
 var _distance := 11.0
 var _orbiting := false
 var _target := Vector3(2.0, 1.1, 1.5)
+const PITCH_EDIT := -0.48
+const DIST_EDIT := 11.0
+const PITCH_TOP := -1.22
+const DIST_TOP := 16.5
 
 var _snapshot: Dictionary = {}
 var _selected: Dictionary = {}
@@ -62,7 +66,22 @@ func _ready() -> void:
 	if Session.has_core():
 		Session.last_rebuild = Session.rebuild_probe()
 	_refresh_world(true)
-	_orbit()
+	if Session.extrude_from_2d:
+		Session.extrude_from_2d = false
+		_pitch = PITCH_TOP
+		_distance = DIST_TOP
+		_orbit()
+		var tw := create_tween()
+		if tw:
+			tw.set_ease(Tween.EASE_OUT)
+			tw.set_trans(Tween.TRANS_CUBIC)
+			tw.tween_method(_tween_extrude, 0.0, 1.0, 0.55)
+		else:
+			_pitch = PITCH_EDIT
+			_distance = DIST_EDIT
+			_orbit()
+	else:
+		_orbit()
 
 
 func _build_hud() -> void:
@@ -127,6 +146,12 @@ func _build_hud() -> void:
 	_dim_overlay.visible = false
 	_dim_overlay.draw.connect(_draw_dim_overlay)
 	hud.layer.add_child(_dim_overlay)
+
+
+func _tween_extrude(t: float) -> void:
+	_pitch = lerpf(PITCH_TOP, PITCH_EDIT, t)
+	_distance = lerpf(DIST_TOP, DIST_EDIT, t)
+	_orbit()
 
 
 func _toggle_dims() -> void:
