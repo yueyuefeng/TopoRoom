@@ -42,7 +42,7 @@ func _ready() -> void:
 	top.add_theme_constant_override("margin_top", Tokens.S2)
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(Studio.ghost("跳过", func(): skipped.emit()))
-	var title := Studio.section("标定比例")
+	var title := Studio.section("比例设置")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(title)
@@ -70,8 +70,8 @@ func _ready() -> void:
 	col.add_child(Studio.caption("这条边的真实长度"))
 	var measure := Studio.hbox(Tokens.S1)
 	_mm = LineEdit.new()
-	_mm.placeholder_text = "例如 3000"
-	_mm.text = "3000"
+	_mm.placeholder_text = "例如 900"
+	_mm.text = "900"
 	_mm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mm.custom_minimum_size = Vector2(0, 48)
 	measure.add_child(_mm)

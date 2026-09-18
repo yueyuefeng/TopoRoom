@@ -14,6 +14,8 @@ has "$root/docs/architecture/joyplan-interaction-spec.md" "TikTok"
 
 has "$root/godot/app/scale_calibrate.gd" "_draw_loupe_cross"
 has "$root/godot/app/scale_calibrate.gd" "LOUPE_ZOOM"
+has "$root/godot/app/scale_calibrate.gd" "比例设置"
+has "$root/godot/app/scale_calibrate.gd" "\"900\""
 has "$root/godot/app/plan_canvas.gd" "_format_area_m2"
 has "$root/godot/app/plan_canvas.gd" "m²"
 has "$root/godot/app/opening_library.gd" "收藏"
