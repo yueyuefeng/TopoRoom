@@ -700,7 +700,7 @@ func _sync_fab() -> void:
 	var overlay_up := _confirm != null and is_instance_valid(_confirm) and _confirm.visible
 	_fab.visible = (_mode == "review" or _mode == "demolish") and not overlay_up
 	if overlay_up:
-		move_child(_confirm, get_child_count() - 1)
+		move_child.call_deferred(_confirm, get_child_count() - 1)
 		return
 	_fab_place_tries = 0
 	call_deferred("_place_fab")
