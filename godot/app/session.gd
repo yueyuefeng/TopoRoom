@@ -315,10 +315,12 @@ func set_wall_kind(wall_id: String, kind: String) -> String:
 func demolish_wall(wall_id: String, force: bool = false) -> String:
 	if host == null:
 		return _fail("no core")
+	var kind := str(find_wall(wall_id).get("kind", ""))
 	var d: Dictionary = host.demolish_wall(host.first_storey_id(), wall_id, force)
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "demolish_wall")))
-	return _after_structural_edit("拆除墙 %s" % wall_id)
+	var msg := "已拆除承重墙" if force or kind == "shearWall" else "已拆除隔墙"
+	return _after_structural_edit(msg)
 
 
 func split_wall(wall_id: String, offset_mm: float) -> String:

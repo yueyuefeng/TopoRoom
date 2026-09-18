@@ -337,7 +337,7 @@ func _show_review() -> void:
 func _show_demolish() -> void:
 	_mode = "demolish"
 	_phase.text = "拆改"
-	_hint.text = "点选墙段。隔墙可直接拆；承重墙会再问一次。"
+	_hint.text = "隔墙点选后直接拆。承重墙会弹出确认，避免误拆。"
 	_preview.visible = false
 	_preview.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_canvas.interactive = true
@@ -572,7 +572,7 @@ func _with_force(fn: Callable) -> void:
 		_snack.show_message("先点选一道墙。", "error")
 		return
 	if _needs_confirm(id):
-		_confirm_label.text = "「%s」是承重墙。拆除或打断会改写方案，确认吗？" % id
+		_confirm_label.text = "这面墙标成了承重墙。拆除会改写方案，需要你再点一次确认。"
 		_pending = fn
 		_confirm.visible = true
 		return
