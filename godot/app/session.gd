@@ -451,7 +451,8 @@ func import_photo_vision(image_uri: String, mm_per_px: float = 0.0) -> String:
 	guide_mark_host_ok(true)
 	var d: Dictionary = host.import_vision_image(stored, mm_per_px)
 	if not d.get("ok", false):
-		return _fail(str(d.get("error", "vision")))
+		_log("vision failed (%s) — falling back to fixture walls so 2D still opens" % str(d.get("error", "vision")))
+		return import_photo_fake(stored)
 	last_vision = d
 	host.guide_note_wall()
 	if int(d.get("opening_count", 0)) > 0:

@@ -18,7 +18,9 @@ lacks "$root/godot/app/main.gd" "attach_hud"
 # Island chrome language
 has "$root/godot/app/joyplan_flow/islands.gd" "class_name FlowIslands"
 has "$root/godot/app/joyplan_flow/islands.gd" "shadow_size"
-has "$root/godot/app/joyplan_flow/islands.gd" "view_toggle"
+has "$root/godot/app/joyplan_flow/islands.gd" "mode_capsule"
+has "$root/godot/app/joyplan_flow/islands.gd" "green_fab"
+has "$root/godot/app/joyplan_flow/islands.gd" "plus_fab"
 has "$root/godot/app/joyplan_flow/islands.gd" "bottom_2d_dock"
 has "$root/godot/app/joyplan_flow/islands.gd" "green_back_2d"
 has "$root/godot/app/joyplan_flow/islands.gd" "right_circles"
@@ -32,26 +34,29 @@ has "$root/godot/app/joyplan_flow/router.gd" "EDIT_2D"
 has "$root/godot/app/joyplan_flow/router.gd" "EDIT_3D"
 has "$root/godot/app/joyplan_flow/router.gd" "ELEVATION"
 
-# S1
-has "$root/godot/app/joyplan_flow/home.gd" "拍户型"
-has "$root/godot/app/joyplan_flow/home.gd" "相册"
-has "$root/godot/app/joyplan_flow/home.gd" "capture_photo"
+# S1 — system picker, no dual-card home
 has "$root/godot/app/joyplan_flow/home.gd" "pick_gallery"
+has "$root/godot/app/joyplan_flow/home.gd" "选择户型图"
+lacks "$root/godot/app/joyplan_flow/home.gd" "拍户型"
+lacks "$root/godot/app/joyplan_flow/home.gd" "_island_cta"
 
 # S2
-has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "比例设置"
-has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "调整户型"
-has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "退出"
-has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "确定"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "Scale setting"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "Adjust floor plan"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "Exit"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" '"OK"'
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "Place the scale on a known measurement"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" '"900"'
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "LOUPE_ZOOM"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_draw_loupe_cross"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "import_photo_vision"
 
 # S3 / S4
-has "$root/godot/app/joyplan_flow/edit_2d.gd" "view_toggle"
-has "$root/godot/app/joyplan_flow/edit_2d.gd" "bottom_2d_dock"
+has "$root/godot/app/joyplan_flow/edit_2d.gd" "mode_capsule"
+has "$root/godot/app/joyplan_flow/edit_2d.gd" "green_fab"
 has "$root/godot/app/joyplan_flow/edit_2d.gd" "ctx_pill"
+has "$root/godot/app/joyplan_flow/islands.gd" "mode_capsule"
+has "$root/godot/app/plan_canvas.gd" "PAGE_SELECT"
 has "$root/godot/app/joyplan_flow/edit_2d.gd" "翻转"
 has "$root/godot/app/joyplan_flow/edit_2d.gd" "复制"
 has "$root/godot/app/joyplan_flow/edit_2d.gd" "删除"
@@ -67,9 +72,9 @@ has "$root/godot/app/plan_canvas.gd" "m²"
 has "$root/godot/app/plan_canvas.gd" "joyplan_look"
 
 # S5–S7
+has "$root/godot/app/joyplan_flow/edit_3d.gd" "mode_capsule"
+has "$root/godot/app/joyplan_flow/edit_3d.gd" "plus_fab"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "right_circles"
-has "$root/godot/app/joyplan_flow/edit_3d.gd" "green_back_2d"
-has "$root/godot/app/joyplan_flow/edit_3d.gd" "undo_redo_pill"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "Session.move_shared_vertex"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "Session.update_opening_geom"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "_place_opening_at"

@@ -106,53 +106,43 @@ func _build_hud() -> void:
 
 	root.add_child(FlowIslands.top_bar(
 		func(): _go_2d(),
-		FlowIslands.view_toggle(false, func(): _go_2d(), func(): pass),
+		FlowIslands.mode_capsule(1, func(): _go_2d(), func(): pass, func(): _snack("Walk"), func(): _snack("Crop")),
 		func(): pass
 	))
 
 	_minimap = Minimap.new()
 	root.add_child(_minimap)
 
-	var readout := FlowIslands.readout_pill()
-	readout.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	readout.offset_left = 130
-	readout.offset_top = 72
-	readout.offset_right = 340
-	readout.offset_bottom = 112
-	_readout = Studio.label("L  —  W  —  H  —", Tokens.FONT_CHIP, Tokens.TEXT)
-	_readout.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed:
-			_edit_dim("l")
-	)
-	readout.add_child(_readout)
-	root.add_child(readout)
-
 	root.add_child(FlowIslands.right_circles([
+		["doc", "▢", func(): _snack("图层")],
 		["gear", "⚙", func(): _snack("设置")],
-		["eye", "👁", func(): _open_ruler()],
-		["box", "▢", func(): _toggle_library()],
-		["ruler", "📏", func(): _open_ruler()],
+		["mail", "✉", func(): _open_ruler()],
+		["cube", "▣", func(): _toggle_library()],
 		["pen", "✎", func(): FlowRouter.elevation(self)],
-		["curve", "~", func(): _snack("曲线")],
 	]))
 
-	root.add_child(FlowIslands.green_back_2d(func(): _go_2d()))
-	root.add_child(FlowIslands.undo_redo_pill(
-		func(): _snack("暂无撤销栈（C++ 命令尚未提供 undo）"),
-		func(): _snack("暂无重做栈（C++ 命令尚未提供 redo）")
-	))
-
+	root.add_child(FlowIslands.green_fab("▶", func(): pass))
+	root.add_child(FlowIslands.plus_fab(func(): _toggle_library()))
 	var sun := FlowIslands.circle_btn("☀", func():
 		if _lighting:
 			_lighting.apply_preset(Lighting.PRESET_WARM if _lighting.preset == Lighting.PRESET_DAY else Lighting.PRESET_DAY)
 	, 44)
 	sun.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	sun.anchor_top = 1.0
-	sun.offset_left = 78
-	sun.offset_top = -76
-	sun.offset_right = 122
-	sun.offset_bottom = -32
+	sun.offset_left = 84
+	sun.offset_top = -82
+	sun.offset_right = 128
+	sun.offset_bottom = -38
 	root.add_child(sun)
+	var lib_btn := FlowIslands.circle_btn("☰", func(): _toggle_library(), 44)
+	lib_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	lib_btn.anchor_left = 1.0
+	lib_btn.anchor_top = 1.0
+	lib_btn.offset_left = -72
+	lib_btn.offset_top = -82
+	lib_btn.offset_right = -28
+	lib_btn.offset_bottom = -38
+	root.add_child(lib_btn)
 
 	_numeric = NumericSheet.new()
 	root.add_child(_numeric)

@@ -97,14 +97,78 @@ static func _seg(glyph: String, on: bool, cb: Callable) -> Button:
 
 
 static func view_toggle(selected_2d: bool, on_2d: Callable, on_3d: Callable) -> PanelContainer:
+	return mode_capsule(0 if selected_2d else 1, on_2d, on_3d, Callable(), Callable())
+
+
+static func mode_capsule(selected: int, on_2d: Callable, on_3d: Callable, on_walk: Callable, on_crop: Callable) -> PanelContainer:
 	var wrap := PanelContainer.new()
 	wrap.add_theme_stylebox_override("panel", frost())
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
 	wrap.add_child(row)
-	row.add_child(_seg("▦", selected_2d, on_2d))
-	row.add_child(_seg("▣", not selected_2d, on_3d))
+	var glyphs := ["▦", "▣", "🚶", "⛶"]
+	var cbs: Array = [
+		on_2d if on_2d.is_valid() else Callable(),
+		on_3d if on_3d.is_valid() else Callable(),
+		on_walk if on_walk.is_valid() else Callable(),
+		on_crop if on_crop.is_valid() else Callable(),
+	]
+	for i in glyphs.size():
+		var cb: Callable = cbs[i]
+		row.add_child(_seg(glyphs[i], i == selected, cb if cb.is_valid() else func(): pass))
 	return wrap
+
+
+static func dark_readout() -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := frost(Color(0.12, 0.12, 0.14, 0.92), Tokens.R_PILL)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_STOP
+	return p
+
+
+static func green_fab(glyph: String, cb: Callable, d: float = 56.0) -> Button:
+	var b := circle_btn(glyph, cb, d, Tokens.PAGE_GREEN, Color.WHITE)
+	b.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	b.anchor_right = 0.0
+	b.anchor_top = 1.0
+	b.offset_left = 18
+	b.offset_top = -86
+	b.offset_right = 18 + d
+	b.offset_bottom = -30
+	return b
+
+
+static func plus_fab(cb: Callable) -> Button:
+	var b := circle_btn("+", cb, 52, Tokens.PAGE_GREEN, Color.WHITE)
+	b.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	b.anchor_left = 1.0
+	b.anchor_top = 1.0
+	b.offset_left = -72
+	b.offset_top = -236
+	b.offset_right = -20
+	b.offset_bottom = -184
+	return b
+
+
+static func tool_cluster(on_pan: Callable, on_layers: Callable) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 10)
+	col.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	col.anchor_left = 1.0
+	col.anchor_top = 1.0
+	col.offset_left = -68
+	col.offset_right = -16
+	col.offset_top = -168
+	col.offset_bottom = -56
+	col.add_child(circle_btn("✥", on_pan, 44))
+	col.add_child(circle_btn("☰", on_layers, 44))
+	return col
 
 
 static func top_bar(on_back: Callable, center: Control, on_floor: Callable) -> MarginContainer:
@@ -139,13 +203,13 @@ static func top_bar(on_back: Callable, center: Control, on_floor: Callable) -> M
 
 static func scale_title(on_info: Callable) -> PanelContainer:
 	var wrap := PanelContainer.new()
-	wrap.add_theme_stylebox_override("panel", frost())
+	wrap.add_theme_stylebox_override("panel", frost(Color(1, 1, 1, 0.18), Tokens.R_PILL))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	var lab := Studio.label("比例设置", Tokens.FONT_CHIP, Tokens.TEXT)
+	var lab := Studio.label("Scale setting", Tokens.FONT_CHIP, Color.WHITE)
 	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lab)
-	var info := circle_btn("i", on_info, 28, Tokens.SURFACE_MUTED, Tokens.TEXT_SECONDARY)
+	var info := circle_btn("i", on_info, 28, Color(1, 1, 1, 0.22), Color.WHITE)
 	info.custom_minimum_size = Vector2(28, 28)
 	row.add_child(info)
 	wrap.add_child(row)
@@ -200,13 +264,13 @@ static func green_back_2d(on_2d: Callable) -> Button:
 static func undo_redo_pill(on_undo: Callable, on_redo: Callable) -> PanelContainer:
 	var wrap := PanelContainer.new()
 	wrap.add_theme_stylebox_override("panel", frost())
-	wrap.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	wrap.anchor_left = 1.0
+	wrap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	wrap.anchor_left = 0.0
 	wrap.anchor_top = 1.0
-	wrap.offset_left = -132
-	wrap.offset_right = -16
-	wrap.offset_top = -72
-	wrap.offset_bottom = -20
+	wrap.offset_left = 84
+	wrap.offset_right = 212
+	wrap.offset_top = -80
+	wrap.offset_bottom = -28
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	row.add_child(circle_btn("↶", on_undo, 40, Color(0, 0, 0, 0)))

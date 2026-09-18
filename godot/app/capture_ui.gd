@@ -1,21 +1,14 @@
 extends Control
-## Headless screenshot helper for JoyPlan flow S1–S8. Not the product main scene.
+## Headless screenshot helper for JoyPlan 1:1 frames. Not the product main scene.
 
 
 func _ready() -> void:
 	var out_dir := "/opt/cursor/artifacts"
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_flow")
+	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_1to1")
 	DirAccess.make_dir_recursive_absolute(docs)
 	for step in ["review_walls", "place_3d"]:
 		Session.mark_coach(step)
-
-	var home: Control = preload("res://app/joyplan_flow/home.tscn").instantiate()
-	add_child(home)
-	await get_tree().process_frame
-	await get_tree().create_timer(0.25).timeout
-	await _shot(out_dir.path_join("s1_home.png"))
-	home.queue_free()
 
 	var gold := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
 	Session.last_import_path = gold
@@ -24,7 +17,7 @@ func _ready() -> void:
 	add_child(scale)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
-	await _shot(out_dir.path_join("s2_scale_calibration.png"))
+	await _shot(out_dir.path_join("s2_scale.png"))
 	if scale.has_method("_show_loupe") and scale._img:
 		scale._drag = 1
 		scale._show_loupe(scale._a)
@@ -49,7 +42,7 @@ func _ready() -> void:
 		edit2._refresh_readout()
 		edit2._place_ctx()
 	await get_tree().process_frame
-	await _shot(out_dir.path_join("s3_2d_base_edit.png"))
+	await _shot(out_dir.path_join("s3_2d.png"))
 	if edit2.has_method("show_library"):
 		edit2.show_library(true)
 	await get_tree().process_frame
@@ -61,7 +54,7 @@ func _ready() -> void:
 	add_child(edit3)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.4).timeout
-	await _shot(out_dir.path_join("s5_3d_walkthrough.png"))
+	await _shot(out_dir.path_join("s5_3d.png"))
 	if edit3._ruler and edit3._ruler.has_method("present"):
 		edit3._ruler.present()
 	await get_tree().process_frame
@@ -88,5 +81,6 @@ func _shot(path: String) -> void:
 	await get_tree().process_frame
 	var img: Image = get_viewport().get_texture().get_image()
 	img.save_png(path)
-	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_flow")
+	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_1to1")
+	DirAccess.make_dir_recursive_absolute(docs)
 	DirAccess.copy_absolute(path, docs.path_join(path.get_file()))

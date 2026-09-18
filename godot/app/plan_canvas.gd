@@ -132,8 +132,10 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 		"height_mm": float(w.get("heightMm", 2800)),
 	})
 	if selected_id == wid and selected_opening_id.is_empty():
-		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
-	draw_line(p0, p1, stroke, width)
+		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 12.0)
+		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 2.0)
+	else:
+		draw_line(p0, p1, stroke, width)
 	if Tokens.is_load_bearing_kind(kind) and not joyplan_look:
 		_draw_shear_hatch(p0, p1, width, stroke)
 	if not joyplan_look:
@@ -164,8 +166,8 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 			"a": qa, "b": qb, "width_mm": owidth, "height_mm": oheight,
 			"offset_mm": offset, "sill_mm": float(op.get("sillHeightMm", 0)),
 		})
-		if selected_opening_id == oid:
-			draw_line(qa, qb, Tokens.PRIMARY_SOFT, width + 8.0)
+	if selected_opening_id == oid:
+			draw_line(qa, qb, Tokens.PAGE_SELECT, width + 8.0)
 		draw_line(qa, qb, Tokens.PAPER, width + 2.0)
 		draw_line(qa, qb, color, width - 1.0)
 		var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()

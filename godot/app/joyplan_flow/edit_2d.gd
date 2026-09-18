@@ -33,17 +33,20 @@ func _ready() -> void:
 
 	add_child(FlowIslands.top_bar(
 		func(): FlowRouter.home(self),
-		FlowIslands.view_toggle(true, func(): pass, func(): _go_3d()),
+		FlowIslands.mode_capsule(0, func(): pass, func(): _go_3d(), func(): _toast("Walk"), func(): _toast("Crop")),
 		func(): pass
 	))
 
-	_readout_wrap = FlowIslands.readout_pill()
-	_readout_wrap.set_anchors_preset(PRESET_TOP_LEFT)
-	_readout_wrap.offset_left = 16
-	_readout_wrap.offset_top = 72
-	_readout_wrap.offset_right = 220
-	_readout_wrap.offset_bottom = 112
-	_readout = Studio.label("L  —    ∠  —", Tokens.FONT_CHIP, Tokens.TEXT)
+	_readout_wrap = FlowIslands.dark_readout()
+	_readout_wrap.set_anchors_preset(PRESET_CENTER_TOP)
+	_readout_wrap.anchor_left = 0.5
+	_readout_wrap.anchor_right = 0.5
+	_readout_wrap.offset_left = -90
+	_readout_wrap.offset_right = 90
+	_readout_wrap.offset_top = 64
+	_readout_wrap.offset_bottom = 102
+	_readout = Studio.label("L  —    ∠  —", Tokens.FONT_CHIP, Color.WHITE)
+	_readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_readout.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and ev.pressed:
 			_edit_dim("l")
@@ -51,11 +54,13 @@ func _ready() -> void:
 	_readout_wrap.add_child(_readout)
 	add_child(_readout_wrap)
 
-	add_child(FlowIslands.bottom_2d_dock(
-		func(): _go_3d(),
-		func(): _toggle_library(),
-		func(): Session.export_deliverables()
+	add_child(FlowIslands.green_fab("▶", func(): _go_3d()))
+	add_child(FlowIslands.undo_redo_pill(
+		func(): _toast("暂无撤销栈（C++ 命令尚未提供 undo）"),
+		func(): _toast("暂无重做栈（C++ 命令尚未提供 redo）")
 	))
+	add_child(FlowIslands.tool_cluster(func(): _toast("平移画布"), func(): _toggle_library()))
+	add_child(FlowIslands.plus_fab(func(): _toggle_library()))
 
 	var grab := Button.new()
 	grab.name = "LibraryGrab"
@@ -75,7 +80,7 @@ func _ready() -> void:
 	grab.add_theme_font_override("font", Studio.font)
 	grab.add_theme_font_size_override("font_size", 12)
 	grab.add_theme_color_override("font_color", Tokens.TEXT_SECONDARY)
-	grab.pressed.connect(_toggle_library)
+	grab.visible = false
 	add_child(grab)
 
 	_library = LibrarySheet.new()
@@ -107,6 +112,11 @@ func _refresh() -> void:
 		_canvas.set_sceneir_json(Session.sceneir_json())
 	_refresh_readout()
 	_place_ctx()
+
+
+func _toast(text: String) -> void:
+	if _snack and _snack.has_method("show_message"):
+		_snack.show_message(text)
 
 
 func _toggle_library() -> void:

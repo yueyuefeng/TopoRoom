@@ -4,7 +4,7 @@ extends Control
 signal calibrated(mm_per_px: float, pixel_len: float, real_mm: float)
 signal cancelled
 
-const TITLE := "比例设置"
+const TITLE := "Scale setting"
 const LOUPE_SRC := 36
 const LOUPE_DST := 120
 const LOUPE_ZOOM := 3.1
@@ -51,9 +51,17 @@ func _ready() -> void:
 
 	add_child(FlowIslands.top_bar(
 		func(): cancelled.emit(); FlowRouter.home(self),
-		FlowIslands.scale_title(func(): _hint.text = "把比例尺放到已知边上，再输入真实长度"),
+		FlowIslands.scale_title(func(): _hint.text = "Place the scale on a known measurement"),
 		func(): pass
 	))
+	# Hide back/1F to match the frame: title only.
+	var top := get_child(get_child_count() - 1)
+	if top is MarginContainer:
+		for c in top.get_children():
+			if c is HBoxContainer:
+				for b in c.get_children():
+					if b is Button:
+						b.visible = false
 
 	_build_sheet()
 	_build_loupe()
@@ -76,49 +84,86 @@ func _ready() -> void:
 
 
 func _build_sheet() -> void:
-	var sheet := PanelContainer.new()
-	sheet.add_theme_stylebox_override("panel", FlowIslands.dark_sheet_style())
-	sheet.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	sheet.anchor_top = 1.0
-	sheet.offset_top = -268
-	sheet.offset_bottom = 0
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	var title_row := HBoxContainer.new()
-	var title := Studio.label("调整户型", Tokens.FONT_SECTION, Color.WHITE)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-	title_row.add_child(Studio.label("⌃", Tokens.FONT_BODY, Tokens.PAGE_PINK))
-	col.add_child(title_row)
-	_hint = Studio.label("把比例尺放到已知边上", Tokens.FONT_CAPTION, Color(0.82, 0.82, 0.86))
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_hint)
-	col.add_child(Studio.label("请输入比例尺长度", Tokens.FONT_CAPTION, Color(0.70, 0.70, 0.74)))
+	var bar := ColorRect.new()
+	bar.color = Color(0.05, 0.05, 0.06, 0.96)
+	bar.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	bar.anchor_top = 1.0
+	bar.offset_top = -118
+	bar.offset_bottom = 0
+	bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(bar)
+	var pad := MarginContainer.new()
+	pad.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	bar.add_child(pad)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	pad.add_child(row)
+	var exit_b := Button.new()
+	exit_b.text = "Exit"
+	exit_b.focus_mode = Control.FOCUS_NONE
+	exit_b.flat = true
+	exit_b.add_theme_font_override("font", Studio.font)
+	exit_b.add_theme_color_override("font_color", Color.WHITE)
+	exit_b.pressed.connect(func(): cancelled.emit(); FlowRouter.home(self))
+	row.add_child(exit_b)
+	var mid := VBoxContainer.new()
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.add_theme_constant_override("separation", 2)
+	var adj := Studio.label("Adjust floor plan  ↑", Tokens.FONT_CAPTION, Color.WHITE)
+	adj.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(adj)
+	_hint = Studio.label("Please enter the length of the scale", Tokens.FONT_CAPTION, Color(0.85, 0.85, 0.88))
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(_hint)
 	_mm = LineEdit.new()
 	_mm.text = "900"
 	_mm.placeholder_text = "900"
-	_mm.custom_minimum_size = Vector2(0, 44)
+	_mm.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mm.custom_minimum_size = Vector2(0, 28)
 	_mm.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	_mm.add_theme_color_override("font_color", Color.WHITE)
 	_mm.add_theme_font_override("font", Studio.font)
+	_mm.add_theme_font_size_override("font_size", 14)
 	var mm_sb := StyleBoxFlat.new()
-	mm_sb.bg_color = Color(0.22, 0.22, 0.24, 1)
-	mm_sb.set_corner_radius_all(12)
-	mm_sb.content_margin_left = 12
-	mm_sb.content_margin_right = 12
+	mm_sb.bg_color = Color(0.14, 0.14, 0.16, 1)
+	mm_sb.set_corner_radius_all(8)
 	_mm.add_theme_stylebox_override("normal", mm_sb)
-	col.add_child(_mm)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 12)
-	var exit_b := FlowIslands.gray_btn("退出", func(): cancelled.emit(); FlowRouter.home(self))
-	exit_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var ok_b := FlowIslands.pink_btn("确定", func(): _commit())
-	ok_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(exit_b)
-	actions.add_child(ok_b)
-	col.add_child(actions)
-	sheet.add_child(col)
-	add_child(sheet)
+	mid.add_child(_mm)
+	row.add_child(mid)
+	var ok_b := Button.new()
+	ok_b.text = "OK"
+	ok_b.focus_mode = Control.FOCUS_NONE
+	ok_b.flat = true
+	ok_b.add_theme_font_override("font", Studio.font)
+	ok_b.add_theme_color_override("font_color", Tokens.PAGE_OK)
+	ok_b.add_theme_color_override("font_hover_color", Tokens.PAGE_OK)
+	ok_b.pressed.connect(func(): _commit())
+	row.add_child(ok_b)
+
+	_tip_bubble()
+
+
+func _tip_bubble() -> void:
+	var tip := PanelContainer.new()
+	var sb := FlowIslands.frost(Color(0.18, 0.48, 0.98, 1), 10)
+	sb.shadow_size = 8
+	tip.add_theme_stylebox_override("panel", sb)
+	var lab := Studio.label("Place the scale on a known measurement", Tokens.FONT_CAPTION, Color.WHITE)
+	lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lab.custom_minimum_size = Vector2(160, 0)
+	tip.add_child(lab)
+	tip.set_anchors_preset(PRESET_CENTER_BOTTOM)
+	tip.anchor_left = 0.5
+	tip.anchor_right = 0.5
+	tip.offset_left = -90
+	tip.offset_right = 90
+	tip.offset_top = -186
+	tip.offset_bottom = -132
+	add_child(tip)
 
 
 func _build_loupe() -> void:
@@ -232,6 +277,17 @@ func _draw_scale() -> void:
 	var pa := _img_to_ctrl(_a)
 	var pb := _img_to_ctrl(_b)
 	overlay.draw_line(pa, pb, Color(0.22, 0.55, 1.0, 1), 3.0)
+	var dir: Vector2 = pb - pa
+	var len := dir.length()
+	if len > 8.0:
+		var u: Vector2 = dir / len
+		var n := Vector2(-u.y, u.x)
+		var t := 10.0
+		while t < len - 10.0:
+			var p: Vector2 = pa + u * t
+			var tick := 7.0 if int(t / 10.0) % 4 == 0 else 4.0
+			overlay.draw_line(p - n * tick, p + n * tick, Color(0.22, 0.55, 1.0, 1), 2.0)
+			t += 10.0
 	_draw_handle_on(overlay, pa)
 	_draw_handle_on(overlay, pb)
 
@@ -363,7 +419,7 @@ func _commit() -> void:
 	var px := _a.distance_to(_b)
 	var real_mm := _mm.text.strip_edges().to_float()
 	if px < 4.0 or real_mm < 10.0:
-		_hint.text = "两点要拉开，并且长度至少 10 mm。"
+		_hint.text = "Pull the handles apart and enter at least 10 mm."
 		return
 	var mm_per_px := real_mm / px
 	calibrated.emit(mm_per_px, px, real_mm)

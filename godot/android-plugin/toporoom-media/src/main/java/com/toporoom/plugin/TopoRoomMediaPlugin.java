@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -137,7 +138,11 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             Intent intent;
             if (Build.VERSION.SDK_INT >= 33) {
                 intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+            } else if (Build.VERSION.SDK_INT >= 19) {
+                intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("image/*");
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } else {
                 intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -210,11 +215,19 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     }
 
     private void handleGalleryResult(@Nullable Intent data) {
-        if (data == null || data.getData() == null) {
+        if (data == null) {
             emitError("gallery returned no image");
             return;
         }
-        copyAndEmit(data.getData());
+        Uri uri = data.getData();
+        if (uri == null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+            uri = data.getClipData().getItemAt(0).getUri();
+        }
+        if (uri == null) {
+            emitError("gallery returned no image");
+            return;
+        }
+        copyAndEmit(uri);
     }
 
     private void copyAndEmit(@NonNull Uri uri) {
@@ -224,6 +237,15 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             return;
         }
         try {
+            try (InputStream probe = activity.getContentResolver().openInputStream(uri)) {
+                if (probe != null) {
+                    Bitmap bmp = BitmapFactory.decodeStream(probe);
+                    if (bmp != null) {
+                        saveBitmapAndEmit(bmp);
+                        return;
+                    }
+                }
+            }
             File dest = new File(importsDir(activity), "import_" + System.currentTimeMillis() + ".jpg");
             try (InputStream in = activity.getContentResolver().openInputStream(uri);
                     OutputStream out = new FileOutputStream(dest)) {
@@ -236,6 +258,10 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
                 while ((n = in.read(buf)) > 0) {
                     out.write(buf, 0, n);
                 }
+            }
+            if (!dest.exists() || dest.length() < 32) {
+                emitError("copied image is empty");
+                return;
             }
             emitPath(dest.getAbsolutePath());
         } catch (Exception e) {

@@ -49,7 +49,9 @@ const PAGE_PINK_HOVER := Color("E8437D")
 const PAGE_DIM := Color("FF5A8A") ## in-world 3D dimension ink
 const PAGE_DARK := Color(0.14, 0.14, 0.16, 0.94)
 const PAGE_PURPLE := Color("7B61FF")
-const PAGE_ORANGE := Color(1.0, 0.82, 0.62, 0.42)
+const PAGE_ORANGE := Color(1.0, 0.62, 0.32, 0.50)
+const PAGE_SELECT := Color("F08A3A") ## selected wall ink (frames)
+const PAGE_OK := Color("FF5C39") ## S2 OK
 const PAGE_ROOM := Color(0.93, 0.93, 0.94, 0.55)
 
 # --- 3D HUD glass ---

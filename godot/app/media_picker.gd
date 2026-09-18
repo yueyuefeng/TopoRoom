@@ -29,7 +29,7 @@ func _ready() -> void:
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_dialog.filters = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp ; 户型图"])
 	_dialog.title = "选择户型图"
-	_dialog.use_native_dialog = false
+	_dialog.use_native_dialog = true
 	_dialog.file_selected.connect(_on_file)
 	_dialog.canceled.connect(func(): cancelled.emit())
 	add_child(_dialog)
