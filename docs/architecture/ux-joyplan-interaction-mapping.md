@@ -48,7 +48,7 @@ Out of scope (not mapped): Elevation Index CAD dark mode; electric/furniture lib
 | `godot/app/opening_library.gd` | Bottom-sheet chips; long-press drag ghost |
 | `godot/app/photo_stub.gd` | Import → calibrate → full-bleed 2D islands (capsule + 3-icon pill) |
 | `godot/app/edit_3d.gd` | Command-synced 3D; island chrome; dim overlay |
-| `godot/app/ui/page_islands.gd` | Shared floating island widgets |
+| `godot/app/ui/minimap.gd` | 3D FOV minimap (Visualization) |
 | `godot/app/session.gd` | InteractionShell façade |
 | `godot/extension/src/toporoom_host.cpp` | `import_vision_image(path, mm_per_px)` |
 
