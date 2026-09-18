@@ -1,4 +1,4 @@
-extends Control
+extends VBoxContainer
 ## Bottom-sheet door/window library: tap onto selected wall, or long-press drag + snap.
 
 signal dropped(kind: String, global_pos: Vector2)
@@ -20,15 +20,15 @@ var _layer: CanvasLayer
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_theme_constant_override("separation", 6)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var col := Studio.vbox(6)
-	col.add_child(Studio.caption("长按拖到墙上，或点选墙后轻点"))
+	custom_minimum_size = Vector2(0, 78)
+	add_child(Studio.caption("长按拖到墙上，或点选墙后轻点"))
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(_item("door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT))
 	row.add_child(_item("window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT))
 	row.add_child(_item("archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)))
-	col.add_child(row)
-	add_child(col)
+	add_child(row)
 
 	_timer = Timer.new()
 	_timer.one_shot = true
@@ -66,7 +66,7 @@ func _ready() -> void:
 func _item(kind: String, title: String, ink: Color, fill: Color) -> Control:
 	var p := PanelContainer.new()
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.custom_minimum_size = Vector2(0, 56)
+	p.custom_minimum_size = Vector2(0, 48)
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fill
