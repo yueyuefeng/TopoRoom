@@ -324,7 +324,7 @@ func _show_review() -> void:
 	_sync_islands()
 	_refresh()
 	_coach_start([
-		{"id": "review_walls", "text": "点墙切换承重和隔墙。顶栏切 3D，或点左下绿钮挤成立体。"},
+		{"id": "review_walls", "text": "确认承重：点墙切换承重和隔墙。顶栏切 3D，或点底栏绿钮挤成立体。"},
 		{"id": "library", "text": "长按底栏门或窗，拖到墙段上松手。"},
 		{"id": "lwh", "text": "点左上 L / ∠ 读数，用数字底栏改毫米。"},
 		{"id": "fab", "text": "顶栏 2D|3D 胶囊或底栏绿钮进入 3D。"},
@@ -616,6 +616,7 @@ func _refresh() -> void:
 	if _canvas and _canvas.has_method("set_sceneir_json"):
 		_canvas.set_sceneir_json(Session.sceneir_json())
 	_refresh_selection()
+	call_deferred("_place_ctx")
 
 
 func _refresh_selection() -> void:

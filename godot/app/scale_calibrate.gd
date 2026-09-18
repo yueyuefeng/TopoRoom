@@ -46,9 +46,12 @@ func _ready() -> void:
 	_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_wash)
 
+	var title := PageIslands.scale_title(func(): _hint.text = "把比例尺放到已知边上，输入真实长度。")
+	# Island copy must stay in this screen file for clone invariants.
+	title.set_meta("label", "比例设置")
 	add_child(PageIslands.top_bar(
 		func(): skipped.emit(),
-		PageIslands.scale_title(func(): _hint.text = "把比例尺放到已知边上，输入真实长度。"),
+		title,
 		func(): _hint.text = "多层楼层 P1"
 	))
 

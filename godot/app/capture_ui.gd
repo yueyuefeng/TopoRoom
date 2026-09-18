@@ -44,7 +44,12 @@ func _ready() -> void:
 		photo._show_preview(demo_path)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
-	await _shot(out_dir.path_join("toporoom-ui-photo-preview.png"))
+		await _shot(out_dir.path_join("toporoom-ui-photo-preview.png"))
+	if photo.has_method("_show_calibrate"):
+		photo._show_calibrate(demo_path)
+		await get_tree().process_frame
+		await get_tree().create_timer(0.3).timeout
+		await _shot(out_dir.path_join("toporoom-ui-calibrate.png"))
 	if Session.has_core():
 		Session.import_photo_fake("fixture:photo")
 		if photo.has_method("_show_review"):
@@ -81,18 +86,39 @@ func _ready() -> void:
 		photo.visible = false
 	if is_instance_valid(main):
 		main.visible = false
+	var edit: Node3D = null
 	if Session.has_core():
 		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
-		var edit: Node3D = preload("res://app/edit_3d.tscn").instantiate()
+		edit = preload("res://app/edit_3d.tscn").instantiate()
 		add_child(edit)
 		await get_tree().process_frame
 		await get_tree().process_frame
 		await get_tree().create_timer(0.8).timeout
 		await _shot(out_dir.path_join("toporoom-ui-edit-3d.png"))
+		if edit.has_method("_open_ruler"):
+			edit._open_ruler()
+			await get_tree().process_frame
+			await get_tree().create_timer(0.25).timeout
+			await _shot(out_dir.path_join("toporoom-ui-ruler.png"))
+			if edit._ruler:
+				edit._ruler.visible = false
+		Session.set_ruler("dims_3d", true)
+		if edit.has_method("_sync_dims_from_prefs"):
+			edit._sync_dims_from_prefs()
+		await get_tree().process_frame
+		await get_tree().create_timer(0.25).timeout
+		await _shot(out_dir.path_join("toporoom-ui-dims.png"))
 		if edit.has_node("Lighting") and edit.get_node("Lighting").has_method("apply_preset"):
 			edit.get_node("Lighting").apply_preset("warm")
 			await get_tree().create_timer(0.35).timeout
 			await _shot(out_dir.path_join("toporoom-ui-edit-3d-warm.png"))
+	if is_instance_valid(edit):
+		edit.visible = false
+	var elev: Control = preload("res://app/elevation_index.tscn").instantiate()
+	add_child(elev)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	await _shot(out_dir.path_join("toporoom-ui-elevation.png"))
 	print("UI screenshots written to ", out_dir)
 	get_tree().quit()
 
