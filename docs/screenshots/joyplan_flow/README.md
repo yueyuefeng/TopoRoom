@@ -23,8 +23,8 @@ APK is gitignored (`*.apk`). Built on this branch:
 |---|---|
 | Package | `com.toporoom.godot` **0.1.0** arm64-v8a |
 | File | `toporoom-android-debug.apk` (74 MB) |
-| SHA-256 | `f728a7f867e00519aba5f24124ca7ef6f8425d5f6ed35e30aa0500e759bf0eec` |
-| Direct | https://litter.catbox.moe/b1108d.apk |
-| Mirror | https://gofile.io/d/749RiVF4 |
+| SHA-256 | `b719c565a9baf9a45f7811d65dcdddaae8e775451739838254b766fa6b1a5b76` |
+| Direct | https://litter.catbox.moe/pr1zsb.apk |
+| Mirror | https://gofile.io/d/ayxTdhvh |
 
-Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots `joyplan_flow/home.tscn`.
+Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots `joyplan_flow/home.tscn` (system photo picker, no dual-card home). 1:1 captures: `docs/screenshots/joyplan_1to1/`.

@@ -16,12 +16,14 @@ camera/gallery home.
 
 ## Debug APK
 
-APK is gitignored (`*.apk`). Built on this branch after the picker-first + 1:1 chrome tip.
+APK is gitignored (`*.apk`). Built on this branch after picker-first + 1:1 chrome.
 
 | | |
 |---|---|
 | Package | `com.toporoom.godot` **0.1.0** arm64-v8a Debug |
-| File | `toporoom-android-debug.apk` |
-| SHA-256 | _pending export_ |
-| Direct | _pending upload_ |
-| Mirror | _pending upload_ |
+| File | `toporoom-android-debug.apk` (74 MB) |
+| SHA-256 | `b719c565a9baf9a45f7811d65dcdddaae8e775451739838254b766fa6b1a5b76` |
+| Direct | https://litter.catbox.moe/pr1zsb.apk |
+| Mirror | https://gofile.io/d/ayxTdhvh |
+
+Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn`, which opens the system picker (`pick_gallery`). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
