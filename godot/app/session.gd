@@ -21,8 +21,22 @@ var photo_intent: String = ""  # camera | gallery | pick
 var last_import_path: String = ""
 var last_import_uri: String = ""
 var last_vision: Dictionary = {}
+var favorite_kinds: PackedStringArray = PackedStringArray(["door", "window"])
+var coach_seen: Dictionary = {}
+var ruler_flags: Dictionary = {
+	"wall_len": true,
+	"room_area": true,
+	"opening": true,
+	"grid": true,
+	"dims_3d": false,
+}
+var opening_swing: Dictionary = {}
+var extrude_from_2d := false
+const UX_PREFS := "user://joyplan_ux.cfg"
+
 
 func _ready() -> void:
+	load_ux_prefs()
 	if ClassDB.class_exists("TopoRoomHost"):
 		host = ClassDB.instantiate("TopoRoomHost")
 		host.create_document("doc_godot")
@@ -240,6 +254,7 @@ func add_opening(kind: String, wall_id: String = "", offset_mm: float = -1.0) ->
 	host.guide_note_opening()
 	host.guide_sync_from_document(false)
 	auto_save()
+	mark_favorite(kind)
 	var label: String = Tokens.opening_label(kind)
 	return _ok("放置%s" % label)
 
@@ -621,6 +636,71 @@ func sceneir_json() -> String:
 	if host == null:
 		return ""
 	return host.sceneir_json()
+
+
+func load_ux_prefs() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(UX_PREFS) != OK:
+		return
+	var fav: PackedStringArray = PackedStringArray(cfg.get_value("library", "favorites", ["door", "window"]))
+	if not fav.is_empty():
+		favorite_kinds = fav
+	coach_seen = cfg.get_value("coach", "seen", {})
+	if typeof(coach_seen) != TYPE_DICTIONARY:
+		coach_seen = {}
+	for k in ruler_flags.keys():
+		ruler_flags[k] = bool(cfg.get_value("ruler", str(k), ruler_flags[k]))
+	opening_swing = cfg.get_value("swing", "signs", {})
+	if typeof(opening_swing) != TYPE_DICTIONARY:
+		opening_swing = {}
+
+
+func save_ux_prefs() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("library", "favorites", Array(favorite_kinds))
+	cfg.set_value("coach", "seen", coach_seen)
+	for k in ruler_flags.keys():
+		cfg.set_value("ruler", str(k), ruler_flags[k])
+	cfg.set_value("swing", "signs", opening_swing)
+	cfg.save(UX_PREFS)
+
+
+func mark_favorite(kind: String) -> void:
+	if kind.is_empty():
+		return
+	if not favorite_kinds.has(kind):
+		favorite_kinds.append(kind)
+		save_ux_prefs()
+
+
+func coach_done(step: String) -> bool:
+	return bool(coach_seen.get(step, false))
+
+
+func mark_coach(step: String) -> void:
+	coach_seen[step] = true
+	save_ux_prefs()
+
+
+func ruler_on(flag: String) -> bool:
+	return bool(ruler_flags.get(flag, true))
+
+
+func set_ruler(flag: String, on: bool) -> void:
+	ruler_flags[flag] = on
+	save_ux_prefs()
+	emit_signal("document_changed")
+
+
+func swing_for(opening_id: String) -> int:
+	var v: Variant = opening_swing.get(opening_id, 1)
+	var n := int(v)
+	return -1 if n < 0 else 1
+
+
+func set_swing(opening_id: String, sign: int) -> void:
+	opening_swing[opening_id] = -1 if sign < 0 else 1
+	save_ux_prefs()
 
 
 func list_schemes() -> PackedStringArray:

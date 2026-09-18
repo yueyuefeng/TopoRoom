@@ -1,5 +1,5 @@
 extends VBoxContainer
-## Bottom-sheet door/window library: tap onto selected wall, or long-press drag + snap.
+## Bottom-sheet door/window library: tabs 收藏/门/窗, tap or long-press drag + snap.
 
 signal dropped(kind: String, global_pos: Vector2)
 signal previewed(kind: String, global_pos: Vector2)
@@ -9,6 +9,7 @@ signal tapped(kind: String)
 const LONG_MS := 0.38
 const MOVE_CANCEL_PX := 14.0
 
+var _tab := 0  # 0 favorite, 1 door, 2 window
 var _kind := ""
 var _press_pos := Vector2.ZERO
 var _dragging := false
@@ -16,19 +17,26 @@ var _timer: Timer
 var _ghost: PanelContainer
 var _ghost_label: Label
 var _layer: CanvasLayer
+var _items: HBoxContainer
+var _coach: PanelContainer
+var _tabs: HBoxContainer
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 6)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(0, 78)
+	custom_minimum_size = Vector2(0, 118)
+	_tabs = Studio.segmented(PackedStringArray(["收藏", "门", "窗"]), 0, func(i: int, _n: String):
+		_tab = i
+		_rebuild_items()
+	)
+	add_child(_tabs)
 	add_child(Studio.caption("长按拖到墙上，或点选墙后轻点"))
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(_item("door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT))
-	row.add_child(_item("window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT))
-	row.add_child(_item("archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)))
-	add_child(row)
+	_items = Studio.hbox(Tokens.S1)
+	add_child(_items)
+	_rebuild_items()
+	_maybe_coach()
 
 	_timer = Timer.new()
 	_timer.one_shot = true
@@ -61,6 +69,69 @@ func _ready() -> void:
 	_ghost_label = Studio.label("门洞", Tokens.FONT_SECTION, Tokens.PRIMARY)
 	_ghost.add_child(_ghost_label)
 	_layer.add_child(_ghost)
+
+
+func _kinds_for_tab() -> Array:
+	if _tab == 1:
+		return [["door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT],
+			["archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)]]
+	if _tab == 2:
+		return [["window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT]]
+	var fav: Array = []
+	var seen := {}
+	for k in Session.favorite_kinds:
+		if seen.has(k):
+			continue
+		seen[k] = true
+		fav.append(_kind_row(str(k)))
+	if fav.is_empty():
+		fav.append(_kind_row("door"))
+		fav.append(_kind_row("window"))
+	return fav
+
+
+func _kind_row(kind: String) -> Array:
+	if kind == "window":
+		return ["window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT]
+	if kind == "archway":
+		return ["archway", "垭口", Tokens.OPENING_ARCH, Color(0.94, 0.90, 0.98)]
+	return ["door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT]
+
+
+func _rebuild_items() -> void:
+	if _items == null:
+		return
+	for c in _items.get_children():
+		_items.remove_child(c)
+		c.queue_free()
+	for row in _kinds_for_tab():
+		_items.add_child(_item(str(row[0]), str(row[1]), row[2], row[3]))
+
+
+func _maybe_coach() -> void:
+	if Session.coach_done("library"):
+		return
+	_coach = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tokens.PRIMARY
+	sb.set_corner_radius_all(Tokens.R_MD)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	_coach.add_theme_stylebox_override("panel", sb)
+	var row := Studio.hbox(Tokens.S1)
+	var lab := Studio.label("长按门或窗，拖到墙段上松手", Tokens.FONT_CAPTION, Tokens.TEXT_ON_ACCENT, true)
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lab)
+	row.add_child(Studio.ghost("知道了", func():
+		Session.mark_coach("library")
+		if _coach:
+			_coach.visible = false
+	))
+	_coach.add_child(row)
+	add_child(_coach)
+	move_child(_coach, 0)
 
 
 func _item(kind: String, title: String, ink: Color, fill: Color) -> Control:
