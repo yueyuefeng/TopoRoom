@@ -257,7 +257,6 @@ func _draw_loupe_ring() -> void:
 	var r := mini(s.x, s.y) * 0.5 - 2.0
 	_loupe.draw_circle(c, r, Color(0, 0, 0, 0.18))
 	_loupe.draw_arc(c, r - 1.0, 0.0, TAU, 48, Color.WHITE, 6.0)
-	_draw_loupe_cross()
 
 
 func _draw_loupe_cross() -> void:

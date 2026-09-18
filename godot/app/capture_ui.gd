@@ -7,7 +7,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_flow")
 	DirAccess.make_dir_recursive_absolute(docs)
-	for step in ["library", "review_walls", "place_3d"]:
+	for step in ["review_walls", "place_3d"]:
 		Session.mark_coach(step)
 
 	var home: Control = preload("res://app/joyplan_flow/home.tscn").instantiate()
@@ -37,6 +37,7 @@ func _ready() -> void:
 		Session.import_photo_fake("fixture:photo")
 	else:
 		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
+	Session.coach_seen.erase("library")
 
 	var edit2: Control = preload("res://app/joyplan_flow/edit_2d.tscn").instantiate()
 	add_child(edit2)
