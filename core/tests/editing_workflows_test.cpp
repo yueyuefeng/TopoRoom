@@ -41,6 +41,7 @@ using toporoom::app::SetRoomAttributesCommand;
 using toporoom::app::SetStoreyHeightCommand;
 using toporoom::app::SetStoreyHeightTool;
 using toporoom::app::SetWallHeightCommand;
+using toporoom::app::SetWallThicknessCommand;
 using toporoom::app::ToolRegistry;
 using toporoom::app::UpdateHostedComponentCommand;
 using toporoom::app::UpdateOpeningCommand;
@@ -191,6 +192,86 @@ TEST(EditingWorkflows, OpeningKindRequiredArchwayAndCrud) {
   auto gone = h.edits.delete_opening(del);
   EXPECT_TRUE(has_event(gone.events, "OpeningRemoved"));
   EXPECT_TRUE(gone.scene.storeys[0].walls[0].openings.empty());
+}
+
+TEST(EditingWorkflows, FlipOpeningMirrorsOffsetAlongWall) {
+  Harness h;
+  h.edits.add_wall(h.wall("wall_s", 0, 0, 4000, 0));
+  AddOpeningCommand add;
+  add.document_id = "doc_edit";
+  add.storey_id = h.storey_id;
+  add.wall_id = "wall_s";
+  add.opening_id = "op_door";
+  add.kind = OpeningKind::Door;
+  add.width_mm = 900;
+  add.height_mm = 2100;
+  add.offset_mm = 800;
+  h.edits.add_opening(add);
+
+  const double wall_len = 4000;
+  const double width = 900;
+  const double offset = 800;
+  const double flipped = wall_len - offset - width;
+  EXPECT_NEAR(flipped, 2300, 1e-6);
+
+  UpdateOpeningCommand upd;
+  upd.document_id = "doc_edit";
+  upd.storey_id = h.storey_id;
+  upd.opening_id = "op_door";
+  upd.kind = OpeningKind::Door;
+  upd.width_mm = width;
+  upd.height_mm = 2100;
+  upd.offset_mm = flipped;
+  auto result = h.edits.update_opening(upd);
+  EXPECT_TRUE(has_event(result.events, "OpeningChanged"));
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].openings[0].offset_mm, 2300, 1e-6);
+}
+
+TEST(EditingWorkflows, DuplicateOpeningPlacesSiblingOnSameWall) {
+  Harness h;
+  h.edits.add_wall(h.wall("wall_s", 0, 0, 4000, 0));
+  AddOpeningCommand add;
+  add.document_id = "doc_edit";
+  add.storey_id = h.storey_id;
+  add.wall_id = "wall_s";
+  add.opening_id = "op_src";
+  add.kind = OpeningKind::Window;
+  add.width_mm = 900;
+  add.height_mm = 1400;
+  add.offset_mm = 800;
+  add.sill_height_mm = 900;
+  h.edits.add_opening(add);
+
+  const double gap = 200;
+  const double sibling = 800 + 900 + gap;
+  AddOpeningCommand dup;
+  dup.document_id = "doc_edit";
+  dup.storey_id = h.storey_id;
+  dup.wall_id = "wall_s";
+  dup.opening_id = "op_dup";
+  dup.kind = OpeningKind::Window;
+  dup.width_mm = 900;
+  dup.height_mm = 1400;
+  dup.offset_mm = sibling;
+  dup.sill_height_mm = 900;
+  auto result = h.edits.add_opening(dup);
+  EXPECT_TRUE(has_event(result.events, "OpeningAdded"));
+  ASSERT_EQ(result.scene.storeys[0].walls[0].openings.size(), 2u);
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].openings[1].offset_mm, 1900, 1e-6);
+}
+
+TEST(EditingWorkflows, SetWallThicknessWritesSceneIR) {
+  Harness h;
+  h.edits.add_wall(h.wall("wall_s", 0, 0, 4000, 0));
+  SetWallThicknessCommand thick;
+  thick.document_id = "doc_edit";
+  thick.storey_id = h.storey_id;
+  thick.wall_id = "wall_s";
+  thick.thickness_mm = 120;
+  auto result = h.edits.set_wall_thickness(thick);
+  EXPECT_TRUE(has_event(result.events, "WallGeometryChanged"));
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].thickness_mm, 120, 1e-6);
+  EXPECT_NEAR(result.scene.storeys[0].walls[0].end.x, 4000, 1e-6);
 }
 
 TEST(EditingWorkflows, RoomAttributesClearHeightIsNotStoreyHeight) {

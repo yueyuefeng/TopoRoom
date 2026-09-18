@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Guard JoyPlan interaction parity (Phase B–E) on the Godot host.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+has() { grep -q -- "$2" "$1" || fail "$1 missing $2"; }
+
+has "$root/docs/architecture/joyplan-interaction-spec.md" "证据来源"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "手势与反馈表"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "状态机"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "差距矩阵"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "TikTok"
+
+has "$root/godot/app/scale_calibrate.gd" "_draw_loupe_cross"
+has "$root/godot/app/scale_calibrate.gd" "LOUPE_ZOOM"
+has "$root/godot/app/scale_calibrate.gd" "比例设置"
+has "$root/godot/app/scale_calibrate.gd" "\"900\""
+has "$root/godot/app/plan_canvas.gd" "_format_area_m2"
+has "$root/godot/app/plan_canvas.gd" "m²"
+has "$root/godot/app/opening_library.gd" "收藏"
+has "$root/godot/app/opening_library.gd" "长按门或窗，拖到墙段上松手"
+has "$root/godot/app/opening_library.gd" "知道了"
+has "$root/godot/app/ui/haptics.gd" "vibrate_handheld"
+has "$root/godot/app/plan_canvas.gd" "PRIMARY_SOFT"
+has "$root/godot/app/photo_stub.gd" "Haptics.snap"
+has "$root/godot/app/photo_stub.gd" "翻转"
+has "$root/godot/app/photo_stub.gd" "旋转"
+has "$root/godot/app/photo_stub.gd" "复制"
+has "$root/godot/app/photo_stub.gd" "删除"
+has "$root/godot/app/session.gd" "func flip_opening"
+has "$root/godot/app/session.gd" "func delete_opening"
+has "$root/godot/app/session.gd" "func duplicate_opening"
+has "$root/godot/app/ui/numeric_sheet.gd" "mm"
+has "$root/godot/app/photo_stub.gd" "_edit_dim"
+has "$root/godot/app/session.gd" "set_wall_thickness"
+has "$root/godot/app/session.gd" "resize_wall_length"
+has "$root/godot/app/photo_stub.gd" "extrude_from_2d"
+has "$root/godot/app/photo_stub.gd" "_place_fab"
+has "$root/godot/app/edit_3d.gd" "_tween_extrude"
+has "$root/godot/app/edit_3d.gd" "_mount_3d_library"
+has "$root/godot/app/edit_3d.gd" "_place_opening_at"
+has "$root/godot/app/ui/ruler_sheet.gd" "房间面积"
+has "$root/godot/app/photo_stub.gd" "标尺"
+has "$root/godot/app/photo_stub.gd" "确认拆除承重墙"
+has "$root/godot/app/session.gd" "已拆除隔墙"
+has "$root/godot/app/ui/coach_marks.gd" "跳过引导"
+has "$root/godot/app/photo_stub.gd" "review_walls"
+has "$root/godot/export_presets.cfg" "VIBRATE"
+
+has "$root/core/include/toporoom/c_api/toporoom.h" "toporoom_document_set_wall_thickness"
+has "$root/godot/extension/src/toporoom_host.cpp" "set_wall_thickness"
+
+echo "OK: JoyPlan interaction parity invariants"

@@ -11,6 +11,10 @@ door/window → FAB 2D↔3D** onto TopoRoom. Godot never owns millimetres:
 every structural write goes `Control/gizmo → Session → TopoRoomHost → C API
 → FloorPlanDocument / SceneIR`.
 
+Canonical interaction spec (V1 + P1 PRD + W1 learning, Chinese):
+[joyplan-interaction-spec.md](./joyplan-interaction-spec.md). Godot file
+mapping below is the host implementation notes; do not paraphrase the spec.
+
 ## Sequence
 
 | Step | JoyPlan-style UX | TopoRoom host | Command / truth |
@@ -26,7 +30,10 @@ every structural write goes `Control/gizmo → Session → TopoRoomHost → C AP
 Optional polish (same host, still Visualization-only):
 
 - **Load-bearing hatch** — denser diagonal ticks on shear/exterior strokes in `plan_canvas.gd`.
-- **3D dimension overlay** — `尺寸` chip in `edit_3d.gd` unprojects wall lengths; does not write SceneIR.
+- **3D dimension overlay** — `标尺` sheet in `edit_3d.gd` / `photo_stub.gd` (`ruler_sheet.gd`).
+- Phase B–E host work listed in the spec §7 (loupe, m² labels, library tabs,
+  snap haptics, toolbar, L/W/H sheet, FAB extrude, 3D library, ruler, demolish
+  copy, coach).
 
 Out of scope (not mapped): Elevation Index CAD dark mode; electric/furniture library.
 

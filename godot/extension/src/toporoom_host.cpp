@@ -189,6 +189,17 @@ Dictionary TopoRoomHost::set_wall_height(const String& storey_id, const String& 
   return from_rc(rc, err);
 }
 
+Dictionary TopoRoomHost::set_wall_thickness(const String& storey_id, const String& wall_id,
+                                            double thickness_mm) {
+  if (!doc_) return need_doc();
+  const std::string sid = to_utf8(storey_id);
+  const std::string wid = to_utf8(wall_id);
+  char err[512] = {};
+  const int rc = toporoom_document_set_wall_thickness(doc_, sid.c_str(), wid.c_str(),
+                                                      thickness_mm, err, sizeof(err));
+  return from_rc(rc, err);
+}
+
 Dictionary TopoRoomHost::set_wall_kind(const String& storey_id, const String& wall_id,
                                        const String& kind) {
   if (!doc_) return need_doc();
@@ -545,6 +556,8 @@ void TopoRoomHost::_bind_methods() {
                        &TopoRoomHost::delete_wall);
   ClassDB::bind_method(D_METHOD("set_wall_height", "storey_id", "wall_id", "height_mm"),
                        &TopoRoomHost::set_wall_height);
+  ClassDB::bind_method(D_METHOD("set_wall_thickness", "storey_id", "wall_id", "thickness_mm"),
+                       &TopoRoomHost::set_wall_thickness);
   ClassDB::bind_method(D_METHOD("set_wall_kind", "storey_id", "wall_id", "kind"),
                        &TopoRoomHost::set_wall_kind);
   ClassDB::bind_method(D_METHOD("demolish_wall", "storey_id", "wall_id", "force"),

@@ -37,6 +37,7 @@ class Wall {
   Wall replace_opening(const Opening& opening) const;
   Wall without_opening(const std::string& opening_id) const;
   Wall with_height(LengthMm height) const;
+  Wall with_thickness(LengthMm thickness) const;
   Wall with_kind(WallKind kind) const;
   Wall with_openings(std::vector<Opening> openings) const;
   Wall with_geometry(PointMm start, PointMm end) const;

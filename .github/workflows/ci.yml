@@ -28,6 +28,6 @@ jobs:
       - name: Check linux template_debug .so
         run: test -f godot/bin/libtoporoom.linux.template_debug.x86_64.so
       - name: Check Godot UI / camera invariants
-        run: ./godot/scripts/check_ui_theme.sh && ./godot/scripts/check_3d_edit_invariants.sh
+        run: ./godot/scripts/check_ui_theme.sh && ./godot/scripts/check_3d_edit_invariants.sh && ./godot/scripts/check_joyplan_interaction.sh
       # Full Android APK export needs Godot 4 export templates + SDK/NDK/JDK.
       # Not run here; see godot/README.md.

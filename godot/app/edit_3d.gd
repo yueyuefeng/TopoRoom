@@ -3,6 +3,11 @@ extends Node3D
 ## Dragged triangle vertices are never written back. Lighting is Visualization-only.
 
 const Lighting := preload("res://app/lighting.gd")
+const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
+const OpeningLibrary := preload("res://app/opening_library.gd")
+const Haptics := preload("res://app/ui/haptics.gd")
+const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
+const CoachMarks := preload("res://app/ui/coach_marks.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -20,6 +25,10 @@ var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
 var _lwh: Label
+var _lwh_row: HBoxContainer
+var _numeric: Control
+var _ruler: Control
+var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
 var _dim_chip: Button
 var _dim_overlay: Control
@@ -29,6 +38,10 @@ var _pitch := -0.48
 var _distance := 11.0
 var _orbiting := false
 var _target := Vector3(2.0, 1.1, 1.5)
+const PITCH_EDIT := -0.48
+const DIST_EDIT := 11.0
+const PITCH_TOP := -1.22
+const DIST_TOP := 16.5
 
 var _snapshot: Dictionary = {}
 var _selected: Dictionary = {}
@@ -57,7 +70,23 @@ func _ready() -> void:
 	if Session.has_core():
 		Session.last_rebuild = Session.rebuild_probe()
 	_refresh_world(true)
-	_orbit()
+	_sync_dims_from_prefs()
+	if Session.extrude_from_2d:
+		Session.extrude_from_2d = false
+		_pitch = PITCH_TOP
+		_distance = DIST_TOP
+		_orbit()
+		var tw := create_tween()
+		if tw:
+			tw.set_ease(Tween.EASE_OUT)
+			tw.set_trans(Tween.TRANS_CUBIC)
+			tw.tween_method(_tween_extrude, 0.0, 1.0, 0.55)
+		else:
+			_pitch = PITCH_EDIT
+			_distance = DIST_EDIT
+			_orbit()
+	else:
+		_orbit()
 
 
 func _build_hud() -> void:
@@ -76,12 +105,15 @@ func _build_hud() -> void:
 		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
 		_update_hud()
 	))
-	_dim_chip = Studio.chip("尺寸", func(): _toggle_dims(), false)
+	_dim_chip = Studio.chip("标尺", func(): _open_ruler(), false)
 	row.add_child(_dim_chip)
 	col.add_child(row)
 	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
 	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_lwh)
+	_lwh_row = Studio.hbox(Tokens.S1)
+	_lwh_row.visible = false
+	col.add_child(_lwh_row)
 	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
@@ -111,6 +143,18 @@ func _build_hud() -> void:
 	fab.offset_right = -20
 	fab.offset_bottom = -32
 	hud.layer.add_child(fab)
+	_numeric = NumericSheet.new()
+	hud.layer.add_child(_numeric)
+	_ruler = RulerSheet.new()
+	_ruler.changed.connect(_sync_dims_from_prefs)
+	hud.layer.add_child(_ruler)
+	var coach := CoachMarks.new()
+	hud.layer.add_child(coach)
+	if Session.screen == "photo":
+		coach.start([
+			{"id": "place_3d", "text": "长按底栏门窗，拖到立体墙面上松手。尺寸仍然只来自命令。"},
+		])
+	_mount_3d_library(hud.layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -119,8 +163,93 @@ func _build_hud() -> void:
 	hud.layer.add_child(_dim_overlay)
 
 
-func _toggle_dims() -> void:
-	_show_dims = not _show_dims
+func _tween_extrude(t: float) -> void:
+	_pitch = lerpf(PITCH_TOP, PITCH_EDIT, t)
+	_distance = lerpf(DIST_TOP, DIST_EDIT, t)
+	_orbit()
+
+
+func _mount_3d_library(layer: CanvasLayer) -> void:
+	var dock := MarginContainer.new()
+	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	dock.anchor_top = 1.0
+	dock.offset_left = 12
+	dock.offset_right = -88
+	dock.offset_top = -168
+	dock.offset_bottom = -16
+	dock.theme = Studio.theme
+	var sheet := Studio.sheet()
+	var lib := OpeningLibrary.new()
+	lib.dropped.connect(_on_library_drop)
+	lib.tapped.connect(_on_library_tap)
+	lib.previewed.connect(_on_library_preview)
+	sheet.add_child(lib)
+	dock.add_child(sheet)
+	layer.add_child(dock)
+
+
+func _on_library_preview(_kind: String, global_pos: Vector2) -> void:
+	var hit := _intersect(global_pos, 1)
+	if hit.is_empty():
+		return
+	var body: Object = hit.get("collider")
+	if body == null or not body.has_meta("wall_id"):
+		return
+	var wid := str(body.get_meta("wall_id", ""))
+	if wid.is_empty():
+		return
+	if str(_selected.get("wall_id", "")) != wid:
+		_selected = {"pick": KIND_WALL, "wall_id": wid}
+		_refresh_world(false)
+
+
+func _on_library_drop(kind: String, global_pos: Vector2) -> void:
+	if not _place_opening_at(kind, global_pos):
+		_status.text = "拖到墙上再松手。"
+
+
+func _on_library_tap(kind: String) -> void:
+	var wid := str(_selected.get("wall_id", ""))
+	if wid.is_empty():
+		if _status:
+			_status.text = "先点选一道墙，或长按拖到墙上。"
+		return
+	var f := _wall_by_id(wid)
+	var width := 1200.0 if kind != "door" else 900.0
+	var off := maxf((float(f.get("length", 0)) - width) * 0.5, 50.0)
+	Session.add_opening(kind, wid, off)
+
+
+func _place_opening_at(kind: String, pos: Vector2) -> bool:
+	var hit := _intersect(pos, 1)
+	if hit.is_empty():
+		return false
+	var body: Object = hit.get("collider")
+	if body == null:
+		return false
+	var wid := str(body.get_meta("wall_id", ""))
+	if wid.is_empty():
+		return false
+	var f := _wall_by_id(wid)
+	if f.is_empty():
+		return false
+	var p: Vector3 = hit.get("position", Vector3.ZERO)
+	var t_mm := clampf(_project_mm(f, p), 0.0, float(f.length))
+	var width := 1200.0 if kind != "door" else 900.0
+	var off := clampf(t_mm - width * 0.5, 0.0, maxf(float(f.length) - width, 0.0))
+	Session.add_opening(kind, wid, off)
+	_selected = {"pick": KIND_WALL, "wall_id": wid}
+	Haptics.drop()
+	return true
+
+
+func _open_ruler() -> void:
+	if _ruler and _ruler.has_method("present"):
+		_ruler.present()
+
+
+func _sync_dims_from_prefs() -> void:
+	_show_dims = Session.ruler_on("dims_3d")
 	if _dim_chip:
 		_dim_chip.theme_type_variation = "ChipOn" if _show_dims else "ChipButton"
 	if _dim_overlay:
@@ -799,8 +928,110 @@ func _update_hud() -> void:
 		sel += "  · 拖动中，松开后经 C API 提交"
 	_sel_label.text = sel
 	if _lwh:
-		_lwh.text = _lwh_text()
+		_rebuild_lwh()
 	_rebuild_ctx()
+
+
+func _rebuild_lwh() -> void:
+	if _lwh_row == null:
+		if _lwh:
+			_lwh.text = _lwh_text()
+		return
+	for c in _lwh_row.get_children():
+		_lwh_row.remove_child(c)
+		c.queue_free()
+	var pick := str(_selected.get("pick", ""))
+	if pick != KIND_OPENING and pick != KIND_WALL:
+		_lwh.visible = true
+		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
+		_lwh_row.visible = false
+		return
+	_lwh.visible = false
+	_lwh_row.visible = true
+	var dims := _lwh_dims()
+	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
+	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
+	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+
+
+func _lwh_chip(text: String, cb: Callable) -> void:
+	var b := Studio.chip(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lwh_row.add_child(b)
+
+
+func _lwh_dims() -> Dictionary:
+	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		var op := _opening_by_id(str(_selected.get("opening_id", "")))
+		var f := _wall_by_id(str(_selected.get("wall_id", "")))
+		return {
+			"l": float(op.get("widthMm", _drag.get("width_mm", 0))),
+			"w": float(f.get("thickness", 200)),
+			"h": float(op.get("heightMm", _drag.get("height_mm", 0))),
+			"opening": true,
+			"id": str(_selected.get("opening_id", "")),
+			"wall_id": str(_selected.get("wall_id", "")),
+		}
+	var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
+	var h := float(_drag.get("height_mm", f2.height)) if str(_drag.get("pick", "")) == HANDLE_WALL_HEIGHT else float(f2.get("height", 2800))
+	return {
+		"l": float(f2.get("length", 0)),
+		"w": float(f2.get("thickness", 200)),
+		"h": h,
+		"opening": false,
+		"id": str(_selected.get("wall_id", "")),
+	}
+
+
+func _edit_dim(which: String) -> void:
+	if _numeric == null:
+		return
+	var dims := _lwh_dims()
+	if str(dims.get("id", "")).is_empty():
+		return
+	var titles: Dictionary = {"l": "洞口宽", "w": "墙厚", "h": "洞口高"} if bool(dims.get("opening", false)) else {"l": "墙长", "w": "墙厚", "h": "墙高"}
+	var min_mm := 80.0 if which == "w" else 200.0
+	var max_mm := 800.0 if which == "w" else 20000.0
+	if which == "h":
+		min_mm = 400.0
+		max_mm = 6000.0
+	_pending_dim = {"which": which, "dims": dims}
+	if _numeric.committed.is_connected(_on_numeric_commit):
+		_numeric.committed.disconnect(_on_numeric_commit)
+	_numeric.committed.connect(_on_numeric_commit, CONNECT_ONE_SHOT)
+	_numeric.present(str(titles.get(which, "尺寸")), float(dims.get(which, 0)), min_mm, max_mm)
+
+
+func _on_numeric_commit(value_mm: float) -> void:
+	var which := str(_pending_dim.get("which", ""))
+	var dims: Dictionary = _pending_dim.get("dims", {})
+	_pending_dim = {}
+	if which.is_empty() or dims.is_empty():
+		return
+	if bool(dims.get("opening", false)):
+		var op := _opening_by_id(str(dims.get("id", "")))
+		if op.is_empty():
+			return
+		if which == "w":
+			Session.set_wall_thickness_mm(str(dims.get("wall_id", "")), value_mm)
+			return
+		Session.update_opening_geom(
+			str(dims.get("id", "")),
+			str(op.get("kind", "door")),
+			value_mm if which == "l" else float(op.get("widthMm", 0)),
+			value_mm if which == "h" else float(op.get("heightMm", 0)),
+			float(op.get("offsetMm", 0)),
+			float(op.get("sillHeightMm", 0))
+		)
+		return
+	var id := str(dims.get("id", ""))
+	if which == "l":
+		Session.resize_wall_length(id, value_mm)
+	elif which == "w":
+		Session.set_wall_thickness_mm(id, value_mm)
+	else:
+		Session.set_wall_height_mm(id, value_mm)
 
 
 func _lwh_text() -> String:
@@ -828,12 +1059,16 @@ func _rebuild_ctx() -> void:
 		_ctx.remove_child(c)
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		_ctx.visible = true
+		var oid := str(_selected.get("opening_id", ""))
+		_ctx_chip("翻转", func(): Session.flip_opening(oid))
+		_ctx_chip("旋转", func(): Session.rotate_opening(oid))
+		_ctx_chip("复制", func(): Session.duplicate_opening(oid))
+		_ctx_chip("删除", func(): Session.delete_opening(oid))
+		return
 	if pick != KIND_WALL:
-		_ctx.visible = pick == KIND_OPENING
-		if pick == KIND_OPENING:
-			var cap := Studio.caption("拖偏移 / 宽度手柄改门窗。尺寸只经命令写回。")
-			cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_ctx.add_child(cap)
+		_ctx.visible = false
 		return
 	_ctx.visible = true
 	var wid := str(_selected.get("wall_id", ""))
@@ -843,6 +1078,12 @@ func _rebuild_ctx() -> void:
 	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ctx.add_child(shear)
 	_ctx.add_child(mason)
+
+
+func _ctx_chip(text: String, cb: Callable) -> void:
+	var b := Studio.chip(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ctx.add_child(b)
 
 
 func _opening_by_id(oid: String) -> Dictionary:

@@ -5,6 +5,8 @@ extends Control
 func _ready() -> void:
 	var out_dir := "/opt/cursor/artifacts"
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	for step in ["calibrate", "review_walls", "library", "lwh", "fab", "place_3d"]:
+		Session.mark_coach(step)
 	var fixture := FileAccess.get_file_as_string("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
 	var main: Control = preload("res://app/main.tscn").instantiate()
 	add_child(main)
@@ -51,6 +53,13 @@ func _ready() -> void:
 		await get_tree().create_timer(0.35).timeout
 		if photo._snack:
 			photo._snack.visible = false
+		if photo._coach:
+			photo._coach.visible = false
+		photo._canvas.selected_id = "wall_s"
+		photo._canvas.queue_redraw()
+		photo._refresh_selection()
+		await get_tree().process_frame
+		await get_tree().create_timer(0.25).timeout
 		await _shot(out_dir.path_join("toporoom-ui-photo-review.png"))
 		if photo.has_method("_show_demolish"):
 			photo._show_demolish()
@@ -63,7 +72,7 @@ func _ready() -> void:
 		await _shot(out_dir.path_join("toporoom-ui-photo-demolish.png"))
 		if photo.has_method("_with_force"):
 			photo._canvas.selected_id = "wall_n"
-			photo._confirm_label.text = "「wall_n」是承重墙。拆除或打断会改写方案，确认吗？"
+			photo._confirm_label.text = "这面墙标成了承重墙。拆除会改写方案，需要你再点一次确认。"
 			photo._confirm.visible = true
 			await get_tree().process_frame
 			await get_tree().create_timer(0.25).timeout

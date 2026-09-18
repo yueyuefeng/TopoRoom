@@ -58,6 +58,13 @@ CommandResult FloorPlanEditService::set_wall_height(const SetWallHeightCommand& 
   });
 }
 
+CommandResult FloorPlanEditService::set_wall_thickness(const SetWallThicknessCommand& command) {
+  return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
+    document.set_wall_thickness(command.storey_id, command.wall_id,
+                                domain::LengthMm::of(command.thickness_mm));
+  });
+}
+
 CommandResult FloorPlanEditService::set_wall_kind(const SetWallKindCommand& command) {
   return mutate(command.document_id, [&](domain::FloorPlanDocument& document) {
     document.set_wall_kind(command.storey_id, command.wall_id, command.kind);

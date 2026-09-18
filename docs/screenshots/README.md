@@ -10,10 +10,10 @@
 | [02-guide.png](./02-guide.png) | 引导量房：底部操作条 |
 | [03-photo-pick.png](./03-photo-pick.png) | 拍户型图 / 从相册导入 / 示例图 |
 | [09-photo-preview.png](./09-photo-preview.png) | 选图后预览，开始识墙 |
-| [04-photo-review-kinds.png](./04-photo-review-kinds.png) | 确认承重：暖色剪力墙 + 深灰隔墙 |
-| [05-demolish.png](./05-demolish.png) | 拆改：整段拆除 / 中点打断 / 局部拆除 / 打门洞 |
-| [06-shear-confirm.png](./06-shear-confirm.png) | 承重墙拆除确认（底部 sheet） |
-| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D 编辑 · 白天 |
+| [04-photo-review-kinds.png](./04-photo-review-kinds.png) | 确认承重：L/W/H chips、收藏/门/窗 库、房间 m²、FAB 3D |
+| [05-demolish.png](./05-demolish.png) | 拆改：砌体直接拆；承重二次确认 copy |
+| [06-shear-confirm.png](./06-shear-confirm.png) | 确认拆除承重墙（再点一次确认 / 先不拆） |
+| [07-edit-3d-day.png](./07-edit-3d-day.png) | 3D 编辑 · 白天 + 底栏库 + 标尺 + FAB 2D |
 | [08-edit-3d-warm.png](./08-edit-3d-warm.png) | 3D 编辑 · 暖光预设 |
 
 ## 01 首页
@@ -38,7 +38,7 @@
 
 ## 04 确认承重
 
-FakeVisionAdapter 识别结果：四边承重/剪力墙（暖色）+ 一道砌体隔墙（深灰）。点墙切换种类。
+点墙切换种类。顶栏 L/W/H 可点进数字底栏。底栏 收藏/门/窗 长按拖放到墙。
 
 ![确认承重](./04-photo-review-kinds.png)
 

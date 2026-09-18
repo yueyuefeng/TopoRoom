@@ -85,16 +85,16 @@ func _draw() -> void:
 
 func _draw_paper() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Tokens.PAPER)
-	var step := 24.0
-	var x := 0.0
-	while x < size.x:
-		draw_line(Vector2(x, 0), Vector2(x, size.y), Tokens.GRID, 1.0)
-		x += step
-	var y := 0.0
-	while y < size.y:
-		draw_line(Vector2(0, y), Vector2(size.x, y), Tokens.GRID, 1.0)
-		y += step
-	# faint frame
+	if Session.ruler_on("grid"):
+		var step := 24.0
+		var x := 0.0
+		while x < size.x:
+			draw_line(Vector2(x, 0), Vector2(x, size.y), Tokens.GRID, 1.0)
+			x += step
+		var y := 0.0
+		while y < size.y:
+			draw_line(Vector2(0, y), Vector2(size.x, y), Tokens.GRID, 1.0)
+			y += step
 	draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
 
 
@@ -165,9 +165,14 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 		draw_line(qa, qb, color, width - 1.0)
 		var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()
 		if okind == "door":
-			draw_line(qa, qa + n * 10.0, color, 1.5)
+			if Session.ruler_on("opening"):
+				var swing := Session.swing_for(oid)
+				var hinge: Vector2 = qa if swing > 0 else qb
+				var nn := n * (10.0 * float(swing))
+				draw_line(hinge, hinge + nn, color, 1.5)
 		elif okind == "window":
-			draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
+			if Session.ruler_on("opening"):
+				draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
 	return count
 
 
@@ -190,6 +195,8 @@ func _draw_shear_hatch(p0: Vector2, p1: Vector2, width: float, color: Color) -> 
 
 
 func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
+	if not Session.ruler_on("wall_len"):
+		return
 	var dir := p1 - p0
 	if dir.length() < 8.0:
 		return
@@ -236,11 +243,26 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 			used_names[name] = true
 		var f := _font()
 		var title := name
-		var sub := "%.1f m²" % area
-		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-		draw_string(f, c - Vector2(tw * 0.5, 6), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Tokens.TEXT)
-		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(f, c - Vector2(sw * 0.5, -12), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Tokens.TEXT_SECONDARY)
+		var show_area := Session.ruler_on("room_area")
+		var sub := _format_area_m2(area) if show_area else ""
+		var title_size := 17
+		var sub_size := 13
+		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
+		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x if show_area else 0.0
+		var bw := maxf(tw, sw) + 20.0
+		var bh := 38.0 if show_area else 26.0
+		var box := Rect2(c - Vector2(bw * 0.5, 22.0 if show_area else 14.0), Vector2(bw, bh))
+		draw_rect(box, Color(1, 1, 1, 0.82), true)
+		draw_rect(box, Tokens.HAIRLINE, false, 1.0)
+		draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+		if show_area:
+			draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+
+
+func _format_area_m2(area: float) -> String:
+	if area >= 10.0:
+		return "%d m²" % int(round(area))
+	return "%.1f m²" % area
 
 
 func _match_room_name(rooms: Array, centroid: Vector2, min_x: float, min_y: float, ox: float, oy: float, scale: float, used: Dictionary) -> String:
@@ -544,6 +566,8 @@ func _draw_drop_preview() -> void:
 	var length := float(drop_preview.get("length_mm", 1.0))
 	if length < 1.0:
 		return
+	draw_line(a, b, Tokens.PRIMARY_SOFT, 18.0)
+	draw_line(a, b, Color(Tokens.PRIMARY.r, Tokens.PRIMARY.g, Tokens.PRIMARY.b, 0.55), 8.0)
 	var t0 := float(drop_preview.get("offset_mm", 0)) / length
 	var t1 := (float(drop_preview.get("offset_mm", 0)) + float(drop_preview.get("width_mm", 900))) / length
 	var qa: Vector2 = a.lerp(b, clampf(t0, 0.0, 1.0))

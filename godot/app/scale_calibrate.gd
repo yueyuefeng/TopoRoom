@@ -10,10 +10,15 @@ var _mm: LineEdit
 var _hint: Label
 var _loupe: PanelContainer
 var _loupe_tex: TextureRect
+var _loupe_cross: Control
+var _loupe_caption: Label
 var _a := Vector2(80, 200)
 var _b := Vector2(280, 200)
 var _drag := 0  # 1 = A, 2 = B
 var _handle_r := 18.0
+const LOUPE_SRC := 36
+const LOUPE_DST := 112
+const LOUPE_ZOOM := 3.1
 
 
 func _ready() -> void:
@@ -37,7 +42,7 @@ func _ready() -> void:
 	top.add_theme_constant_override("margin_top", Tokens.S2)
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(Studio.ghost("跳过", func(): skipped.emit()))
-	var title := Studio.section("标定比例")
+	var title := Studio.section("比例设置")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(title)
@@ -65,8 +70,8 @@ func _ready() -> void:
 	col.add_child(Studio.caption("这条边的真实长度"))
 	var measure := Studio.hbox(Tokens.S1)
 	_mm = LineEdit.new()
-	_mm.placeholder_text = "例如 3000"
-	_mm.text = "3000"
+	_mm.placeholder_text = "例如 900"
+	_mm.text = "900"
 	_mm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mm.custom_minimum_size = Vector2(0, 48)
 	measure.add_child(_mm)
@@ -90,14 +95,33 @@ func _ready() -> void:
 	lsb.content_margin_left = 6
 	lsb.content_margin_right = 6
 	lsb.content_margin_top = 6
-	lsb.content_margin_bottom = 6
+	lsb.content_margin_bottom = 8
 	_loupe.add_theme_stylebox_override("panel", lsb)
-	_loupe.custom_minimum_size = Vector2(112, 112)
+	_loupe.custom_minimum_size = Vector2(124, 148)
+	var lcol := VBoxContainer.new()
+	lcol.add_theme_constant_override("separation", 4)
+	lcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var view := Control.new()
+	view.custom_minimum_size = Vector2(112, 112)
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.clip_contents = true
 	_loupe_tex = TextureRect.new()
-	_loupe_tex.custom_minimum_size = Vector2(100, 100)
+	_loupe_tex.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_loupe_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_loupe_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_loupe.add_child(_loupe_tex)
+	_loupe_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.add_child(_loupe_tex)
+	_loupe_cross = Control.new()
+	_loupe_cross.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_loupe_cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe_cross.draw.connect(_draw_loupe_cross)
+	view.add_child(_loupe_cross)
+	lcol.add_child(view)
+	_loupe_caption = Studio.label("3×", Tokens.FONT_CAPTION, Tokens.PRIMARY)
+	_loupe_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loupe_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lcol.add_child(_loupe_caption)
+	_loupe.add_child(lcol)
 	add_child(_loupe)
 
 
@@ -231,7 +255,7 @@ func _set_handle(which: int, img_pt: Vector2) -> void:
 func _show_loupe(img_pt: Vector2) -> void:
 	if _img == null:
 		return
-	var src := 28
+	var src := LOUPE_SRC
 	var x := int(clampf(img_pt.x - src * 0.5, 0.0, float(_img.get_width() - src)))
 	var y := int(clampf(img_pt.y - src * 0.5, 0.0, float(_img.get_height() - src)))
 	var w := mini(src, _img.get_width() - x)
@@ -239,11 +263,47 @@ func _show_loupe(img_pt: Vector2) -> void:
 	if w < 4 or h < 4:
 		return
 	var crop := _img.get_region(Rect2i(x, y, w, h))
-	crop.resize(100, 100, Image.INTERPOLATE_NEAREST)
+	crop.resize(LOUPE_DST, LOUPE_DST, Image.INTERPOLATE_NEAREST)
 	_loupe_tex.texture = ImageTexture.create_from_image(crop)
+	if _loupe_cross:
+		_loupe_cross.queue_redraw()
+	var tag := "A" if _drag == 1 else "B"
+	var px := _a.distance_to(_b)
+	var real_mm := _mm.text.strip_edges().to_float() if _mm else 0.0
+	if real_mm >= 10.0 and px >= 4.0:
+		_loupe_caption.text = "%s · %d× · %d mm" % [tag, int(round(LOUPE_ZOOM)), int(round(real_mm))]
+	else:
+		_loupe_caption.text = "%s · %d× · %d px" % [tag, int(round(LOUPE_ZOOM)), int(round(px))]
 	var ctrl := _img_to_ctrl(img_pt)
-	_loupe.position = Vector2(clampf(ctrl.x + 24.0, 8.0, size.x - 120.0), clampf(ctrl.y - 140.0, 8.0, size.y - 200.0))
+	var lw := 132.0
+	var lh := 156.0
+	var above := ctrl.y - lh - 18.0
+	var left := ctrl.x - lw * 0.5
+	if above < 8.0:
+		above = ctrl.y + 28.0
+	_loupe.position = Vector2(
+		clampf(left, 8.0, maxf(size.x - lw - 8.0, 8.0)),
+		clampf(above, 8.0, maxf(size.y - lh - 8.0, 8.0))
+	)
 	_loupe.visible = true
+	_loupe.move_to_front()
+
+
+func _draw_loupe_cross() -> void:
+	if _loupe_cross == null:
+		return
+	var s: Vector2 = _loupe_cross.size
+	if s.x < 4.0 or s.y < 4.0:
+		s = Vector2(LOUPE_DST, LOUPE_DST)
+	var c := s * 0.5
+	var ink := Tokens.PRIMARY
+	var halo := Color(1, 1, 1, 0.92)
+	_loupe_cross.draw_line(Vector2(c.x, 8), Vector2(c.x, s.y - 8), halo, 3.0)
+	_loupe_cross.draw_line(Vector2(8, c.y), Vector2(s.x - 8, c.y), halo, 3.0)
+	_loupe_cross.draw_line(Vector2(c.x, 8), Vector2(c.x, s.y - 8), ink, 1.2)
+	_loupe_cross.draw_line(Vector2(8, c.y), Vector2(s.x - 8, c.y), ink, 1.2)
+	_loupe_cross.draw_arc(c, 10.0, 0.0, TAU, 32, ink, 1.4)
+	_loupe_cross.draw_circle(c, 2.2, ink)
 
 
 func _commit() -> void:
