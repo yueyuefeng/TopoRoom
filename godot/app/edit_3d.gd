@@ -99,7 +99,7 @@ func _build_hud() -> void:
 	_hud_layer = layer
 	_chrome = JoyplanChrome.new()
 	_chrome.active_mode = "cube"
-	_chrome.show_rail = false
+	_chrome.show_rail = true
 	_chrome.show_bottom = false
 	_chrome.show_joystick = false
 	layer.add_child(_chrome)
@@ -107,6 +107,7 @@ func _build_hud() -> void:
 	_chrome.mode_pressed.connect(_on_chrome_mode)
 	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
 	_chrome.floor_pressed.connect(func(): Session.log_line.emit("本方案一层。多层楼层切换是 P1。"))
+	_chrome.rail_pressed.connect(_on_chrome_rail)
 
 	var ctx_m := MarginContainer.new()
 	ctx_m.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -169,6 +170,25 @@ func _on_chrome_mode(id: String) -> void:
 		get_tree().change_scene_to_file("res://app/roam.tscn")
 	elif id == "expand":
 		return
+
+
+func _on_chrome_rail(id: String) -> void:
+	match id:
+		"save":
+			Session.auto_save()
+			Session.log_line.emit("已保存方案")
+		"eye":
+			_open_ruler()
+		"cube":
+			if _lib_dock:
+				_lib_dock.visible = not _lib_dock.visible
+		"pencil":
+			if _ctx:
+				_ctx.visible = not _ctx.visible
+		"more":
+			Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
+		_:
+			Session.log_line.emit("稍后：设置 / 消息。本轮先用标尺、构件库和保存。")
 
 
 func _tween_extrude(t: float) -> void:

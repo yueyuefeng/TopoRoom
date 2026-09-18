@@ -169,6 +169,19 @@ func _ready() -> void:
 	add_child(_fab)
 	resized.connect(func(): _place_fab())
 
+	_chrome = JoyplanChrome.new()
+	_chrome.active_mode = "plan"
+	_chrome.show_rail = true
+	_chrome.show_bottom = false
+	_chrome.show_joystick = false
+	_chrome.visible = false
+	add_child(_chrome)
+	_chrome.back_pressed.connect(_back)
+	_chrome.mode_pressed.connect(_on_chrome_mode)
+	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
+	_chrome.floor_pressed.connect(func(): _snack.show_message("本方案一层。多层楼层切换是 P1。", "info"))
+	_chrome.rail_pressed.connect(_on_chrome_rail)
+
 	_confirm = _build_confirm()
 	add_child(_confirm)
 	_confirm.visibility_changed.connect(_sync_fab)
@@ -178,18 +191,6 @@ func _ready() -> void:
 	add_child(_ruler)
 	_coach = CoachMarks.new()
 	add_child(_coach)
-
-	_chrome = JoyplanChrome.new()
-	_chrome.active_mode = "plan"
-	_chrome.show_rail = false
-	_chrome.show_bottom = false
-	_chrome.show_joystick = false
-	_chrome.visible = false
-	add_child(_chrome)
-	_chrome.back_pressed.connect(_back)
-	_chrome.mode_pressed.connect(_on_chrome_mode)
-	_chrome.lwh_pressed.connect(func(axis: String): _edit_dim(axis))
-	_chrome.floor_pressed.connect(func(): _snack.show_message("本方案一层。多层楼层切换是 P1。", "info"))
 
 	_picker = MediaPickerScript.new()
 	add_child(_picker)
@@ -237,6 +238,23 @@ func _on_chrome_mode(id: String) -> void:
 	elif id == "expand":
 		if _dock:
 			_dock.visible = not _chrome.compact
+
+
+func _on_chrome_rail(id: String) -> void:
+	match id:
+		"save":
+			Session.auto_save()
+			_snack.show_message("已保存方案", "ok")
+		"eye":
+			_open_ruler()
+		"cube":
+			if _dock:
+				_dock.visible = not _dock.visible
+		"pencil":
+			if _ctx:
+				_ctx.visible = not _ctx.visible
+		_:
+			_snack.show_message("稍后：设置 / 消息 / 更多。标尺与门窗库已接上。", "info")
 
 
 func _sync_chrome() -> void:
