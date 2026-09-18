@@ -130,6 +130,8 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	if selected_id == wid and selected_opening_id.is_empty():
 		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
 	draw_line(p0, p1, stroke, width)
+	if Tokens.is_load_bearing_kind(kind):
+		_draw_shear_hatch(p0, p1, width, stroke)
 	_draw_dim(p0, p1, length)
 
 	var ux := (x1 - x0) / length
@@ -167,6 +169,24 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 		elif okind == "window":
 			draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
 	return count
+
+
+func _draw_shear_hatch(p0: Vector2, p1: Vector2, width: float, color: Color) -> void:
+	var dir: Vector2 = p1 - p0
+	var length: float = dir.length()
+	if length < 10.0:
+		return
+	var u: Vector2 = dir / length
+	var n := Vector2(-u.y, u.x)
+	var tick := n * (width * 0.62)
+	var slant: Vector2 = u * 3.2
+	var ink := Color(color.r * 0.55, color.g * 0.42, color.b * 0.38, 0.95)
+	var t := 5.0
+	var step := maxf(6.0, width * 0.85)
+	while t < length - 4.0:
+		var p: Vector2 = p0 + u * t
+		draw_line(p - tick - slant, p + tick + slant, ink, 1.6)
+		t += step
 
 
 func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
