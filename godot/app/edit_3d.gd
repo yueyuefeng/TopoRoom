@@ -253,7 +253,7 @@ func _toggle_library() -> void:
 
 
 func _open_elevation() -> void:
-	Session._log("Elevation Index P1")
+	get_tree().change_scene_to_file("res://app/elevation_index.tscn")
 
 
 func _on_library_preview(_kind: String, global_pos: Vector2) -> void:

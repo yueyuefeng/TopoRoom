@@ -63,6 +63,8 @@ has "$root/godot/app/photo_stub.gd" "确认拆除承重墙"
 has "$root/godot/app/session.gd" "已拆除隔墙"
 has "$root/godot/app/ui/coach_marks.gd" "跳过引导"
 has "$root/godot/app/photo_stub.gd" "review_walls"
+has "$root/godot/app/elevation_index.gd" "Elevation Index"
+has "$root/godot/app/edit_3d.gd" "elevation_index.tscn"
 has "$root/godot/export_presets.cfg" "VIBRATE"
 
 has "$root/core/include/toporoom/c_api/toporoom.h" "toporoom_document_set_wall_thickness"
