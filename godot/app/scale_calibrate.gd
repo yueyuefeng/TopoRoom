@@ -121,7 +121,7 @@ func _fitted() -> Rect2:
 	if _img == null or _photo == null:
 		return Rect2()
 	var gr := _photo.get_global_rect()
-	var origin := to_local(gr.position)
+	var origin: Vector2 = get_global_transform().affine_inverse() * gr.position
 	var sz: Vector2 = gr.size
 	var isz := Vector2(_img.get_width(), _img.get_height())
 	if isz.x < 1.0 or isz.y < 1.0 or sz.x < 1.0 or sz.y < 1.0:
