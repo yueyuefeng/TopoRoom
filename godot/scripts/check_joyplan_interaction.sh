@@ -6,10 +6,10 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 has() { grep -q -- "$2" "$1" || fail "$1 missing $2"; }
 
-has "$root/docs/architecture/joyplan-interaction-spec.md" "Evidence sources"
-has "$root/docs/architecture/joyplan-interaction-spec.md" "Gesture table"
-has "$root/docs/architecture/joyplan-interaction-spec.md" "State machine"
-has "$root/docs/architecture/joyplan-interaction-spec.md" "gap matrix"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "证据来源"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "手势与反馈表"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "状态机"
+has "$root/docs/architecture/joyplan-interaction-spec.md" "差距矩阵"
 has "$root/docs/architecture/joyplan-interaction-spec.md" "TikTok"
 
 has "$root/godot/app/scale_calibrate.gd" "_draw_loupe_cross"
