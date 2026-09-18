@@ -1,5 +1,9 @@
 # Godot 宿主界面预览
 
+**JoyPlan flow (current run path):** [joyplan_flow/](./joyplan_flow/) — S1–S8 floating-island chrome.
+
+The PNGs below are the **quarantined** `_legacy/` workbench and must not be treated as the product UI.
+
 当代手机风量房 UI：浅灰底 + 单一蓝色强调，首页大卡片进入 **拍户型图** /
 **从相册导入** / **引导量房**。Android 走系统相机与相册；像素只作预览，
 墙段与尺寸来自 SceneIR 命令。
