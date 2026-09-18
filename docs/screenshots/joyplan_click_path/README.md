@@ -14,3 +14,14 @@ Recreated screens. One tap advances. Import path is **导入户型图**; other n
 | [08_edit_2d_plus_menu.png](./08_edit_2d_plus_menu.png) | [ref_05_2d_plus_menu.jpg](./ref_05_2d_plus_menu.jpg) | 2D + menu 导入户型图 |
 
 Click path: Home → **我的项目** → **新建项目** → **导入户型图** → 相册选择 / 使用示例户型 → **下一步** → **确定** → 2D.
+
+## Debug APK 0.1.3 (`versionCode` 4)
+
+Same debug cert as 0.1.0–0.1.2. Install over the previous build.
+
+| | |
+|---|---|
+| SHA-256 | `4cc05819eef053502ce39650a549c3fc4e2c694a74b46bffeee319b0a41562b5` |
+| Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
+| Direct | https://litter.catbox.moe/fqpplb.apk |
+| Mirror | https://gofile.io/d/coQM7vIP |
