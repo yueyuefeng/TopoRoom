@@ -44,6 +44,7 @@ func _build_chrome() -> void:
 	add_child(scroll)
 	var pad := MarginContainer.new()
 	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pad.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	pad.add_theme_constant_override("margin_left", 22)
 	pad.add_theme_constant_override("margin_right", 22)
 	pad.add_theme_constant_override("margin_top", 36)
@@ -51,6 +52,7 @@ func _build_chrome() -> void:
 	scroll.add_child(pad)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	col.add_theme_constant_override("separation", 14)
 	pad.add_child(col)
 
@@ -85,13 +87,18 @@ func _build_chrome() -> void:
 	var recents := PanelContainer.new()
 	recents.add_theme_stylebox_override("panel", FlowIslands.frost(Tokens.PAGE_ISLAND, 18))
 	recents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	recents.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var rec_pad := MarginContainer.new()
+	rec_pad.add_theme_constant_override("margin_left", 6)
+	rec_pad.add_theme_constant_override("margin_right", 6)
+	rec_pad.add_theme_constant_override("margin_top", 4)
+	rec_pad.add_theme_constant_override("margin_bottom", 8)
 	var rec_col := VBoxContainer.new()
 	rec_col.add_theme_constant_override("separation", 6)
-	var rec_title := Studio.label("最近方案", Tokens.FONT_SECTION, Tokens.TEXT)
-	rec_col.add_child(rec_title)
-	var rec_empty := Studio.caption("还没有方案。先打开示例户型，或从相册导入。")
-	rec_col.add_child(rec_empty)
-	recents.add_child(rec_col)
+	rec_col.add_child(Studio.label("最近方案", Tokens.FONT_SECTION, Tokens.TEXT))
+	rec_col.add_child(Studio.caption("还没有方案。先打开示例户型，或从相册导入。"))
+	rec_pad.add_child(rec_col)
+	recents.add_child(rec_pad)
 	col.add_child(recents)
 
 
