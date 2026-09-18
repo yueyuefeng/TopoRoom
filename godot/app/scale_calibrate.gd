@@ -1,21 +1,23 @@
 extends Control
-## Two-handle scale calibration on a photo: known edge + loupe + mm sheet.
+## S2 Scale Calibration: fullscreen photo, island chrome, circular loupe, dark sheet.
 
 signal calibrated(mm_per_px: float, pixel_len: float, real_mm: float)
 signal skipped
 
+const PageIslands := preload("res://app/ui/page_islands.gd")
+
 var _img: Image
 var _photo: TextureRect
+var _wash: ColorRect
 var _mm: LineEdit
 var _hint: Label
-var _loupe: PanelContainer
+var _loupe: Control
 var _loupe_tex: TextureRect
 var _loupe_cross: Control
-var _loupe_caption: Label
 var _a := Vector2(80, 200)
 var _b := Vector2(280, 200)
 var _drag := 0  # 1 = A, 2 = B
-var _handle_r := 18.0
+var _handle_r := 14.0
 const LOUPE_SRC := 36
 const LOUPE_DST := 112
 const LOUPE_ZOOM := 3.1
@@ -26,85 +28,98 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	Studio.apply_to(self)
 	var bg := ColorRect.new()
-	bg.color = Tokens.BG
+	bg.color = Color("1A1A1C")
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 0)
-	add_child(root)
-
-	var top := MarginContainer.new()
-	top.add_theme_constant_override("margin_left", Tokens.S2)
-	top.add_theme_constant_override("margin_right", Tokens.S2)
-	top.add_theme_constant_override("margin_top", Tokens.S2)
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(Studio.ghost("跳过", func(): skipped.emit()))
-	var title := Studio.section("比例设置")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(title)
-	top.add_child(row)
-	root.add_child(top)
-
-	_hint = Studio.caption("把两个点拖到一条已知边上，输入真实长度（毫米）。拖动时放大镜帮你对准。")
-	var hm := MarginContainer.new()
-	hm.add_theme_constant_override("margin_left", Tokens.S2)
-	hm.add_theme_constant_override("margin_right", Tokens.S2)
-	hm.add_child(_hint)
-	root.add_child(hm)
-
 	_photo = TextureRect.new()
+	_photo.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_photo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_photo.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_photo.custom_minimum_size = Vector2(0, 280)
+	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_photo)
+	add_child(_photo)
 
-	var sheet := Studio.sheet()
+	_wash = ColorRect.new()
+	_wash.color = Tokens.PAGE_WASH
+	_wash.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_wash)
+
+	add_child(PageIslands.top_bar(
+		func(): skipped.emit(),
+		PageIslands.scale_title(func(): _hint.text = "把比例尺放到已知边上，输入真实长度。"),
+		func(): _hint.text = "多层楼层 P1"
+	))
+
+	_build_dark_sheet()
+	_build_loupe()
+
+
+func _build_dark_sheet() -> void:
+	var sheet := PanelContainer.new()
+	sheet.add_theme_stylebox_override("panel", PageIslands.dark_sheet_style())
+	sheet.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	sheet.anchor_top = 1.0
+	sheet.offset_top = -236
+	sheet.offset_bottom = 0
 	var col := Studio.vbox(Tokens.S1)
-	col.add_child(Studio.caption("这条边的真实长度"))
+	var title_row := Studio.hbox(6)
+	var arrow := Studio.label("⌃", Tokens.FONT_SECTION, Tokens.PAGE_PINK)
+	title_row.add_child(arrow)
+	title_row.add_child(Studio.label("调整户型", Tokens.FONT_SECTION, Color.WHITE))
+	col.add_child(title_row)
+	_hint = Studio.label("把比例尺放到已知边上", Tokens.FONT_CAPTION, Color(1, 1, 1, 0.72), true)
+	col.add_child(_hint)
+	col.add_child(Studio.label("请输入比例尺长度", Tokens.FONT_CAPTION, Color(1, 1, 1, 0.55)))
 	var measure := Studio.hbox(Tokens.S1)
 	_mm = LineEdit.new()
 	_mm.placeholder_text = "例如 900"
 	_mm.text = "900"
 	_mm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_mm.custom_minimum_size = Vector2(0, 48)
+	_mm.custom_minimum_size = Vector2(0, 44)
+	_mm.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	measure.add_child(_mm)
-	measure.add_child(Studio.label("mm", Tokens.FONT_BODY, Tokens.TEXT_SECONDARY))
+	measure.add_child(Studio.label("mm", Tokens.FONT_BODY, Color(1, 1, 1, 0.7)))
 	col.add_child(measure)
-	var ok := Studio.primary("确定，开始识墙", func(): _commit())
-	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(ok)
-	col.add_child(Studio.ghost("按墙厚自动估比例", func(): skipped.emit()))
+	var actions := Studio.hbox(Tokens.S2)
+	var exit_b := PageIslands.gray_btn("退出", func(): skipped.emit())
+	exit_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var ok_b := PageIslands.pink_btn("确定", func(): _commit())
+	ok_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(exit_b)
+	actions.add_child(ok_b)
+	col.add_child(actions)
 	sheet.add_child(col)
-	root.add_child(sheet)
+	add_child(sheet)
 
-	_loupe = PanelContainer.new()
+
+func _build_loupe() -> void:
+	_loupe = Control.new()
 	_loupe.visible = false
 	_loupe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe.custom_minimum_size = Vector2(124, 124)
+	_loupe.size = Vector2(124, 124)
+	var ring := PanelContainer.new()
+	ring.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lsb := StyleBoxFlat.new()
-	lsb.bg_color = Tokens.SURFACE
-	lsb.set_border_width_all(2)
-	lsb.border_color = Tokens.PRIMARY
-	lsb.set_corner_radius_all(Tokens.R_PILL)
-	lsb.content_margin_left = 6
-	lsb.content_margin_right = 6
-	lsb.content_margin_top = 6
-	lsb.content_margin_bottom = 8
-	_loupe.add_theme_stylebox_override("panel", lsb)
-	_loupe.custom_minimum_size = Vector2(124, 148)
-	var lcol := VBoxContainer.new()
-	lcol.add_theme_constant_override("separation", 4)
-	lcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lsb.bg_color = Color.WHITE
+	lsb.set_border_width_all(4)
+	lsb.border_color = Color.WHITE
+	lsb.set_corner_radius_all(999)
+	lsb.shadow_color = Color(0.05, 0.06, 0.08, 0.35)
+	lsb.shadow_size = 16
+	lsb.shadow_offset = Vector2(0, 4)
+	lsb.content_margin_left = 4
+	lsb.content_margin_right = 4
+	lsb.content_margin_top = 4
+	lsb.content_margin_bottom = 4
+	ring.add_theme_stylebox_override("panel", lsb)
 	var view := Control.new()
 	view.custom_minimum_size = Vector2(112, 112)
-	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.clip_contents = true
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_loupe_tex = TextureRect.new()
 	_loupe_tex.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_loupe_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -116,12 +131,8 @@ func _ready() -> void:
 	_loupe_cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_loupe_cross.draw.connect(_draw_loupe_cross)
 	view.add_child(_loupe_cross)
-	lcol.add_child(view)
-	_loupe_caption = Studio.label("3×", Tokens.FONT_CAPTION, Tokens.PRIMARY)
-	_loupe_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_loupe_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lcol.add_child(_loupe_caption)
-	_loupe.add_child(lcol)
+	ring.add_child(view)
+	_loupe.add_child(ring)
 	add_child(_loupe)
 
 
@@ -178,24 +189,14 @@ func _draw() -> void:
 	var pa := _img_to_ctrl(_a)
 	var pb := _img_to_ctrl(_b)
 	draw_line(pa, pb, Tokens.PRIMARY, 3.0)
-	_draw_handle(pa, "A")
-	_draw_handle(pb, "B")
-	var mid := (pa + pb) * 0.5 + Vector2(0, -22)
-	var px := _a.distance_to(_b)
-	draw_string(_font(), mid + Vector2(-36, 0), "%d px" % int(round(px)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.TEXT)
+	_draw_handle(pa)
+	_draw_handle(pb)
 
 
-func _draw_handle(p: Vector2, tag: String) -> void:
-	draw_circle(p, _handle_r + 3.0, Tokens.SURFACE)
+func _draw_handle(p: Vector2) -> void:
+	draw_circle(p, _handle_r + 3.0, Color.WHITE)
 	draw_circle(p, _handle_r, Tokens.PRIMARY)
-	draw_circle(p, 4.0, Tokens.TEXT_ON_ACCENT)
-	draw_string(_font(), p + Vector2(-4, -_handle_r - 6), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Tokens.PRIMARY)
-
-
-func _font() -> Font:
-	if Studio and Studio.font:
-		return Studio.font
-	return ThemeDB.fallback_font
+	draw_circle(p, 4.0, Color.WHITE)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -237,9 +238,9 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _hit(pos: Vector2) -> int:
-	if _img_to_ctrl(_a).distance_to(pos) <= _handle_r + 8.0:
+	if _img_to_ctrl(_a).distance_to(pos) <= _handle_r + 10.0:
 		return 1
-	if _img_to_ctrl(_b).distance_to(pos) <= _handle_r + 8.0:
+	if _img_to_ctrl(_b).distance_to(pos) <= _handle_r + 10.0:
 		return 2
 	return 0
 
@@ -267,17 +268,10 @@ func _show_loupe(img_pt: Vector2) -> void:
 	_loupe_tex.texture = ImageTexture.create_from_image(crop)
 	if _loupe_cross:
 		_loupe_cross.queue_redraw()
-	var tag := "A" if _drag == 1 else "B"
-	var px := _a.distance_to(_b)
-	var real_mm := _mm.text.strip_edges().to_float() if _mm else 0.0
-	if real_mm >= 10.0 and px >= 4.0:
-		_loupe_caption.text = "%s · %d× · %d mm" % [tag, int(round(LOUPE_ZOOM)), int(round(real_mm))]
-	else:
-		_loupe_caption.text = "%s · %d× · %d px" % [tag, int(round(LOUPE_ZOOM)), int(round(px))]
 	var ctrl := _img_to_ctrl(img_pt)
-	var lw := 132.0
-	var lh := 156.0
-	var above := ctrl.y - lh - 18.0
+	var lw := 124.0
+	var lh := 124.0
+	var above := ctrl.y - lh - 28.0
 	var left := ctrl.x - lw * 0.5
 	if above < 8.0:
 		above = ctrl.y + 28.0
