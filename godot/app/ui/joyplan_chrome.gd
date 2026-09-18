@@ -12,7 +12,7 @@ signal lighting_pressed
 signal primary_pressed
 signal stick_moved(v: Vector2)
 
-var active_mode := "cube"
+var active_mode := "plan"
 var show_rail := false
 var show_bottom := false
 var show_joystick := false

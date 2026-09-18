@@ -730,7 +730,8 @@ func _refresh_selection() -> void:
 		if _hint:
 			_hint.visible = false
 	if _readout:
-		var show := _mode == "review" or _mode == "demolish"
+		var chrome_on := _chrome != null and _chrome.visible
+		var show := (_mode == "review" or _mode == "demolish") and not chrome_on
 		if _readout_bar:
 			_readout_bar.visible = show
 		_readout.visible = show
