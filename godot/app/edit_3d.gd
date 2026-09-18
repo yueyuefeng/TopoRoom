@@ -6,6 +6,7 @@ const Lighting := preload("res://app/lighting.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
+const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -25,6 +26,7 @@ var _sel_label: Label
 var _lwh: Label
 var _lwh_row: HBoxContainer
 var _numeric: Control
+var _ruler: Control
 var _pending_dim: Dictionary = {}
 var _ctx: HBoxContainer
 var _dim_chip: Button
@@ -101,7 +103,7 @@ func _build_hud() -> void:
 		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
 		_update_hud()
 	))
-	_dim_chip = Studio.chip("尺寸", func(): _toggle_dims(), false)
+	_dim_chip = Studio.chip("标尺", func(): _open_ruler(), false)
 	row.add_child(_dim_chip)
 	col.add_child(row)
 	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
@@ -141,6 +143,9 @@ func _build_hud() -> void:
 	hud.layer.add_child(fab)
 	_numeric = NumericSheet.new()
 	hud.layer.add_child(_numeric)
+	_ruler = RulerSheet.new()
+	_ruler.changed.connect(_sync_dims_from_prefs)
+	hud.layer.add_child(_ruler)
 	_mount_3d_library(hud.layer)
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -175,7 +180,7 @@ func _mount_3d_library(layer: CanvasLayer) -> void:
 	layer.add_child(dock)
 
 
-func _on_library_preview(kind: String, global_pos: Vector2) -> void:
+func _on_library_preview(_kind: String, global_pos: Vector2) -> void:
 	var hit := _intersect(global_pos, 1)
 	if hit.is_empty():
 		return
@@ -230,8 +235,13 @@ func _place_opening_at(kind: String, pos: Vector2) -> bool:
 	return true
 
 
-func _toggle_dims() -> void:
-	_show_dims = not _show_dims
+func _open_ruler() -> void:
+	if _ruler and _ruler.has_method("present"):
+		_ruler.present()
+
+
+func _sync_dims_from_prefs() -> void:
+	_show_dims = Session.ruler_on("dims_3d")
 	if _dim_chip:
 		_dim_chip.theme_type_variation = "ChipOn" if _show_dims else "ChipButton"
 	if _dim_overlay:

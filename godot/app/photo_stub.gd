@@ -7,6 +7,7 @@ const MediaPickerScript := preload("res://app/media_picker.gd")
 const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
 const OpeningLibrary := preload("res://app/opening_library.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
+const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -26,6 +27,7 @@ var _readout: Label
 var _readout_bar: Control
 var _lwh_row: HBoxContainer
 var _numeric: Control
+var _ruler: Control
 var _ctx: HBoxContainer
 var _fab: Button
 var _snap_wall := ""
@@ -58,6 +60,7 @@ func _ready() -> void:
 	top_row.add_child(title)
 	_phase = Studio.label("导入", Tokens.FONT_CAPTION, Tokens.PRIMARY)
 	top_row.add_child(_pill(_phase))
+	top_row.add_child(Studio.chip("标尺", func(): _open_ruler()))
 	top.add_child(top_row)
 	root.add_child(top)
 
@@ -149,6 +152,8 @@ func _ready() -> void:
 	add_child(_confirm)
 	_numeric = NumericSheet.new()
 	add_child(_numeric)
+	_ruler = RulerSheet.new()
+	add_child(_ruler)
 
 	_picker = MediaPickerScript.new()
 	add_child(_picker)
@@ -192,6 +197,11 @@ func _ready() -> void:
 			_image_uri = Session.last_import_uri if not Session.last_import_uri.is_empty() else _thumb_path
 			_load_thumb(_thumb_path)
 		_show_review()
+
+
+func _open_ruler() -> void:
+	if _ruler and _ruler.has_method("present"):
+		_ruler.present()
 
 
 func _pill(inner: Label) -> PanelContainer:
