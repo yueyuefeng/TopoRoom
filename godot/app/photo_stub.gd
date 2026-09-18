@@ -21,6 +21,9 @@ var _picker: Node
 var _image_uri := ""
 var _thumb_path := ""
 var _calibrate: Control
+var _readout: Label
+var _readout_bar: Control
+var _ctx: HBoxContainer
 
 
 func _ready() -> void:
@@ -51,6 +54,31 @@ func _ready() -> void:
 	top_row.add_child(_pill(_phase))
 	top.add_child(top_row)
 	root.add_child(top)
+
+	var read_m := MarginContainer.new()
+	read_m.add_theme_constant_override("margin_left", Tokens.S2)
+	read_m.add_theme_constant_override("margin_right", Tokens.S2)
+	read_m.add_theme_constant_override("margin_top", 4)
+	var read_panel := PanelContainer.new()
+	var rsb := StyleBoxFlat.new()
+	rsb.bg_color = Tokens.SURFACE
+	rsb.corner_radius_top_left = Tokens.R_PILL
+	rsb.corner_radius_top_right = Tokens.R_PILL
+	rsb.corner_radius_bottom_left = Tokens.R_PILL
+	rsb.corner_radius_bottom_right = Tokens.R_PILL
+	rsb.content_margin_left = 16
+	rsb.content_margin_right = 16
+	rsb.content_margin_top = 8
+	rsb.content_margin_bottom = 8
+	read_panel.add_theme_stylebox_override("panel", rsb)
+	_readout = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_SECTION, Tokens.TEXT)
+	_readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_readout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	read_panel.add_child(_readout)
+	read_m.add_child(read_panel)
+	root.add_child(read_m)
+	_readout_bar = read_m
+	_readout_bar.visible = false
 
 	var mid := MarginContainer.new()
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -250,16 +278,8 @@ func _show_review() -> void:
 	_canvas.visible = true
 	_canvas.interactive = true
 	_clear_dock()
-	var row := Studio.hbox(Tokens.S1)
-	var shear := Studio.ghost("标为承重", func(): _set_selected_kind("shearWall"))
-	shear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shear.custom_minimum_size = Vector2(0, 48)
-	var mason := Studio.ghost("标为隔墙", func(): _set_selected_kind("masonry"))
-	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mason.custom_minimum_size = Vector2(0, 48)
-	row.add_child(shear)
-	row.add_child(mason)
-	_dock.add_child(row)
+	_ctx = Studio.hbox(Tokens.S1)
+	_dock.add_child(_ctx)
 	_dock.add_child(_make_library())
 	var next := Studio.primary("进入 3D", func(): _enter_3d())
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -279,26 +299,8 @@ func _show_demolish() -> void:
 	_canvas.visible = true
 	_preview.visible = not _thumb_path.is_empty()
 	_clear_dock()
-	var row1 := Studio.hbox(Tokens.S1)
-	var a := Studio.ghost("整段拆除", func(): _act_demolish())
-	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	a.custom_minimum_size = Vector2(0, 48)
-	var b := Studio.ghost("中点打断", func(): _act_split())
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size = Vector2(0, 48)
-	row1.add_child(a)
-	row1.add_child(b)
-	_dock.add_child(row1)
-	var row2 := Studio.hbox(Tokens.S1)
-	var c := Studio.ghost("局部拆除", func(): _act_partial())
-	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c.custom_minimum_size = Vector2(0, 48)
-	var d := Studio.ghost("打门洞", func(): _act_punch())
-	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	d.custom_minimum_size = Vector2(0, 48)
-	row2.add_child(c)
-	row2.add_child(d)
-	_dock.add_child(row2)
+	_ctx = Studio.hbox(Tokens.S1)
+	_dock.add_child(_ctx)
 	_dock.add_child(_make_library())
 	_dock.add_child(Studio.ghost("返回确认承重", func(): _show_review()))
 	_refresh()
@@ -475,10 +477,6 @@ func _on_opening_clicked(opening_id: String, wall_id: String) -> void:
 func _on_wall_clicked(wall_id: String) -> void:
 	_canvas.selected_id = wall_id
 	_canvas.selected_opening_id = ""
-	if _mode == "review":
-		var kind: String = _wall_kind(wall_id)
-		var next: String = "masonry" if kind == "shearWall" else "shearWall"
-		Session.set_wall_kind(wall_id, next)
 	_refresh()
 
 
@@ -564,3 +562,78 @@ func _walls() -> Array:
 func _refresh() -> void:
 	if _canvas and _canvas.has_method("set_sceneir_json"):
 		_canvas.set_sceneir_json(Session.sceneir_json())
+	_refresh_selection()
+
+
+func _refresh_selection() -> void:
+	if _readout:
+		var show := _mode == "review" or _mode == "demolish"
+		if _readout_bar:
+			_readout_bar.visible = show
+		_readout.visible = show
+		_readout.text = _lwh_text()
+	if _ctx == null or not is_instance_valid(_ctx):
+		return
+	if _mode != "review" and _mode != "demolish":
+		return
+	for c in _ctx.get_children():
+		_ctx.remove_child(c)
+		c.queue_free()
+	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
+	var wid: String = str(_canvas.selected_id) if _canvas else ""
+	if oid.is_empty() and wid.is_empty():
+		var hint := Studio.caption("点选墙或门窗，顶栏显示长宽高")
+		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_ctx.add_child(hint)
+		return
+	if not oid.is_empty():
+		var cap := Studio.caption("已选门窗 · 长宽高见顶栏")
+		cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_ctx.add_child(cap)
+		return
+	if _mode == "review":
+		_ctx_btn("标为承重", func(): _set_selected_kind("shearWall"))
+		_ctx_btn("标为隔墙", func(): _set_selected_kind("masonry"))
+	else:
+		_ctx_btn("整段拆除", func(): _act_demolish())
+		_ctx_btn("中点打断", func(): _act_split())
+		_ctx_btn("局部拆除", func(): _act_partial())
+		_ctx_btn("打门洞", func(): _act_punch())
+
+
+func _ctx_btn(text: String, cb: Callable) -> void:
+	var b := Studio.ghost(text, cb)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 48)
+	_ctx.add_child(b)
+
+
+func _lwh_text() -> String:
+	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
+	var wid: String = str(_canvas.selected_id) if _canvas else ""
+	if not oid.is_empty():
+		for w in _walls():
+			for op in w.get("openings", []):
+				if typeof(op) != TYPE_DICTIONARY or str(op.get("id", "")) != oid:
+					continue
+				return "L %d    W %d    H %d" % [
+					int(round(float(op.get("widthMm", 0)))),
+					int(round(float(w.get("thicknessMm", 200)))),
+					int(round(float(op.get("heightMm", 0)))),
+				]
+	if not wid.is_empty():
+		for w in _walls():
+			if str(w.get("id", "")) != wid:
+				continue
+			var a: Dictionary = w.get("start", {})
+			var b: Dictionary = w.get("end", {})
+			var length: float = Vector2(
+				float(b.get("x", 0)) - float(a.get("x", 0)),
+				float(b.get("y", 0)) - float(a.get("y", 0))
+			).length()
+			return "L %d    W %d    H %d" % [
+				int(round(length)),
+				int(round(float(w.get("thicknessMm", 200)))),
+				int(round(float(w.get("heightMm", 2800)))),
+			]
+	return "点选墙或门窗，看长宽高"

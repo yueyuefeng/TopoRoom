@@ -19,6 +19,8 @@ var _solids: Node3D
 var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
+var _lwh: Label
+var _ctx: HBoxContainer
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -72,11 +74,16 @@ func _build_hud() -> void:
 		_update_hud()
 	))
 	col.add_child(row)
+	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
+	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_lwh)
 	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
 	_sel_label = Studio.caption("")
 	col.add_child(_sel_label)
+	_ctx = Studio.hbox(Tokens.S1)
+	col.add_child(_ctx)
 	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
@@ -717,6 +724,51 @@ func _update_hud() -> void:
 	if not _drag.is_empty():
 		sel += "  · 拖动中，松开后经 C API 提交"
 	_sel_label.text = sel
+	if _lwh:
+		_lwh.text = _lwh_text()
+	_rebuild_ctx()
+
+
+func _lwh_text() -> String:
+	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		var op := _opening_by_id(str(_selected.get("opening_id", "")))
+		var f := _wall_by_id(str(_selected.get("wall_id", "")))
+		var width := float(op.get("widthMm", _drag.get("width_mm", 0)))
+		var height := float(op.get("heightMm", _drag.get("height_mm", 0)))
+		var thick := float(f.get("thickness", 200))
+		return "L %d    W %d    H %d" % [int(round(width)), int(round(thick)), int(round(height))]
+	if pick == KIND_WALL:
+		var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
+		if f2.is_empty():
+			return "点选墙或门窗，看长宽高"
+		var h := float(_drag.get("height_mm", f2.height)) if str(_drag.get("pick", "")) == HANDLE_WALL_HEIGHT else float(f2.height)
+		return "L %d    W %d    H %d" % [int(round(float(f2.length))), int(round(float(f2.thickness))), int(round(h))]
+	return "点选墙或门窗，看长宽高"
+
+
+func _rebuild_ctx() -> void:
+	if _ctx == null:
+		return
+	for c in _ctx.get_children():
+		_ctx.remove_child(c)
+		c.queue_free()
+	var pick := str(_selected.get("pick", ""))
+	if pick != KIND_WALL:
+		_ctx.visible = pick == KIND_OPENING
+		if pick == KIND_OPENING:
+			var cap := Studio.caption("拖偏移 / 宽度手柄改门窗。尺寸只经命令写回。")
+			cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_ctx.add_child(cap)
+		return
+	_ctx.visible = true
+	var wid := str(_selected.get("wall_id", ""))
+	var shear := Studio.chip("承重", func(): Session.set_wall_kind(wid, "shearWall"), true)
+	var mason := Studio.chip("隔墙", func(): Session.set_wall_kind(wid, "masonry"))
+	shear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ctx.add_child(shear)
+	_ctx.add_child(mason)
 
 
 func _opening_by_id(oid: String) -> Dictionary:
