@@ -1,5 +1,5 @@
 extends Control
-## 拍户型图：系统相机 / 相册 → 立刻光栅识别 → 确认承重 → 3D / 拆改。
+## 拍户型图 S1–S4: 系统选图 → 校准 → 全屏 2D 岛式 chrome（无通栏 / 无 FAB）。
 
 const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
@@ -9,14 +9,15 @@ const OpeningLibrary := preload("res://app/opening_library.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
 const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
 const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const PageIslands := preload("res://app/ui/page_islands.gd")
+const Haptics := preload("res://app/ui/haptics.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
 var _preview: TextureRect
-var _phase: Label
-var _hint: Label
 var _snack: PanelContainer
 var _dock: VBoxContainer
+var _dock_sheet: PanelContainer
 var _confirm: PanelContainer
 var _confirm_label: Label
 var _pending: Callable
@@ -26,148 +27,63 @@ var _thumb_path := ""
 var _calibrate: Control
 var _readout: Label
 var _readout_bar: Control
-var _lwh_row: HBoxContainer
 var _numeric: Control
 var _ruler: Control
 var _coach: Control
 var _ctx: HBoxContainer
-var _fab: Button
-var _fab_place_tries := 0
+var _ctx_wrap: PanelContainer
+var _lib_host: PanelContainer
+var _bottom_dock: Control
 var _snap_wall := ""
-const Haptics := preload("res://app/ui/haptics.gd")
+var _pending_dim: Dictionary = {}
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	Studio.apply_to(self)
 	var bg := ColorRect.new()
-	bg.color = Tokens.BG
+	bg.color = Color.WHITE
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 0)
-	add_child(root)
-
-	var top := MarginContainer.new()
-	top.add_theme_constant_override("margin_left", Tokens.S2)
-	top.add_theme_constant_override("margin_right", Tokens.S2)
-	top.add_theme_constant_override("margin_top", Tokens.S2)
-	var top_row := Studio.hbox(Tokens.S1)
-	top_row.add_child(Studio.ghost("返回", func(): _back()))
-	var title := Studio.section("户型图")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	top_row.add_child(title)
-	_phase = Studio.label("导入", Tokens.FONT_CAPTION, Tokens.PRIMARY)
-	top_row.add_child(_pill(_phase))
-	top_row.add_child(Studio.chip("标尺", func(): _open_ruler()))
-	top.add_child(top_row)
-	root.add_child(top)
-
-	var read_m := MarginContainer.new()
-	read_m.add_theme_constant_override("margin_left", Tokens.S2)
-	read_m.add_theme_constant_override("margin_right", Tokens.S2)
-	read_m.add_theme_constant_override("margin_top", 4)
-	var read_panel := PanelContainer.new()
-	var rsb := StyleBoxFlat.new()
-	rsb.bg_color = Tokens.SURFACE
-	rsb.corner_radius_top_left = Tokens.R_PILL
-	rsb.corner_radius_top_right = Tokens.R_PILL
-	rsb.corner_radius_bottom_left = Tokens.R_PILL
-	rsb.corner_radius_bottom_right = Tokens.R_PILL
-	rsb.content_margin_left = 16
-	rsb.content_margin_right = 16
-	rsb.content_margin_top = 8
-	rsb.content_margin_bottom = 8
-	read_panel.add_theme_stylebox_override("panel", rsb)
-	_readout = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_SECTION, Tokens.TEXT)
-	_readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_readout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var read_col := Studio.vbox(4)
-	read_col.add_child(_readout)
-	_lwh_row = Studio.hbox(Tokens.S1)
-	_lwh_row.visible = false
-	read_col.add_child(_lwh_row)
-	read_panel.add_child(read_col)
-	read_m.add_child(read_panel)
-	root.add_child(read_m)
-	_readout_bar = read_m
-	_readout_bar.visible = false
-
-	var mid := MarginContainer.new()
-	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mid.add_theme_constant_override("margin_left", Tokens.S2)
-	mid.add_theme_constant_override("margin_right", Tokens.S2)
-	mid.add_theme_constant_override("margin_top", Tokens.S1)
-	mid.add_theme_constant_override("margin_bottom", Tokens.S1)
-	var hero := Studio.card("HeroCard")
-	hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var hcol := Studio.vbox(8)
-	hcol.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_hint = Studio.caption("拍一张户型图，或从相册选已有照片。识别结果会写成墙段，照片只作对照。")
-	hcol.add_child(_hint)
-	_preview = TextureRect.new()
-	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_preview.custom_minimum_size = Vector2(0, 180)
-	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_preview.visible = false
-	hcol.add_child(_preview)
 	_canvas = PlanCanvas.new()
-	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_canvas.custom_minimum_size = Vector2(0, 220)
+	_canvas.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_canvas.interactive = false
+	_canvas.show_chrome = false
+	_canvas.full_bleed = true
 	_canvas.wall_clicked.connect(_on_wall_clicked)
 	_canvas.opening_clicked.connect(_on_opening_clicked)
-	hcol.add_child(_canvas)
-	hero.add_child(hcol)
-	mid.add_child(hero)
-	root.add_child(mid)
+	add_child(_canvas)
 
-	var dock := Studio.sheet()
-	var dm := MarginContainer.new()
-	dm.add_theme_constant_override("margin_left", 0)
-	dm.add_theme_constant_override("margin_right", 0)
-	dm.add_theme_constant_override("margin_top", 4)
-	dm.add_theme_constant_override("margin_bottom", 8)
-	_dock = Studio.vbox(Tokens.S1)
-	dm.add_child(_dock)
-	dock.add_child(dm)
-	root.add_child(dock)
+	_preview = TextureRect.new()
+	_preview.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_preview.visible = false
+	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_preview)
+
+	_mount_top()
+	_mount_readout()
+	_mount_ctx()
+	_mount_bottom_dock()
+	_mount_library()
+	_mount_pick_dock()
 
 	_snack = Snackbar.new()
 	_snack.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_snack.anchor_top = 1.0
 	_snack.offset_left = Tokens.S2
 	_snack.offset_right = -Tokens.S2
-	_snack.offset_top = -240
-	_snack.offset_bottom = -148
+	_snack.offset_top = -120
+	_snack.offset_bottom = -72
 	add_child(_snack)
 	Session.log_line.connect(func(text: String): _snack.show_message(text))
 	Session.document_changed.connect(_refresh)
 
-	_fab = Studio.fab("3D", func(): _enter_3d())
-	_fab.visible = false
-	_fab.set_anchors_preset(PRESET_BOTTOM_RIGHT)
-	_fab.anchor_left = 1.0
-	_fab.anchor_top = 1.0
-	_fab.anchor_right = 1.0
-	_fab.anchor_bottom = 1.0
-	_fab.offset_left = -78
-	_fab.offset_top = -268
-	_fab.offset_right = -20
-	_fab.offset_bottom = -210
-	add_child(_fab)
-	resized.connect(func(): _place_fab())
-
 	_confirm = _build_confirm()
 	add_child(_confirm)
-	_confirm.visibility_changed.connect(_sync_fab)
 	_numeric = NumericSheet.new()
 	add_child(_numeric)
 	_ruler = RulerSheet.new()
@@ -206,6 +122,79 @@ func _ready() -> void:
 		_show_review()
 
 
+func _mount_top() -> void:
+	add_child(PageIslands.top_bar(
+		func(): _back(),
+		PageIslands.view_toggle(true, func(): pass, func(): _enter_3d()),
+		func(): _snack.show_message("多层楼层 P1")
+	))
+
+
+func _mount_readout() -> void:
+	_readout_bar = PageIslands.readout_pill()
+	_readout_bar.set_anchors_preset(PRESET_TOP_LEFT)
+	_readout_bar.anchor_right = 0.0
+	_readout_bar.anchor_bottom = 0.0
+	_readout_bar.offset_left = 12
+	_readout_bar.offset_top = 72
+	_readout_bar.offset_right = 220
+	_readout_bar.offset_bottom = 108
+	_readout_bar.visible = false
+	_readout = Studio.label("L  —   ∠  —", Tokens.FONT_CHIP, Tokens.TEXT)
+	_readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_readout_bar.add_child(_readout)
+	_readout_bar.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_edit_dim("l")
+	)
+	add_child(_readout_bar)
+
+
+func _mount_ctx() -> void:
+	_ctx_wrap = PageIslands.readout_pill()
+	_ctx_wrap.visible = false
+	_ctx_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ctx = Studio.hbox(4)
+	_ctx_wrap.add_child(_ctx)
+	add_child(_ctx_wrap)
+
+
+func _mount_bottom_dock() -> void:
+	_bottom_dock = PageIslands.bottom_2d_dock(
+		func(): _enter_3d(),
+		func(): _snack.show_message("已对准平面"),
+		func():
+			Session.auto_save()
+			_snack.show_message("已保存", "ok")
+	)
+	_bottom_dock.visible = false
+	add_child(_bottom_dock)
+
+
+func _mount_library() -> void:
+	_lib_host = PanelContainer.new()
+	_lib_host.add_theme_stylebox_override("panel", PageIslands.white_sheet_style())
+	_lib_host.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	_lib_host.anchor_top = 1.0
+	_lib_host.offset_top = -280
+	_lib_host.visible = false
+	_lib_host.add_child(_make_library())
+	add_child(_lib_host)
+
+
+func _mount_pick_dock() -> void:
+	_dock_sheet = PanelContainer.new()
+	_dock_sheet.add_theme_stylebox_override("panel", PageIslands.white_sheet_style())
+	_dock_sheet.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	_dock_sheet.anchor_top = 1.0
+	_dock_sheet.offset_top = -220
+	var dm := MarginContainer.new()
+	_dock = Studio.vbox(Tokens.S1)
+	dm.add_child(_dock)
+	_dock_sheet.add_child(dm)
+	add_child(_dock_sheet)
+
+
 func _coach_start(steps: Array) -> void:
 	if _coach and _coach.has_method("start"):
 		_coach.start(steps)
@@ -214,24 +203,6 @@ func _coach_start(steps: Array) -> void:
 func _open_ruler() -> void:
 	if _ruler and _ruler.has_method("present"):
 		_ruler.present()
-
-
-func _pill(inner: Label) -> PanelContainer:
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Tokens.PRIMARY_SOFT
-	sb.corner_radius_top_left = Tokens.R_PILL
-	sb.corner_radius_top_right = Tokens.R_PILL
-	sb.corner_radius_bottom_left = Tokens.R_PILL
-	sb.corner_radius_bottom_right = Tokens.R_PILL
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	p.add_theme_stylebox_override("panel", sb)
-	inner.autowrap_mode = TextServer.AUTOWRAP_OFF
-	p.add_child(inner)
-	return p
 
 
 func _build_confirm() -> PanelContainer:
@@ -275,10 +246,22 @@ func _clear_dock() -> void:
 		c.queue_free()
 
 
+func _sync_islands() -> void:
+	var editing := _mode == "review" or _mode == "demolish"
+	if _bottom_dock:
+		_bottom_dock.visible = editing
+	if _lib_host:
+		_lib_host.visible = editing
+	if _dock_sheet:
+		_dock_sheet.visible = _mode == "pick" or _mode == "preview"
+	if _readout_bar:
+		_readout_bar.visible = editing
+	if _ctx_wrap and not editing:
+		_ctx_wrap.visible = false
+
+
 func _show_pick() -> void:
 	_mode = "pick"
-	_phase.text = "导入"
-	_hint.text = "拍现场户型图，或从相册选一张。识别后可以改承重、再拆改。"
 	_canvas.interactive = false
 	_canvas.selected_id = ""
 	_preview.visible = false
@@ -295,20 +278,18 @@ func _show_pick() -> void:
 	demo.custom_minimum_size = Vector2(0, 44)
 	demo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(demo)
-	_dock.add_child(Studio.caption("相机会打开系统拍照；相册走系统选择器。桌面试用时可改选本地图片。"))
+	_dock.add_child(Studio.caption("相机会打开系统拍照；相册走系统选择器。"))
+	_sync_islands()
 	_refresh()
 
 
 func _show_preview(path: String) -> void:
 	_mode = "preview"
-	_phase.text = "预览"
 	_image_uri = path
 	_thumb_path = path
 	_load_thumb(path)
 	_preview.visible = true
-	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.visible = false
-	_hint.text = "确认这张图无误。识别会标出承重墙、砌体墙和门窗。"
 	_clear_dock()
 	var go := Studio.primary("开始识墙", func(): _run_vision(path))
 	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -321,51 +302,30 @@ func _show_preview(path: String) -> void:
 	row.add_child(recapture)
 	row.add_child(reimport)
 	_dock.add_child(row)
+	_sync_islands()
 
 
 func _show_review() -> void:
 	_mode = "review"
-	_phase.text = "确认承重"
-	_hint.text = _review_hint()
 	_preview.visible = false
-	_preview.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_canvas.visible = true
 	_canvas.interactive = true
-	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_clear_dock()
-	_ctx = Studio.hbox(Tokens.S1)
-	_dock.add_child(_ctx)
-	_dock.add_child(_make_library())
-	var next := Studio.primary("进入 3D", func(): _enter_3d())
-	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_dock.add_child(next)
-	var demolish := Studio.ghost("先拆改", func(): _show_demolish())
-	demolish.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	demolish.custom_minimum_size = Vector2(0, 44)
-	_dock.add_child(demolish)
+	_sync_islands()
 	_refresh()
 	_coach_start([
-		{"id": "review_walls", "text": "点墙切换承重（暖色）和隔墙（深灰）。认准了再进 3D。"},
-		{"id": "library", "text": "长按底栏门或窗，拖到墙段上松手。收藏夹会记住常用构件。"},
-		{"id": "lwh", "text": "点顶栏 L / W / H，用数字底栏改毫米。尺寸只经命令写回。"},
-		{"id": "fab", "text": "点右下角 3D，平面会挤成立体。再点 2D 回来。"},
+		{"id": "review_walls", "text": "点墙切换承重和隔墙。顶栏切 3D，或点左下绿钮挤成立体。"},
+		{"id": "library", "text": "长按底栏门或窗，拖到墙段上松手。"},
+		{"id": "lwh", "text": "点左上 L / ∠ 读数，用数字底栏改毫米。"},
+		{"id": "fab", "text": "顶栏 2D|3D 胶囊或底栏绿钮进入 3D。"},
 	])
 
 
 func _show_demolish() -> void:
 	_mode = "demolish"
-	_phase.text = "拆改"
-	_hint.text = "隔墙点选后直接拆。承重墙会弹出确认，避免误拆。"
 	_preview.visible = false
-	_preview.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_canvas.interactive = true
 	_canvas.visible = true
-	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_clear_dock()
-	_ctx = Studio.hbox(Tokens.S1)
-	_dock.add_child(_ctx)
-	_dock.add_child(_make_library())
-	_dock.add_child(Studio.ghost("返回确认承重", func(): _show_review()))
+	_sync_islands()
 	_refresh()
 
 
@@ -421,6 +381,9 @@ func _run_example() -> void:
 
 
 func _enter_3d() -> void:
+	if _mode != "review" and _mode != "demolish":
+		_snack.show_message("先完成识墙再进 3D")
+		return
 	Session.screen = "photo"
 	Session.extrude_from_2d = true
 	if is_instance_valid(_canvas):
@@ -434,18 +397,6 @@ func _enter_3d() -> void:
 			)
 			return
 	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
-
-
-func _review_hint() -> String:
-	var v: Dictionary = Session.last_vision
-	if v.is_empty():
-		return "点墙切换承重（暖色）和隔墙（深灰）。认准了再进入 3D。"
-	return "识别到承重 %d、砌体 %d、门 %d、窗 %d。点墙可改类型，然后进入 3D。" % [
-		int(v.get("shear_count", 0)),
-		int(v.get("masonry_count", 0)),
-		int(v.get("door_count", 0)),
-		int(v.get("window_count", 0)),
-	]
 
 
 func _pick_gallery() -> void:
@@ -470,9 +421,9 @@ func _on_image(path: String) -> void:
 
 func _show_calibrate(path: String) -> void:
 	_mode = "calibrate"
-	_phase.text = "标定"
 	_image_uri = path
 	_thumb_path = path
+	_sync_islands()
 	if _calibrate == null or not _calibrate.has_method("load_image"):
 		_run_vision(path, 0.0)
 		return
@@ -657,113 +608,85 @@ func _refresh() -> void:
 
 
 func _refresh_selection() -> void:
-	if _readout:
-		var show := _mode == "review" or _mode == "demolish"
-		if _readout_bar:
-			_readout_bar.visible = show
-		_readout.visible = show
-		_rebuild_lwh()
-	_sync_fab()
+	_rebuild_readout()
+	_rebuild_ctx_pill()
+
+
+func _rebuild_ctx_pill() -> void:
 	if _ctx == null or not is_instance_valid(_ctx):
-		return
-	if _mode != "review" and _mode != "demolish":
 		return
 	for c in _ctx.get_children():
 		_ctx.remove_child(c)
 		c.queue_free()
+	if _mode != "review" and _mode != "demolish":
+		_ctx_wrap.visible = false
+		return
 	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
 	var wid: String = str(_canvas.selected_id) if _canvas else ""
 	if oid.is_empty() and wid.is_empty():
-		var hint := Studio.caption("点选墙或门窗，顶栏显示长宽高")
-		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_ctx.add_child(hint)
+		_ctx_wrap.visible = false
 		return
+	_ctx_wrap.visible = true
 	if not oid.is_empty():
-		_ctx_btn("翻转", func(): Session.flip_opening(oid))
-		_ctx_btn("旋转", func(): Session.rotate_opening(oid))
+		_ctx_btn("设置", func(): _edit_dim("l"))
 		_ctx_btn("复制", func(): Session.duplicate_opening(oid))
 		_ctx_btn("删除", func(): Session.delete_opening(oid))
-		return
-	if _mode == "review":
-		_ctx_btn("标为承重", func(): _set_selected_kind("shearWall"))
-		_ctx_btn("标为隔墙", func(): _set_selected_kind("masonry"))
+	elif _mode == "review":
+		_ctx_btn("承重", func(): _set_selected_kind("shearWall"))
+		_ctx_btn("隔墙", func(): _set_selected_kind("masonry"))
+		_ctx_btn("删除", func(): _act_demolish())
 	else:
 		_ctx_btn("整段拆除", func(): _act_demolish())
-		_ctx_btn("中点打断", func(): _act_split())
-		_ctx_btn("局部拆除", func(): _act_partial())
-		_ctx_btn("打门洞", func(): _act_punch())
+		_ctx_btn("打断", func(): _act_split())
+		_ctx_btn("删除", func(): _act_partial())
+	_place_ctx()
 
 
-func _sync_fab() -> void:
-	if _fab == null:
+func _place_ctx() -> void:
+	if _ctx_wrap == null or not _ctx_wrap.visible or _canvas == null:
 		return
-	var overlay_up := _confirm != null and is_instance_valid(_confirm) and _confirm.visible
-	_fab.visible = (_mode == "review" or _mode == "demolish") and not overlay_up
-	if overlay_up:
-		move_child.call_deferred(_confirm, get_child_count() - 1)
+	var anchor: Vector2 = _canvas.selection_anchor()
+	if anchor == Vector2.ZERO:
+		_ctx_wrap.position = Vector2(24, 120)
 		return
-	_fab_place_tries = 0
-	call_deferred("_place_fab")
-
-
-func _place_fab() -> void:
-	if _fab == null or not _fab.visible or _dock == null:
-		return
-	if _dock.get_child_count() < 2:
-		return
-	var lib := _dock.get_child(1) as Control
-	if lib == null or not is_instance_valid(lib):
-		return
-	if lib.size.y < 8.0:
-		_fab_place_tries += 1
-		if _fab_place_tries < 8:
-			call_deferred("_place_fab")
-		return
-	_fab_place_tries = 0
-	var view_h := size.y
-	if view_h <= 1.0:
-		view_h = get_viewport_rect().size.y
-	var from_bottom := view_h - (lib.global_position.y + lib.size.y * 0.5)
-	_fab.offset_right = -20.0
-	_fab.offset_left = -78.0
-	_fab.offset_bottom = -(from_bottom - 29.0)
-	_fab.offset_top = _fab.offset_bottom - 58.0
+	var local: Vector2 = anchor - global_position + Vector2(-40, -52)
+	_ctx_wrap.position = Vector2(
+		clampf(local.x, 12.0, maxf(size.x - 220.0, 12.0)),
+		clampf(local.y, 80.0, maxf(size.y - 320.0, 80.0))
+	)
 
 
 func _ctx_btn(text: String, cb: Callable) -> void:
-	var b := Studio.ghost(text, cb)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size = Vector2(0, 48)
+	var b := Studio.chip(text, cb)
+	b.custom_minimum_size = Vector2(0, 32)
 	_ctx.add_child(b)
 
 
-func _rebuild_lwh() -> void:
-	if _lwh_row == null or not is_instance_valid(_lwh_row):
-		if _readout:
-			_readout.text = "点选墙或门窗，点 L/W/H 改尺寸"
+func _rebuild_readout() -> void:
+	if _readout == null:
 		return
-	for c in _lwh_row.get_children():
-		_lwh_row.remove_child(c)
-		c.queue_free()
+	var editing := _mode == "review" or _mode == "demolish"
+	_readout_bar.visible = editing
+	if not editing:
+		return
 	var oid: String = str(_canvas.selected_opening_id) if _canvas else ""
 	var wid: String = str(_canvas.selected_id) if _canvas else ""
-	if oid.is_empty() and wid.is_empty():
-		_readout.visible = true
-		_readout.text = "点选墙或门窗，点 L/W/H 改尺寸"
-		_lwh_row.visible = false
+	if not oid.is_empty():
+		var dims: Dictionary = _lwh_dims()
+		_readout.text = "L %d  W %d  H %d" % [
+			int(round(float(dims.get("l", 0)))),
+			int(round(float(dims.get("w", 0)))),
+			int(round(float(dims.get("h", 0)))),
+		]
 		return
-	_readout.visible = false
-	_lwh_row.visible = true
-	var dims: Dictionary = _lwh_dims()
-	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
-	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
-	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
-
-
-func _lwh_chip(text: String, cb: Callable) -> void:
-	var b := Studio.chip(text, cb)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lwh_row.add_child(b)
+	if not wid.is_empty():
+		var len := _wall_length(wid)
+		var ang := 90.0
+		if _canvas.has_method("wall_angle_deg"):
+			ang = _canvas.wall_angle_deg(wid)
+		_readout.text = "L %d   ∠ %d°" % [int(round(len)), int(round(ang))]
+		return
+	_readout.text = "L  —   ∠  —"
 
 
 func _lwh_dims() -> Dictionary:
@@ -810,9 +733,6 @@ func _edit_dim(which: String) -> void:
 	_numeric.committed.connect(_on_numeric_commit, CONNECT_ONE_SHOT)
 
 
-var _pending_dim: Dictionary = {}
-
-
 func _on_numeric_commit(value_mm: float) -> void:
 	var which := str(_pending_dim.get("which", ""))
 	var dims: Dictionary = _pending_dim.get("dims", {})
@@ -845,4 +765,3 @@ func _on_numeric_commit(value_mm: float) -> void:
 		Session.set_wall_thickness_mm(id, value_mm)
 	else:
 		Session.set_wall_height_mm(id, value_mm)
-
