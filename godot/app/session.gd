@@ -211,7 +211,7 @@ func measure_typed(value_mm: float, explicit: bool) -> String:
 	return _ok("关键尺寸 手输 %smm 确认=%s" % [str(value_mm), str(explicit)])
 
 
-func add_opening(kind: String) -> String:
+func add_opening(kind: String, wall_id: String = "", offset_mm: float = -1.0) -> String:
 	if host == null:
 		return _fail("no core")
 	opening_serial += 1
@@ -224,9 +224,15 @@ func add_opening(kind: String) -> String:
 		sill = 900.0
 	elif kind == "archway":
 		width = 1200.0
+	var host_wall := wall_id
+	if host_wall.is_empty():
+		host_wall = "wall_s"
+	var off := offset_mm
+	if off < 0.0:
+		off = 800.0
 	var d: Dictionary = host.add_opening(
-		host.first_storey_id(), "wall_s", "op_%s_%d" % [kind, opening_serial], kind,
-		width, height, 800.0, sill
+		host.first_storey_id(), host_wall, "op_%s_%d" % [kind, opening_serial], kind,
+		width, height, off, sill
 	)
 	if not d.get("ok", false):
 		opening_serial -= 1
@@ -405,7 +411,7 @@ func import_photo_fake(image_uri: String = "fixture:photo") -> String:
 	return _ok("已识别墙体：四边承重 + 一道隔墙。尺寸仍以量房命令为准。")
 
 
-func import_photo_vision(image_uri: String) -> String:
+func import_photo_vision(image_uri: String, mm_per_px: float = 0.0) -> String:
 	if host == null:
 		return _fail("no core")
 	if image_uri.is_empty() or image_uri.begins_with("fixture:"):
@@ -424,7 +430,7 @@ func import_photo_vision(image_uri: String) -> String:
 	keep_preview = false
 	last_vision = {}
 	guide_mark_host_ok(true)
-	var d: Dictionary = host.import_vision_image(stored)
+	var d: Dictionary = host.import_vision_image(stored, mm_per_px)
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "vision")))
 	last_vision = d

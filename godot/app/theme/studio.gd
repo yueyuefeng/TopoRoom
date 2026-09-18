@@ -66,6 +66,34 @@ func ghost(text: String, cb: Callable) -> Button:
 	return b
 
 
+func fab(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(58, 58)
+	b.add_theme_font_override("font", font)
+	b.add_theme_font_size_override("font_size", 15)
+	b.pressed.connect(cb)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tokens.PRIMARY
+	sb.corner_radius_top_left = Tokens.R_PILL
+	sb.corner_radius_top_right = Tokens.R_PILL
+	sb.corner_radius_bottom_left = Tokens.R_PILL
+	sb.corner_radius_bottom_right = Tokens.R_PILL
+	sb.shadow_color = Tokens.SHADOW
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 3)
+	b.add_theme_stylebox_override("normal", sb)
+	var sb_h := sb.duplicate()
+	sb_h.bg_color = Tokens.PRIMARY_HOVER
+	b.add_theme_stylebox_override("hover", sb_h)
+	b.add_theme_stylebox_override("pressed", sb_h)
+	b.add_theme_color_override("font_color", Tokens.TEXT_ON_ACCENT)
+	b.add_theme_color_override("font_hover_color", Tokens.TEXT_ON_ACCENT)
+	b.add_theme_color_override("font_pressed_color", Tokens.TEXT_ON_ACCENT)
+	return b
+
+
 func chip(text: String, cb: Callable, on: bool = false) -> Button:
 	var b := button(text, "ChipOn" if on else "ChipButton", cb)
 	b.custom_minimum_size = Vector2(0, 40)

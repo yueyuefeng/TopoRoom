@@ -19,6 +19,11 @@ var _solids: Node3D
 var _gizmos: Node3D
 var _status: Label
 var _sel_label: Label
+var _lwh: Label
+var _ctx: HBoxContainer
+var _dim_chip: Button
+var _dim_overlay: Control
+var _show_dims := false
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -71,12 +76,19 @@ func _build_hud() -> void:
 		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
 		_update_hud()
 	))
+	_dim_chip = Studio.chip("尺寸", func(): _toggle_dims(), false)
+	row.add_child(_dim_chip)
 	col.add_child(row)
+	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
+	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_lwh)
 	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
 	_sel_label = Studio.caption("")
 	col.add_child(_sel_label)
+	_ctx = Studio.hbox(Tokens.S1)
+	col.add_child(_ctx)
 	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
 	var snack := preload("res://app/ui/snackbar.gd").new()
 	snack.theme = Studio.theme
@@ -88,6 +100,71 @@ func _build_hud() -> void:
 	snack.offset_bottom = -16
 	hud.layer.add_child(snack)
 	Session.log_line.connect(func(text: String): snack.show_message(text))
+	var fab := Studio.fab("2D", func(): _go_2d())
+	fab.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	fab.anchor_left = 1.0
+	fab.anchor_top = 1.0
+	fab.anchor_right = 1.0
+	fab.anchor_bottom = 1.0
+	fab.offset_left = -78
+	fab.offset_top = -90
+	fab.offset_right = -20
+	fab.offset_bottom = -32
+	hud.layer.add_child(fab)
+	_dim_overlay = Control.new()
+	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dim_overlay.visible = false
+	_dim_overlay.draw.connect(_draw_dim_overlay)
+	hud.layer.add_child(_dim_overlay)
+
+
+func _toggle_dims() -> void:
+	_show_dims = not _show_dims
+	if _dim_chip:
+		_dim_chip.theme_type_variation = "ChipOn" if _show_dims else "ChipButton"
+	if _dim_overlay:
+		_dim_overlay.visible = _show_dims
+		_dim_overlay.queue_redraw()
+
+
+func _draw_dim_overlay() -> void:
+	if not _show_dims or _camera == null or _dim_overlay == null:
+		return
+	var fnt: Font = Studio.font if Studio and Studio.font else ThemeDB.fallback_font
+	for w in _walls():
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var fr := _frame(w)
+		var mid := Vector3((fr.x0 + fr.x1) * 0.0005, float(fr.height) * 0.0005 + 0.12, (fr.y0 + fr.y1) * 0.0005)
+		if _camera.is_position_behind(mid):
+			continue
+		var p: Vector2 = _camera.unproject_position(mid)
+		var txt := "%d" % int(round(float(fr.length)))
+		var sz: Vector2 = fnt.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
+		var box := Rect2(p - Vector2(sz.x * 0.5 + 6, 10), Vector2(sz.x + 12, 20))
+		_dim_overlay.draw_rect(box, Color(1, 1, 1, 0.88), true)
+		_dim_overlay.draw_rect(box, Tokens.HAIRLINE, false, 1.0)
+		_dim_overlay.draw_string(fnt, p - Vector2(sz.x * 0.5, -5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.TEXT)
+	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		var op := _opening_by_id(str(_selected.get("opening_id", "")))
+		var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
+		if not f2.is_empty() and not op.is_empty():
+			var t := float(op.get("offsetMm", 0)) + float(op.get("widthMm", 0)) * 0.5
+			var y := (float(op.get("sillHeightMm", 0)) + float(op.get("heightMm", 0))) / 1000.0 + 0.08
+			var pos := _along(f2, t, y)
+			if not _camera.is_position_behind(pos):
+				var p2: Vector2 = _camera.unproject_position(pos)
+				var t2 := "W %d  H %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
+				_dim_overlay.draw_string(fnt, p2 + Vector2(-36, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.PRIMARY)
+
+
+func _go_2d() -> void:
+	if Session.screen == "photo":
+		get_tree().change_scene_to_file("res://app/photo_stub.tscn")
+		return
+	get_tree().change_scene_to_file("res://app/main.tscn")
 
 
 func _on_document_changed() -> void:
@@ -112,6 +189,8 @@ func _refresh_world(rebuild_solids: bool) -> void:
 	_build_gizmos()
 	_update_hud()
 	_orbit()
+	if _dim_overlay:
+		_dim_overlay.queue_redraw()
 
 
 func _parse(text: String) -> Dictionary:
@@ -459,6 +538,8 @@ func _orbit() -> void:
 		_distance * cos(_pitch) * cos(_yaw)
 	)
 	_camera.look_at_from_position(_target + offset, _target)
+	if _dim_overlay and _show_dims:
+		_dim_overlay.queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -717,6 +798,51 @@ func _update_hud() -> void:
 	if not _drag.is_empty():
 		sel += "  · 拖动中，松开后经 C API 提交"
 	_sel_label.text = sel
+	if _lwh:
+		_lwh.text = _lwh_text()
+	_rebuild_ctx()
+
+
+func _lwh_text() -> String:
+	var pick := str(_selected.get("pick", ""))
+	if pick == KIND_OPENING:
+		var op := _opening_by_id(str(_selected.get("opening_id", "")))
+		var f := _wall_by_id(str(_selected.get("wall_id", "")))
+		var width := float(op.get("widthMm", _drag.get("width_mm", 0)))
+		var height := float(op.get("heightMm", _drag.get("height_mm", 0)))
+		var thick := float(f.get("thickness", 200))
+		return "L %d    W %d    H %d" % [int(round(width)), int(round(thick)), int(round(height))]
+	if pick == KIND_WALL:
+		var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
+		if f2.is_empty():
+			return "点选墙或门窗，看长宽高"
+		var h := float(_drag.get("height_mm", f2.height)) if str(_drag.get("pick", "")) == HANDLE_WALL_HEIGHT else float(f2.height)
+		return "L %d    W %d    H %d" % [int(round(float(f2.length))), int(round(float(f2.thickness))), int(round(h))]
+	return "点选墙或门窗，看长宽高"
+
+
+func _rebuild_ctx() -> void:
+	if _ctx == null:
+		return
+	for c in _ctx.get_children():
+		_ctx.remove_child(c)
+		c.queue_free()
+	var pick := str(_selected.get("pick", ""))
+	if pick != KIND_WALL:
+		_ctx.visible = pick == KIND_OPENING
+		if pick == KIND_OPENING:
+			var cap := Studio.caption("拖偏移 / 宽度手柄改门窗。尺寸只经命令写回。")
+			cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_ctx.add_child(cap)
+		return
+	_ctx.visible = true
+	var wid := str(_selected.get("wall_id", ""))
+	var shear := Studio.chip("承重", func(): Session.set_wall_kind(wid, "shearWall"), true)
+	var mason := Studio.chip("隔墙", func(): Session.set_wall_kind(wid, "masonry"))
+	shear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ctx.add_child(shear)
+	_ctx.add_child(mason)
 
 
 func _opening_by_id(oid: String) -> Dictionary:

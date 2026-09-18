@@ -48,7 +48,7 @@ class TopoRoomHost : public RefCounted {
                            double height_mm, double offset_mm, double sill_height_mm,
                            bool force);
   Dictionary import_fake_vision(const String& image_uri);
-  Dictionary import_vision_image(const String& path);
+  Dictionary import_vision_image(const String& path, double mm_per_px = 0.0);
   bool vision_ml_available() const;
 
   Dictionary add_opening(const String& storey_id, const String& wall_id,

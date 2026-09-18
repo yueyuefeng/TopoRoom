@@ -95,6 +95,13 @@ typedef struct TopoRoomVisionCounts {
 int toporoom_vision_import_image(TopoRoomDocument* doc, const char* path,
                                  TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len);
 
+/*
+ * Same as toporoom_vision_import_image. mm_per_px > 0 overrides the 200 mm bar
+ * thickness heuristic (scale calibration). mm_per_px <= 0 keeps auto scale.
+ */
+int toporoom_vision_import_image_ex(TopoRoomDocument* doc, const char* path, double mm_per_px,
+                                    TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len);
+
 /* Always 0 until on-device ML is linked. */
 int toporoom_vision_ml_available(void);
 

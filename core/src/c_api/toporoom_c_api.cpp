@@ -424,6 +424,11 @@ void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResu
 
 int toporoom_vision_import_image(TopoRoomDocument* doc, const char* path,
                                  TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len) {
+  return toporoom_vision_import_image_ex(doc, path, 0.0, counts, errbuf, errbuf_len);
+}
+
+int toporoom_vision_import_image_ex(TopoRoomDocument* doc, const char* path, double mm_per_px,
+                                    TopoRoomVisionCounts* counts, char* errbuf, int errbuf_len) {
   zero_counts(counts);
   if (!doc) return 1;
   if (!path || !path[0]) {
@@ -433,6 +438,7 @@ int toporoom_vision_import_image(TopoRoomDocument* doc, const char* path,
     toporoom::adapters::RasterVisionAdapter vision;
     toporoom::ports::VisionRequest req;
     req.image_uri = path;
+    req.mm_per_px_override = mm_per_px;
     const auto detected = vision.detect_walls(req);
     std::string err;
     if (toporoom::adapters::apply_vision_result(doc->impl, detected, &err) != 0) {
