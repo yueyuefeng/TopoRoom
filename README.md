@@ -102,11 +102,13 @@ Open `godot/project.godot` after building the desktop `.so`
 walls/openings via gizmos + C API, with 白天/暖光 light presets.
 
 Android APK: compile `arm64-v8a` (optional `x86_64`) with
-`./godot/scripts/build_extension.sh android arm64-v8a`, build the camera
-plugin with `./godot/scripts/build_android_plugin.sh`, then Godot **Export →
-Android** using `export_presets.cfg`. Linux CMake CI builds the **linux**
-`.so`; it does **not** install Godot export templates or produce an APK.
-Camera/gallery: [godot/android-plugin/README.md](./godot/android-plugin/README.md).
+`./godot/scripts/build_extension.sh android arm64-v8a`, then
+`./godot/scripts/export_android_debug.sh`. **每次构建升版本；签名固定** —
+the export script bumps `versionCode`/`versionName` and signs with
+`godot/android/keystore/debug.keystore` (do not regenerate). Linux CMake CI
+builds the **linux** `.so`; it does **not** install Godot export templates or
+produce an APK. Camera/gallery:
+[godot/android-plugin/README.md](./godot/android-plugin/README.md).
 
 ### Android Studio (legacy JNI stub)
 

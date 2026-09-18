@@ -36,9 +36,27 @@ const WALL_MASONRY := Color("3D4248") ## 非承重 / 砌体 / 隔墙
 const OPENING_DOOR := Color("2F9E44")
 const OPENING_WINDOW := Color("3478F6")
 const OPENING_ARCH := Color("7A5C9E")
-const PAPER := Color("FAFBFC")
+const PAPER := Color("FFFFFF")
 const GRID := Color(0.20, 0.22, 0.26, 0.07)
 const DIM := Color("8E8E93")
+const WALL_JOY := Color("1C1C1E") ## JoyPlan 2D wall ink (video)
+
+# --- JoyPlan floating islands (video S2–S7) ---
+const PAGE_ISLAND := Color("FFFFFF")
+const PAGE_GREEN := Color("34C759")
+const PAGE_PINK := Color("FF4D8D")
+const PAGE_PINK_HOVER := Color("E8437D")
+const PAGE_DIM := Color("FF5A8A") ## in-world 3D dimension ink
+const PAGE_DARK := Color(0.14, 0.14, 0.16, 0.94)
+const PAGE_PURPLE := Color("7B61FF")
+const PAGE_ORANGE := Color(1.0, 0.62, 0.32, 0.50)
+const PAGE_SELECT := Color("F08A3A") ## selected wall ink (frames)
+const PAGE_OK := Color("FF5C39") ## S2 OK
+const JP_ORANGE := Color("FF6A00")
+const JP_ORANGE_DEEP := Color("FF4500")
+const JP_YELLOW := Color("F0C400")
+const JP_BLUE := Color("3B7AE8")
+const PAGE_ROOM := Color(0.93, 0.93, 0.94, 0.55)
 
 # --- 3D HUD glass ---
 const HUD_FILL := Color(1.0, 1.0, 1.0, 0.94)

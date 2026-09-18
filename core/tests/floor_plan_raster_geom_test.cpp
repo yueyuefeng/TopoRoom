@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -302,3 +304,89 @@ TEST(FloorPlanRaster, GoldenHasBayAndFloorCeilingWindows) {
   EXPECT_GE(ir_bay, 1);
   EXPECT_GE(ir_fc, 1);
 }
+
+TEST(FloorPlanRaster, GoldWallsRegisterOntoSourceInk) {
+  RasterImage image;
+  std::string err;
+  ASSERT_TRUE(load_raster_image(fixture_png(), {}, &image, &err)) << err;
+  toporoom::adapters::RasterAnalyzeOptions opt;
+  opt.mm_per_px_override = 18.0;
+  const auto detected = analyze_floor_plan_raster(image, opt);
+  ASSERT_TRUE(detected.ok) << detected.error;
+  ASSERT_GT(detected.image_width, 600);
+  ASSERT_GT(detected.image_height, 600);
+  ASSERT_GT(detected.mm_per_px, 0.5);
+  EXPECT_NEAR(detected.mm_per_px, 18.0, 0.05);
+  EXPECT_GE(detected.origin_x_px, -40.0);
+  EXPECT_GE(detected.origin_y_px, 8.0);
+  EXPECT_LE(detected.origin_x_px, static_cast<double>(image.width) * 0.45);
+  EXPECT_GE(detected.origin_y_px, static_cast<double>(image.height) * 0.35);
+
+  auto invert_bbox = [&](const auto& walls, double origin_x, double origin_y, double mm) {
+    double min_px = 1e18, min_py = 1e18, max_px = -1e18, max_py = -1e18;
+    for (const auto& w : walls) {
+      for (double t : {0.0, 1.0}) {
+        const double mx = w.start_x + (w.end_x - w.start_x) * t;
+        const double my = w.start_y + (w.end_y - w.start_y) * t;
+        const double px = origin_x + mx / mm;
+        const double py = origin_y - my / mm;
+        min_px = std::min(min_px, px);
+        max_px = std::max(max_px, px);
+        min_py = std::min(min_py, py);
+        max_py = std::max(max_py, py);
+      }
+    }
+    return std::array<double, 4>{min_px, min_py, max_px, max_py};
+  };
+
+  const auto det_box =
+      invert_bbox(detected.walls, detected.origin_x_px, detected.origin_y_px, detected.mm_per_px);
+  const double margin = 48.0;
+  EXPECT_GE(det_box[0], -margin);
+  EXPECT_GE(det_box[1], -margin);
+  EXPECT_LE(det_box[2], static_cast<double>(image.width) + margin);
+  EXPECT_LE(det_box[3], static_cast<double>(image.height) + margin);
+  EXPECT_GE(det_box[2] - det_box[0], static_cast<double>(image.width) * 0.45);
+  EXPECT_GE(det_box[3] - det_box[1], static_cast<double>(image.height) * 0.40);
+
+  auto doc = FloorPlanDocument::create(CreateFloorPlanProps{"doc_gold_reg"});
+  ASSERT_EQ(apply_vision_result(doc, detected, &err), 0) << err;
+  ASSERT_FALSE(doc.to_scene_ir().storeys.empty());
+  struct IrWall {
+    double start_x = 0;
+    double start_y = 0;
+    double end_x = 0;
+    double end_y = 0;
+  };
+  std::vector<IrWall> ir_walls;
+  double ir_min_x = 1e18;
+  double ir_min_y = 1e18;
+  for (const auto& wall : doc.to_scene_ir().storeys[0].walls) {
+    IrWall w;
+    w.start_x = wall.start.x;
+    w.start_y = wall.start.y;
+    w.end_x = wall.end.x;
+    w.end_y = wall.end.y;
+    ir_min_x = std::min({ir_min_x, w.start_x, w.end_x});
+    ir_min_y = std::min({ir_min_y, w.start_y, w.end_y});
+    ir_walls.push_back(w);
+  }
+  double det_min_x = 1e18;
+  double det_min_y = 1e18;
+  for (const auto& w : detected.walls) {
+    det_min_x = std::min({det_min_x, w.start_x, w.end_x});
+    det_min_y = std::min({det_min_y, w.start_y, w.end_y});
+  }
+  const double dx = ir_min_x - det_min_x;
+  const double dy = ir_min_y - det_min_y;
+  const double origin_x = detected.origin_x_px - dx / detected.mm_per_px;
+  const double origin_y = detected.origin_y_px + dy / detected.mm_per_px;
+  const auto ir_box = invert_bbox(ir_walls, origin_x, origin_y, detected.mm_per_px);
+  EXPECT_GE(ir_box[0], -margin);
+  EXPECT_GE(ir_box[1], -margin);
+  EXPECT_LE(ir_box[2], static_cast<double>(image.width) + margin);
+  EXPECT_LE(ir_box[3], static_cast<double>(image.height) + margin);
+  EXPECT_GE(ir_box[2] - ir_box[0], static_cast<double>(image.width) * 0.45);
+  EXPECT_GE(ir_box[3] - ir_box[1], static_cast<double>(image.height) * 0.40);
+}
+

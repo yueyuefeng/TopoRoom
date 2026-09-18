@@ -1,0 +1,159 @@
+extends Control
+## Capture JoyPlan click-path frames (home → projects → new plan → pick → 1/2 → 2/2 → 2D).
+
+
+func _ready() -> void:
+	var out_dir := "/opt/cursor/artifacts"
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_click_path")
+	DirAccess.make_dir_recursive_absolute(docs)
+
+	var home: Control = preload("res://app/joyplan_flow/home.tscn").instantiate()
+	add_child(home)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.25).timeout
+	await _shot(docs, out_dir, "01_home.png")
+	home.queue_free()
+
+	var projects: Control = preload("res://app/joyplan_flow/projects.tscn").instantiate()
+	add_child(projects)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.2).timeout
+	await _shot(docs, out_dir, "02_projects.png")
+	projects.queue_free()
+
+	var neu: Control = preload("res://app/joyplan_flow/new_plan.tscn").instantiate()
+	add_child(neu)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.2).timeout
+	await _shot(docs, out_dir, "03_new_plan.png")
+	if neu.has_method("_open_pick"):
+		neu._open_pick()
+		await get_tree().process_frame
+		await get_tree().create_timer(0.2).timeout
+		await _shot(docs, out_dir, "04_pick_source.png")
+	neu.queue_free()
+
+	var gold_src := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	var sim_dir := OS.get_user_data_dir().path_join("cache_imports")
+	DirAccess.make_dir_recursive_absolute(sim_dir)
+	var sim_png := sim_dir.path_join("import_sim.png")
+	DirAccess.copy_absolute(gold_src, sim_png)
+	var sim_jpg := sim_dir.path_join("import_sim.jpg")
+	var sim_img := Image.new()
+	if sim_img.load(sim_png) == OK:
+		sim_img.save_jpg(sim_jpg, 0.92)
+	var gold := Session.store_imported_image(sim_jpg if FileAccess.file_exists(sim_jpg) else sim_png)
+	if gold.is_empty():
+		gold = Session.load_gold_sample()
+	if gold.is_empty():
+		gold = gold_src
+		Session.last_import_path = gold
+		Session.last_import_uri = gold
+	print("OK gallery-sim stored %s" % gold)
+	var scale: Control = preload("res://app/joyplan_flow/scale_calibrate.tscn").instantiate()
+	add_child(scale)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	if not ("_img" in scale) or scale._img == null:
+		push_error("示例户型 did not load into 1/2 临摹图比例")
+	else:
+		print("OK sample→1/2 scale image %dx%d" % [scale._img.get_width(), scale._img.get_height()])
+		var ov: Control = scale.get_node_or_null("ScaleOverlay")
+		if ov == null:
+			push_error("ScaleOverlay missing")
+		else:
+			var pa: Vector2 = scale._img_to_overlay(scale._a)
+			var pb: Vector2 = scale._img_to_overlay(scale._b)
+			var hit_a: int = scale._hit(pa)
+			var hit_b: int = scale._hit(pb)
+			var hit_bar: int = scale._hit(pa.lerp(pb, 0.5))
+			if hit_a != 1 or hit_b != 2 or hit_bar != 3:
+				push_error("scale hit-test failed a=%s b=%s bar=%s" % [str(hit_a), str(hit_b), str(hit_bar)])
+			else:
+				print("OK scale hit-test handles+bar")
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = true
+			ev.position = pa
+			scale._on_overlay_input(ev)
+			var mv := InputEventMouseMotion.new()
+			mv.position = pa + Vector2(-48, 36)
+			scale._on_overlay_input(mv)
+			var up := InputEventMouseButton.new()
+			up.button_index = MOUSE_BUTTON_LEFT
+			up.pressed = false
+			up.position = mv.position
+			scale._on_overlay_input(up)
+			await get_tree().process_frame
+			print("OK scale drag handle A to %s" % str(scale._a))
+		var px: float = scale._a.distance_to(scale._b)
+		var mm: float = scale._mm.text.strip_edges().to_float()
+		if mm < 10.0:
+			mm = 900.0
+		Session.last_scale_mm = mm
+		Session.last_scale_mm_per_px = (mm / px) if px >= 4.0 else 0.0
+	await _shot(docs, out_dir, "05_scale_1of2.png")
+	scale.queue_free()
+
+	if Session.sceneir_json().find("wall_") < 0 or Session.last_vision.get("origin_x_px", null) == null:
+		if Session.has_core():
+			var err := Session.import_photo_vision(gold, Session.last_scale_mm_per_px)
+			print("OK gold vision err='%s' origin=(%s,%s) mm/px=%s walls_at=%s" % [
+				err,
+				str(Session.last_vision.get("origin_x_px", "")),
+				str(Session.last_vision.get("origin_y_px", "")),
+				str(Session.last_vision.get("mm_per_px", Session.last_scale_mm_per_px)),
+				str(Session.sceneir_json().find("\"walls\"")),
+			])
+		else:
+			Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
+	print("OK sample→vision walls=%s" % Session.sceneir_json().find("\"walls\""))
+
+	var gen: Control = preload("res://app/joyplan_flow/generate_space.tscn").instantiate()
+	add_child(gen)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	if gen._canvas:
+		print("OK 2/2 registration active=%s origin=%s mm=%s img=%s segs=%s" % [
+			str(gen._canvas._reg_active),
+			str(gen._canvas._reg_origin),
+			str(gen._canvas._reg_mm),
+			str(gen._canvas._reg_img),
+			str(gen._canvas._segments.size()),
+		])
+		if not gen._canvas._reg_active:
+			push_error("2/2 overlay not registered onto floorplan photo")
+	await _shot(docs, out_dir, "06_generate_2of2.png")
+	gen.queue_free()
+
+	Session.coach_seen.erase("library")
+	var edit2: Control = preload("res://app/joyplan_flow/edit_2d.tscn").instantiate()
+	add_child(edit2)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	if edit2._canvas:
+		edit2._canvas.load_photo(gold)
+		edit2._canvas.selected_id = "wall_s"
+		edit2._canvas.queue_redraw()
+		edit2._refresh_readout()
+		edit2._place_ctx()
+	await _shot(docs, out_dir, "07_edit_2d.png")
+	if edit2.has_method("_show_add_menu"):
+		edit2._show_add_menu()
+		await get_tree().process_frame
+		await get_tree().create_timer(0.15).timeout
+		await _shot(docs, out_dir, "08_edit_2d_plus_menu.png")
+	edit2.queue_free()
+	print("OK click-path capture done")
+	get_tree().quit()
+
+
+func _shot(docs: String, out_dir: String, file: String) -> void:
+	await get_tree().process_frame
+	var img: Image = get_viewport().get_texture().get_image()
+	var abs_path := out_dir.path_join("click_" + file)
+	img.save_png(abs_path)
+	DirAccess.copy_absolute(abs_path, docs.path_join(file))
+	DirAccess.copy_absolute(abs_path, out_dir.path_join("joyplan_click_" + file))

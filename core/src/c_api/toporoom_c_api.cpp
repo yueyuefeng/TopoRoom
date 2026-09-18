@@ -1,5 +1,7 @@
 #include "toporoom/c_api/toporoom.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -402,6 +404,10 @@ void zero_counts(TopoRoomVisionCounts* counts) {
   counts->door_count = 0;
   counts->window_count = 0;
   counts->mm_per_px = 0;
+  counts->origin_x_px = 0;
+  counts->origin_y_px = 0;
+  counts->image_width = 0;
+  counts->image_height = 0;
 }
 
 void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResult& detected,
@@ -409,8 +415,34 @@ void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResu
   if (!counts) return;
   zero_counts(counts);
   counts->mm_per_px = detected.mm_per_px;
+  counts->origin_x_px = detected.origin_x_px;
+  counts->origin_y_px = detected.origin_y_px;
+  counts->image_width = detected.image_width;
+  counts->image_height = detected.image_height;
   if (doc.storeys().empty()) return;
   const auto& storey = doc.storeys()[0];
+  // apply_vision_result may translate walls to keep SceneIR non-negative.
+  // Shift the stored origin so overlay inversion still hits the photo.
+  if (detected.mm_per_px > 0.05 && !detected.walls.empty() && !storey.walls().empty()) {
+    double det_min_x = 1e18;
+    double det_min_y = 1e18;
+    for (const auto& w : detected.walls) {
+      det_min_x = std::min({det_min_x, w.start_x, w.end_x});
+      det_min_y = std::min({det_min_y, w.start_y, w.end_y});
+    }
+    double doc_min_x = 1e18;
+    double doc_min_y = 1e18;
+    for (const auto& wall : storey.walls()) {
+      doc_min_x = std::min({doc_min_x, wall.start().x(), wall.end().x()});
+      doc_min_y = std::min({doc_min_y, wall.start().y(), wall.end().y()});
+    }
+    if (det_min_x < 1e17 && doc_min_x < 1e17) {
+      const double dx = doc_min_x - det_min_x;
+      const double dy = doc_min_y - det_min_y;
+      counts->origin_x_px = detected.origin_x_px - dx / detected.mm_per_px;
+      counts->origin_y_px = detected.origin_y_px + dy / detected.mm_per_px;
+    }
+  }
   counts->wall_count = static_cast<int>(storey.walls().size());
   int opening_n = 0;
   int shear = 0;

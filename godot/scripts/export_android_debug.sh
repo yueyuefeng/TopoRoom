@@ -3,8 +3,9 @@
 #
 #   GODOT=/path/to/godot ./godot/scripts/export_android_debug.sh
 #
-# This is NOT run in the Linux CMake CI. Cloud VMs usually lack Godot export
-# templates; run locally after building arm64 (and optional x86_64) .so files.
+# Standing rule: every APK bumps versionCode/versionName and reuses the
+# committed debug keystore (每次构建升版本；签名固定).
+# Set SKIP_VERSION_BUMP=1 only to rebuild the same version (not the default).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,6 +15,13 @@ OUT="${1:-$ROOT/build/toporoom-android-debug.apk}"
 if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
   echo "Godot 4.3+ binary not found (set GODOT=)." >&2
   exit 1
+fi
+
+"$ROOT/godot/scripts/wire_android_signing.sh"
+if [[ "${SKIP_VERSION_BUMP:-}" != "1" ]]; then
+  "$ROOT/godot/scripts/bump_android_version.sh"
+else
+  echo "SKIP_VERSION_BUMP=1 — keeping $(python3 -c "import json; print(json.load(open('$ROOT/godot/android/version.json'))['versionName'])")"
 fi
 
 mkdir -p "$(dirname "$OUT")"

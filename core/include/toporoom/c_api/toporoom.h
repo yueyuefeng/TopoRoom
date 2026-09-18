@@ -90,6 +90,10 @@ typedef struct TopoRoomVisionCounts {
   int door_count;
   int window_count;
   double mm_per_px;
+  double origin_x_px;
+  double origin_y_px;
+  int image_width;
+  int image_height;
 } TopoRoomVisionCounts;
 
 /*

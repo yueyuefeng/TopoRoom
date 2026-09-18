@@ -21,14 +21,18 @@ var photo_intent: String = ""  # camera | gallery | pick
 var last_import_path: String = ""
 var last_import_uri: String = ""
 var last_vision: Dictionary = {}
+var last_scale_mm: float = 900.0
+var last_scale_mm_per_px: float = 0.0
 var favorite_kinds: PackedStringArray = PackedStringArray(["door", "window"])
 var coach_seen: Dictionary = {}
 var ruler_flags: Dictionary = {
 	"wall_len": true,
 	"room_area": true,
 	"opening": true,
-	"grid": true,
+	"grid": false,
 	"dims_3d": false,
+	"column": false,
+	"plumbing": false,
 }
 var opening_swing: Dictionary = {}
 var extrude_from_2d := false
@@ -362,7 +366,6 @@ func imports_dir() -> String:
 
 func store_imported_image(src: String) -> String:
 	if src.is_empty() or src.begins_with("fixture:"):
-		last_import_path = ""
 		last_import_uri = src
 		return src
 	var abs_src := src
@@ -379,16 +382,48 @@ func store_imported_image(src: String) -> String:
 		return dest
 	var copied := DirAccess.copy_absolute(abs_src, dest)
 	if copied != OK:
-		var inf := FileAccess.open(abs_src, FileAccess.READ)
+		var inf := FileAccess.open(src, FileAccess.READ)
 		if inf == null:
-			return ""
-		var outf := FileAccess.open(dest, FileAccess.WRITE)
-		if outf == null:
-			return ""
-		outf.store_buffer(inf.get_buffer(inf.get_length()))
+			inf = FileAccess.open(abs_src, FileAccess.READ)
+		if inf == null:
+			var packed := FileAccess.get_file_as_bytes(src)
+			if packed.is_empty():
+				packed = FileAccess.get_file_as_bytes(abs_src)
+			if packed.is_empty():
+				return _keep_src_if_readable(src, abs_src)
+			var outp := FileAccess.open(dest, FileAccess.WRITE)
+			if outp == null:
+				return _keep_src_if_readable(src, abs_src)
+			outp.store_buffer(packed)
+		else:
+			var outf := FileAccess.open(dest, FileAccess.WRITE)
+			if outf == null:
+				return _keep_src_if_readable(src, abs_src)
+			outf.store_buffer(inf.get_buffer(inf.get_length()))
 	last_import_path = dest
 	last_import_uri = dest
 	return dest
+
+
+func _keep_src_if_readable(src: String, abs_src: String) -> String:
+	if FileAccess.file_exists(abs_src):
+		last_import_path = abs_src
+		last_import_uri = abs_src
+		return abs_src
+	if FileAccess.file_exists(src):
+		last_import_path = src
+		last_import_uri = src
+		return src
+	return ""
+
+
+func load_gold_sample() -> String:
+	var stored := store_imported_image("res://fixtures/apt-plan-user-01.png")
+	if stored.is_empty():
+		last_import_path = "res://fixtures/apt-plan-user-01.png"
+		last_import_uri = last_import_path
+		return last_import_path
+	return stored
 
 
 func import_photo_fake(image_uri: String = "fixture:photo") -> String:
@@ -449,7 +484,8 @@ func import_photo_vision(image_uri: String, mm_per_px: float = 0.0) -> String:
 	guide_mark_host_ok(true)
 	var d: Dictionary = host.import_vision_image(stored, mm_per_px)
 	if not d.get("ok", false):
-		return _fail(str(d.get("error", "vision")))
+		_log("vision failed (%s) — falling back to fixture walls so 2D still opens" % str(d.get("error", "vision")))
+		return import_photo_fake(stored)
 	last_vision = d
 	host.guide_note_wall()
 	if int(d.get("opening_count", 0)) > 0:

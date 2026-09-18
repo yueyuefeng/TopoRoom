@@ -289,6 +289,10 @@ Dictionary TopoRoomHost::import_vision_image(const String& path, double mm_per_p
   d["door_count"] = counts.door_count;
   d["window_count"] = counts.window_count;
   d["mm_per_px"] = counts.mm_per_px;
+  d["origin_x_px"] = counts.origin_x_px;
+  d["origin_y_px"] = counts.origin_y_px;
+  d["image_width"] = counts.image_width;
+  d["image_height"] = counts.image_height;
   return d;
 }
 

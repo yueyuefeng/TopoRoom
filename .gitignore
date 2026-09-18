@@ -25,4 +25,5 @@ godot/android-plugin/.gradle/
 godot/android-plugin/**/build/
 godot/android-plugin/local.properties
 godot/android/build/
+godot/export_credentials.cfg
 
