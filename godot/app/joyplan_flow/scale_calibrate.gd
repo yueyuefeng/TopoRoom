@@ -37,7 +37,7 @@ func _ready() -> void:
 	add_child(_photo)
 
 	var wash := ColorRect.new()
-	wash.color = Color(1, 0.78, 0.86, 0.10)
+	wash.color = Color(1, 0.72, 0.82, 0.22)
 	wash.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(wash)
@@ -65,6 +65,7 @@ func _ready() -> void:
 
 	_build_sheet()
 	_build_loupe()
+	_build_reset()
 
 	_snack = preload("res://app/ui/snackbar.gd").new()
 	_snack.set_anchors_preset(PRESET_TOP_WIDE)
@@ -145,6 +146,26 @@ func _build_sheet() -> void:
 	row.add_child(ok_b)
 
 	_tip_bubble()
+
+
+func _build_reset() -> void:
+	var reset := FlowIslands.circle_btn("↻", func():
+		if _img == null:
+			return
+		_a = Vector2(_img.get_width() * 0.28, _img.get_height() * 0.52)
+		_b = Vector2(_img.get_width() * 0.72, _img.get_height() * 0.52)
+		_queue_scale()
+	, 44, Color.WHITE, Tokens.TEXT_SECONDARY)
+	reset.set_anchors_preset(PRESET_CENTER)
+	reset.anchor_left = 0.5
+	reset.anchor_right = 0.5
+	reset.anchor_top = 0.5
+	reset.anchor_bottom = 0.5
+	reset.offset_left = -22
+	reset.offset_right = 22
+	reset.offset_top = 28
+	reset.offset_bottom = 72
+	add_child(reset)
 
 
 func _tip_bubble() -> void:
@@ -436,5 +457,6 @@ func _run_vision(mm_per_px: float) -> void:
 	if err != "":
 		if _snack:
 			_snack.show_message(err)
-		return
+		if Session.has_core():
+			Session.import_photo_fake(uri if not uri.is_empty() else "fixture:photo")
 	FlowRouter.edit_2d(self)

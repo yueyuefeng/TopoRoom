@@ -37,6 +37,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().create_timer(0.35).timeout
 	if edit2._canvas:
+		edit2._canvas.load_photo(gold)
 		edit2._canvas.selected_id = "wall_s"
 		edit2._canvas.queue_redraw()
 		edit2._refresh_readout()
@@ -53,7 +54,12 @@ func _ready() -> void:
 	var edit3: Node3D = preload("res://app/joyplan_flow/edit_3d.tscn").instantiate()
 	add_child(edit3)
 	await get_tree().process_frame
-	await get_tree().create_timer(0.4).timeout
+	await get_tree().create_timer(0.45).timeout
+	if edit3.has_method("_orbit"):
+		edit3._pitch = -0.82
+		edit3._distance = 13.5
+		edit3._orbit()
+	await get_tree().process_frame
 	await _shot(out_dir.path_join("s5_3d.png"))
 	if edit3._ruler and edit3._ruler.has_method("present"):
 		edit3._ruler.present()
@@ -84,3 +90,4 @@ func _shot(path: String) -> void:
 	var docs := ProjectSettings.globalize_path("res://").path_join("../docs/screenshots/joyplan_1to1")
 	DirAccess.make_dir_recursive_absolute(docs)
 	DirAccess.copy_absolute(path, docs.path_join(path.get_file()))
+	DirAccess.copy_absolute(path, "/opt/cursor/artifacts".path_join("joyplan_" + path.get_file()))

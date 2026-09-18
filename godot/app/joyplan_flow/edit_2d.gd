@@ -30,6 +30,12 @@ func _ready() -> void:
 	_canvas.wall_clicked.connect(_on_wall)
 	_canvas.opening_clicked.connect(_on_opening)
 	add_child(_canvas)
+	var photo_path := Session.last_import_path
+	if photo_path.is_empty():
+		photo_path = Session.last_import_uri
+	if photo_path.is_empty() or photo_path.begins_with("fixture:"):
+		photo_path = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	_canvas.load_photo(photo_path)
 
 	add_child(FlowIslands.top_bar(
 		func(): FlowRouter.home(self),
@@ -53,6 +59,17 @@ func _ready() -> void:
 	)
 	_readout_wrap.add_child(_readout)
 	add_child(_readout_wrap)
+
+	var north := Studio.label("N\n▲", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY, true)
+	north.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	north.set_anchors_preset(PRESET_CENTER_LEFT)
+	north.anchor_top = 0.5
+	north.anchor_bottom = 0.5
+	north.offset_left = 10
+	north.offset_right = 36
+	north.offset_top = -18
+	north.offset_bottom = 18
+	add_child(north)
 
 	add_child(FlowIslands.green_fab("▶", func(): _go_3d()))
 	add_child(FlowIslands.undo_redo_pill(

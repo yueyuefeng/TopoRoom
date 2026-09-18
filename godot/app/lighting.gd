@@ -60,7 +60,7 @@ func _build() -> void:
 	lamp.rotation_degrees = Vector3(-90, 0, 0)
 	add_child(lamp)
 
-	_wall_mat = _pbr(Color(0.86, 0.84, 0.79), 0.88, 0.0)
+	_wall_mat = _pbr(Color(0.90, 0.89, 0.88), 0.88, 0.0)
 	_floor_mat = _pbr(Color(0.52, 0.47, 0.41), 0.74, 0.05)
 	_hosted_mat = _pbr(Color(0.62, 0.55, 0.44), 0.55, 0.12)
 	_gizmo_mat = _unshaded(Color(0.98, 0.82, 0.18))
@@ -128,8 +128,8 @@ func opening_material(kind: String, selected: bool) -> StandardMaterial3D:
 
 
 func _apply_day() -> void:
-	_environment.background_color = Color(0.86, 0.86, 0.88)
-	_environment.ambient_light_color = Color(0.90, 0.90, 0.92)
+	_environment.background_color = Color(0.96, 0.93, 0.94)
+	_environment.ambient_light_color = Color(0.94, 0.92, 0.93)
 	_environment.ambient_light_energy = 0.42
 	sun.light_color = Color(1.0, 0.98, 0.92)
 	sun.light_energy = 1.15

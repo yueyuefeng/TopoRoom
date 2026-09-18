@@ -364,7 +364,6 @@ func imports_dir() -> String:
 
 func store_imported_image(src: String) -> String:
 	if src.is_empty() or src.begins_with("fixture:"):
-		last_import_path = ""
 		last_import_uri = src
 		return src
 	var abs_src := src

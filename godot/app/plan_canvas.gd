@@ -19,6 +19,7 @@ var _map_oy := 0.0
 var _map_scale := 1.0
 var _segments: Array = []
 var _openings: Array = []
+var _photo: Texture2D
 
 
 func set_sceneir_json(text: String) -> void:
@@ -27,6 +28,19 @@ func set_sceneir_json(text: String) -> void:
 		var parsed: Variant = JSON.parse_string(text)
 		if typeof(parsed) == TYPE_DICTIONARY:
 			snapshot = parsed
+	queue_redraw()
+
+
+func load_photo(path: String) -> void:
+	var abs_path := path
+	if path.begins_with("user://") or path.begins_with("res://"):
+		abs_path = ProjectSettings.globalize_path(path)
+	if abs_path.is_empty() or not FileAccess.file_exists(abs_path):
+		return
+	var img := Image.new()
+	if img.load(abs_path) != OK:
+		return
+	_photo = ImageTexture.create_from_image(img)
 	queue_redraw()
 
 
@@ -85,7 +99,19 @@ func _draw() -> void:
 
 
 func _draw_paper() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE if joyplan_look else Tokens.PAPER)
+	if joyplan_look:
+		if _photo:
+			var tex_size: Vector2 = _photo.get_size()
+			if tex_size.x > 1.0 and tex_size.y > 1.0:
+				var s := maxf(size.x / tex_size.x, size.y / tex_size.y)
+				var d := tex_size * s
+				var o := (size - d) * 0.5
+				draw_texture_rect(_photo, Rect2(o, d), false)
+			draw_rect(Rect2(Vector2.ZERO, size), Color(1, 0.78, 0.86, 0.12))
+		else:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0.98, 0.94, 0.95, 1))
+		return
+	draw_rect(Rect2(Vector2.ZERO, size), Tokens.PAPER)
 	if Session.ruler_on("grid") and not joyplan_look:
 		var step := 24.0
 		var x := 0.0
@@ -134,6 +160,14 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	if selected_id == wid and selected_opening_id.is_empty():
 		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 12.0)
 		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 2.0)
+		if joyplan_look:
+			var mid: Vector2 = p0.lerp(p1, 0.55)
+			draw_circle(mid, 13.0, Tokens.PAGE_SELECT)
+			draw_circle(mid, 13.0, Color.WHITE, false, 1.2)
+			var fnt := _font()
+			draw_string(fnt, mid + Vector2(-5, 5), "L", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+	elif joyplan_look and _photo:
+		draw_line(p0, p1, Color(0.12, 0.12, 0.14, 0.28), width)
 	else:
 		draw_line(p0, p1, stroke, width)
 	if Tokens.is_load_bearing_kind(kind) and not joyplan_look:
@@ -166,7 +200,7 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 			"a": qa, "b": qb, "width_mm": owidth, "height_mm": oheight,
 			"offset_mm": offset, "sill_mm": float(op.get("sillHeightMm", 0)),
 		})
-	if selected_opening_id == oid:
+		if selected_opening_id == oid:
 			draw_line(qa, qb, Tokens.PAGE_SELECT, width + 8.0)
 		draw_line(qa, qb, Tokens.PAPER, width + 2.0)
 		draw_line(qa, qb, color, width - 1.0)
@@ -217,6 +251,8 @@ func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
 
 
 func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, max_x: float, max_y: float, ox: float, oy: float, scale: float) -> void:
+	if joyplan_look and _photo:
+		return
 	var palette: Array[Color] = [
 		Color(0.93, 0.93, 0.94, 0.50),
 		Color(0.96, 0.90, 0.82, 0.42),

@@ -138,6 +138,8 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             Intent intent;
             if (Build.VERSION.SDK_INT >= 33) {
                 intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+                intent.setType("image/*");
+                intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 1);
             } else if (Build.VERSION.SDK_INT >= 19) {
                 intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -237,15 +239,6 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             return;
         }
         try {
-            try (InputStream probe = activity.getContentResolver().openInputStream(uri)) {
-                if (probe != null) {
-                    Bitmap bmp = BitmapFactory.decodeStream(probe);
-                    if (bmp != null) {
-                        saveBitmapAndEmit(bmp);
-                        return;
-                    }
-                }
-            }
             File dest = new File(importsDir(activity), "import_" + System.currentTimeMillis() + ".jpg");
             try (InputStream in = activity.getContentResolver().openInputStream(uri);
                     OutputStream out = new FileOutputStream(dest)) {
@@ -262,6 +255,23 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
             if (!dest.exists() || dest.length() < 32) {
                 emitError("copied image is empty");
                 return;
+            }
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(dest.getAbsolutePath(), bounds);
+            int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
+            int sample = 1;
+            while (maxDim / sample > 4096) {
+                sample *= 2;
+            }
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = Math.max(sample, 1);
+            Bitmap bmp = BitmapFactory.decodeFile(dest.getAbsolutePath(), opts);
+            if (bmp != null) {
+                try (FileOutputStream out = new FileOutputStream(dest)) {
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 92, out);
+                }
+                bmp.recycle();
             }
             emitPath(dest.getAbsolutePath());
         } catch (Exception e) {

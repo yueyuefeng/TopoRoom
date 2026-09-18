@@ -111,6 +111,7 @@ func _build_hud() -> void:
 	))
 
 	_minimap = Minimap.new()
+	_minimap.visible = false
 	root.add_child(_minimap)
 
 	root.add_child(FlowIslands.right_circles([
