@@ -67,12 +67,12 @@ func _draw() -> void:
 	_map_ox = ox
 	_map_oy = oy
 	_map_scale = scale
+	_draw_room_fills(rooms, walls, min_x, min_y, max_x, max_y, ox, oy, scale)
 	for w in walls:
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		opening_count += _draw_wall(w, min_x, min_y, ox, oy, scale)
 
-	_draw_rooms(rooms, walls, min_x, min_y, ox, oy, scale)
 	if show_chrome:
 		_draw_chrome(storey_height, rooms, walls.size(), opening_count)
 
@@ -163,36 +163,211 @@ func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
 	draw_string(_font(), mid + Vector2(-18, 4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Tokens.DIM)
 
 
-func _draw_rooms(rooms: Array, walls: Array, min_x: float, min_y: float, ox: float, oy: float, scale: float) -> void:
+func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, max_x: float, max_y: float, ox: float, oy: float, scale: float) -> void:
+	var palette: Array[Color] = [
+		Color(0.98, 0.90, 0.70, 0.38),
+		Color(0.86, 0.91, 0.97, 0.38),
+		Color(0.91, 0.86, 0.80, 0.38),
+		Color(0.88, 0.93, 0.86, 0.40),
+		Color(0.94, 0.88, 0.92, 0.38),
+		Color(0.90, 0.90, 0.86, 0.36),
+	]
+	var named: Array = []
 	for room in rooms:
-		if typeof(room) != TYPE_DICTIONARY:
+		if typeof(room) == TYPE_DICTIONARY:
+			named.append(room)
+	var pockets: Array = _flood_pockets(walls, min_x, min_y, max_x, max_y, ox, oy, scale)
+	pockets.sort_custom(func(a, b): return float(a.get("area_m2", 0)) > float(b.get("area_m2", 0)))
+	var used_names: Dictionary = {}
+	var auto_i := 1
+	for i in pockets.size():
+		var pk: Dictionary = pockets[i]
+		var poly: PackedVector2Array = pk.get("hull", PackedVector2Array())
+		if poly.size() < 3:
 			continue
-		var name := str(room.get("name", room.get("label", room.get("id", ""))))
+		var fill: Color = palette[i % palette.size()]
+		draw_colored_polygon(poly, fill)
+		var c: Vector2 = pk.get("centroid", Vector2.ZERO)
+		var area: float = float(pk.get("area_m2", 0))
+		var name := _match_room_name(named, c, min_x, min_y, ox, oy, scale, used_names)
 		if name.is_empty():
+			name = "房间%d" % auto_i
+			auto_i += 1
+		else:
+			used_names[name] = true
+		var f := _font()
+		var title := name
+		var sub := "%.1f m²" % area
+		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_string(f, c - Vector2(tw * 0.5, 6), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Tokens.TEXT)
+		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		draw_string(f, c - Vector2(sw * 0.5, -12), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Tokens.TEXT_SECONDARY)
+
+
+func _match_room_name(rooms: Array, centroid: Vector2, min_x: float, min_y: float, ox: float, oy: float, scale: float, used: Dictionary) -> String:
+	var best := ""
+	var best_d := 90.0
+	for room in rooms:
+		var name := str(room.get("name", room.get("label", "")))
+		if name.is_empty() or used.has(name):
 			continue
 		var pts: Array[Vector2] = []
 		var ids: Array = room.get("wallIds", [])
+		var walls: Array = []
+		var storeys: Array = snapshot.get("storeys", [])
+		if not storeys.is_empty() and typeof(storeys[0]) == TYPE_DICTIONARY:
+			walls = storeys[0].get("walls", [])
 		if ids.is_empty():
-			for w in walls:
-				if typeof(w) == TYPE_DICTIONARY:
-					var a: Dictionary = w.get("start", {})
-					pts.append(_map(float(a.get("x", 0)), float(a.get("y", 0)), min_x, min_y, ox, oy, scale))
-		else:
-			for wid in ids:
-				for w in walls:
-					if typeof(w) == TYPE_DICTIONARY and str(w.get("id", "")) == str(wid):
-						var a: Dictionary = w.get("start", {})
-						pts.append(_map(float(a.get("x", 0)), float(a.get("y", 0)), min_x, min_y, ox, oy, scale))
-						break
-		if pts.is_empty():
 			continue
-		var c := Vector2.ZERO
-		for p in pts:
-			c += p
-		c /= float(pts.size())
-		var f := _font()
-		var tw := f.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		draw_string(f, c - Vector2(tw * 0.5, 0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Tokens.TEXT)
+		var acc := Vector2.ZERO
+		var n := 0
+		for wid in ids:
+			for w in walls:
+				if typeof(w) != TYPE_DICTIONARY or str(w.get("id", "")) != str(wid):
+					continue
+				var a: Dictionary = w.get("start", {})
+				var p := _map(float(a.get("x", 0)), float(a.get("y", 0)), min_x, min_y, ox, oy, scale)
+				acc += p
+				n += 1
+				break
+		if n <= 0:
+			continue
+		var rc := acc / float(n)
+		var d: float = rc.distance_to(centroid)
+		if d < best_d:
+			best_d = d
+			best = name
+	return best
+
+
+func _flood_pockets(walls: Array, min_x: float, min_y: float, max_x: float, max_y: float, ox: float, oy: float, scale: float) -> Array:
+	var W := mini(int(size.x / 4.0), 180)
+	var H := mini(int(size.y / 4.0), 180)
+	W = maxi(W, 24)
+	H = maxi(H, 24)
+	var grid := PackedByteArray()
+	grid.resize(W * H)
+	grid.fill(0)
+	var cell := Vector2(size.x / float(W), size.y / float(H))
+	var stamp := func(p0: Vector2, p1: Vector2):
+		var n: int = maxi(2, int(p0.distance_to(p1) / 2.0))
+		for i in n + 1:
+			var t: float = float(i) / float(n)
+			var p: Vector2 = p0.lerp(p1, t)
+			var gx := int(clampf(p.x / cell.x, 0.0, float(W - 1)))
+			var gy := int(clampf(p.y / cell.y, 0.0, float(H - 1)))
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var xx := gx + dx
+					var yy := gy + dy
+					if xx >= 0 and yy >= 0 and xx < W and yy < H:
+						grid[yy * W + xx] = 1
+	for w in walls:
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = w.get("start", {})
+		var b: Dictionary = w.get("end", {})
+		stamp.call(_map(float(a.get("x", 0)), float(a.get("y", 0)), min_x, min_y, ox, oy, scale),
+			_map(float(b.get("x", 0)), float(b.get("y", 0)), min_x, min_y, ox, oy, scale))
+	if grid[0] == 0:
+		grid[0] = 2
+	var stack: Array[int] = [0]
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	while not stack.is_empty():
+		var cur: int = stack.pop_back()
+		var cx: int = cur % W
+		var cy: int = int(cur / W)
+		for d in dirs:
+			var nx: int = cx + d.x
+			var ny: int = cy + d.y
+			if nx < 0 or ny < 0 or nx >= W or ny >= H:
+				continue
+			var ni: int = ny * W + nx
+			if grid[ni] != 0:
+				continue
+			grid[ni] = 2
+			stack.append(ni)
+	var seen := PackedByteArray()
+	seen.resize(W * H)
+	seen.fill(0)
+	var pockets: Array = []
+	var mm_per_cell: float = (cell.x / maxf(scale, 0.0001))
+	for y in H:
+		for x in W:
+			var i: int = y * W + x
+			if grid[i] != 0 or seen[i] != 0:
+				continue
+			var q: Array[int] = [i]
+			seen[i] = 1
+			var cells: Array[Vector2] = []
+			var acc := Vector2.ZERO
+			var head := 0
+			while head < q.size():
+				var cur2: int = q[head]
+				head += 1
+				var cx2: int = cur2 % W
+				var cy2: int = int(cur2 / W)
+				var p := Vector2((cx2 + 0.5) * cell.x, (cy2 + 0.5) * cell.y)
+				cells.append(p)
+				acc += p
+				for d in dirs:
+					var nx2: int = cx2 + d.x
+					var ny2: int = cy2 + d.y
+					if nx2 < 0 or ny2 < 0 or nx2 >= W or ny2 >= H:
+						continue
+					var ni2: int = ny2 * W + nx2
+					if grid[ni2] != 0 or seen[ni2] != 0:
+						continue
+					seen[ni2] = 1
+					q.append(ni2)
+			var area_m2: float = float(cells.size()) * mm_per_cell * mm_per_cell / 1.0e6
+			if area_m2 < 0.8 or cells.size() < 8:
+				continue
+			var hull := _convex_hull(cells)
+			if hull.size() < 3:
+				continue
+			pockets.append({
+				"centroid": acc / float(cells.size()),
+				"area_m2": area_m2,
+				"hull": hull,
+			})
+	return pockets
+
+
+func _convex_hull(pts: Array[Vector2]) -> PackedVector2Array:
+	if pts.size() < 3:
+		return PackedVector2Array(pts)
+	var sorted: Array[Vector2] = pts.duplicate()
+	sorted.sort_custom(func(a, b): return a.x < b.x or (is_equal_approx(a.x, b.x) and a.y < b.y))
+	var uniq: Array[Vector2] = []
+	for p in sorted:
+		if uniq.is_empty() or uniq[uniq.size() - 1].distance_to(p) > 0.5:
+			uniq.append(p)
+	if uniq.size() < 3:
+		return PackedVector2Array(uniq)
+	var lower: Array[Vector2] = []
+	for p in uniq:
+		while lower.size() >= 2 and _cross(lower[lower.size() - 2], lower[lower.size() - 1], p) <= 0.0:
+			lower.pop_back()
+		lower.append(p)
+	var upper: Array[Vector2] = []
+	for i in range(uniq.size() - 1, -1, -1):
+		var p: Vector2 = uniq[i]
+		while upper.size() >= 2 and _cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0.0:
+			upper.pop_back()
+		upper.append(p)
+	lower.pop_back()
+	upper.pop_back()
+	var out := PackedVector2Array()
+	for p in lower:
+		out.append(p)
+	for p in upper:
+		out.append(p)
+	return out
+
+
+func _cross(o: Vector2, a: Vector2, b: Vector2) -> float:
+	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
 
 
 func _draw_chrome(storey_height: float, _rooms: Array, wall_n: int, opening_n: int) -> void:
