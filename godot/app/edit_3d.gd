@@ -95,6 +95,24 @@ func _build_hud() -> void:
 	snack.offset_bottom = -16
 	hud.layer.add_child(snack)
 	Session.log_line.connect(func(text: String): snack.show_message(text))
+	var fab := Studio.fab("2D", func(): _go_2d())
+	fab.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	fab.anchor_left = 1.0
+	fab.anchor_top = 1.0
+	fab.anchor_right = 1.0
+	fab.anchor_bottom = 1.0
+	fab.offset_left = -78
+	fab.offset_top = -90
+	fab.offset_right = -20
+	fab.offset_bottom = -32
+	hud.layer.add_child(fab)
+
+
+func _go_2d() -> void:
+	if Session.screen == "photo":
+		get_tree().change_scene_to_file("res://app/photo_stub.tscn")
+		return
+	get_tree().change_scene_to_file("res://app/main.tscn")
 
 
 func _on_document_changed() -> void:

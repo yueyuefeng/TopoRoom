@@ -24,6 +24,7 @@ var _calibrate: Control
 var _readout: Label
 var _readout_bar: Control
 var _ctx: HBoxContainer
+var _fab: Button
 
 
 func _ready() -> void:
@@ -153,6 +154,19 @@ func _ready() -> void:
 	)
 	add_child(_calibrate)
 
+	_fab = Studio.fab("3D", func(): _enter_3d())
+	_fab.visible = false
+	_fab.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+	_fab.anchor_left = 1.0
+	_fab.anchor_top = 1.0
+	_fab.anchor_right = 1.0
+	_fab.anchor_bottom = 1.0
+	_fab.offset_left = -78
+	_fab.offset_top = -156
+	_fab.offset_right = -20
+	_fab.offset_bottom = -98
+	add_child(_fab)
+
 	_show_pick()
 	var intent: String = Session.photo_intent
 	Session.photo_intent = ""
@@ -160,6 +174,12 @@ func _ready() -> void:
 		_pick_camera()
 	elif intent == "gallery":
 		_pick_gallery()
+	elif Session.screen == "photo" and Session.has_core() and not Session.sceneir_json().is_empty():
+		if not Session.last_import_path.is_empty():
+			_thumb_path = Session.last_import_path
+			_image_uri = Session.last_import_uri if not Session.last_import_uri.is_empty() else _thumb_path
+			_load_thumb(_thumb_path)
+		_show_review()
 
 
 func _pill(inner: Label) -> PanelContainer:
@@ -358,6 +378,7 @@ func _run_example() -> void:
 
 
 func _enter_3d() -> void:
+	Session.screen = "photo"
 	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
 
 
@@ -572,6 +593,8 @@ func _refresh_selection() -> void:
 			_readout_bar.visible = show
 		_readout.visible = show
 		_readout.text = _lwh_text()
+	if _fab:
+		_fab.visible = _mode == "review" or _mode == "demolish"
 	if _ctx == null or not is_instance_valid(_ctx):
 		return
 	if _mode != "review" and _mode != "demolish":
