@@ -151,8 +151,23 @@ func _ready() -> void:
 	Session.log_line.connect(func(text: String): _snack.show_message(text))
 	Session.document_changed.connect(_refresh)
 
+	_fab = Studio.fab("3D", func(): _enter_3d())
+	_fab.visible = false
+	_fab.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+	_fab.anchor_left = 1.0
+	_fab.anchor_top = 1.0
+	_fab.anchor_right = 1.0
+	_fab.anchor_bottom = 1.0
+	_fab.offset_left = -78
+	_fab.offset_top = -268
+	_fab.offset_right = -20
+	_fab.offset_bottom = -210
+	add_child(_fab)
+	resized.connect(func(): _place_fab())
+
 	_confirm = _build_confirm()
 	add_child(_confirm)
+	_confirm.visibility_changed.connect(_sync_fab)
 	_numeric = NumericSheet.new()
 	add_child(_numeric)
 	_ruler = RulerSheet.new()
@@ -175,20 +190,6 @@ func _ready() -> void:
 		_run_vision(_image_uri, 0.0)
 	)
 	add_child(_calibrate)
-
-	_fab = Studio.fab("3D", func(): _enter_3d())
-	_fab.visible = false
-	_fab.set_anchors_preset(PRESET_BOTTOM_RIGHT)
-	_fab.anchor_left = 1.0
-	_fab.anchor_top = 1.0
-	_fab.anchor_right = 1.0
-	_fab.anchor_bottom = 1.0
-	_fab.offset_left = -78
-	_fab.offset_top = -268
-	_fab.offset_right = -20
-	_fab.offset_bottom = -210
-	add_child(_fab)
-	resized.connect(func(): _place_fab())
 
 	_show_pick()
 	var intent: String = Session.photo_intent
@@ -696,10 +697,13 @@ func _refresh_selection() -> void:
 func _sync_fab() -> void:
 	if _fab == null:
 		return
-	_fab.visible = _mode == "review" or _mode == "demolish"
-	if _fab.visible:
-		_fab_place_tries = 0
-		call_deferred("_place_fab")
+	var overlay_up := _confirm != null and is_instance_valid(_confirm) and _confirm.visible
+	_fab.visible = (_mode == "review" or _mode == "demolish") and not overlay_up
+	if overlay_up:
+		move_child(_confirm, get_child_count() - 1)
+		return
+	_fab_place_tries = 0
+	call_deferred("_place_fab")
 
 
 func _place_fab() -> void:
