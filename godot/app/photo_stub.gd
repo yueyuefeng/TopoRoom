@@ -32,6 +32,7 @@ var _ruler: Control
 var _coach: Control
 var _ctx: HBoxContainer
 var _fab: Button
+var _fab_place_tries := 0
 var _snap_wall := ""
 const Haptics := preload("res://app/ui/haptics.gd")
 
@@ -187,6 +188,7 @@ func _ready() -> void:
 	_fab.offset_right = -20
 	_fab.offset_bottom = -210
 	add_child(_fab)
+	resized.connect(func(): _place_fab())
 
 	_show_pick()
 	var intent: String = Session.photo_intent
@@ -660,8 +662,7 @@ func _refresh_selection() -> void:
 			_readout_bar.visible = show
 		_readout.visible = show
 		_rebuild_lwh()
-	if _fab:
-		_fab.visible = _mode == "review" or _mode == "demolish"
+	_sync_fab()
 	if _ctx == null or not is_instance_valid(_ctx):
 		return
 	if _mode != "review" and _mode != "demolish":
@@ -690,6 +691,39 @@ func _refresh_selection() -> void:
 		_ctx_btn("中点打断", func(): _act_split())
 		_ctx_btn("局部拆除", func(): _act_partial())
 		_ctx_btn("打门洞", func(): _act_punch())
+
+
+func _sync_fab() -> void:
+	if _fab == null:
+		return
+	_fab.visible = _mode == "review" or _mode == "demolish"
+	if _fab.visible:
+		_fab_place_tries = 0
+		call_deferred("_place_fab")
+
+
+func _place_fab() -> void:
+	if _fab == null or not _fab.visible or _dock == null:
+		return
+	if _dock.get_child_count() < 2:
+		return
+	var lib := _dock.get_child(1) as Control
+	if lib == null or not is_instance_valid(lib):
+		return
+	if lib.size.y < 8.0:
+		_fab_place_tries += 1
+		if _fab_place_tries < 8:
+			call_deferred("_place_fab")
+		return
+	_fab_place_tries = 0
+	var view_h := size.y
+	if view_h <= 1.0:
+		view_h = get_viewport_rect().size.y
+	var from_bottom := view_h - (lib.global_position.y + lib.size.y * 0.5)
+	_fab.offset_right = -20.0
+	_fab.offset_left = -78.0
+	_fab.offset_bottom = -(from_bottom - 29.0)
+	_fab.offset_top = _fab.offset_bottom - 58.0
 
 
 func _ctx_btn(text: String, cb: Callable) -> void:
