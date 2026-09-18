@@ -34,11 +34,17 @@ has "$root/godot/app/joyplan_flow/router.gd" "EDIT_2D"
 has "$root/godot/app/joyplan_flow/router.gd" "EDIT_3D"
 has "$root/godot/app/joyplan_flow/router.gd" "ELEVATION"
 
-# S1 — system picker, no dual-card home
+# S1 — usable home (sample / gallery / camera), never a blank pill
+has "$root/godot/app/joyplan_flow/home.gd" "示例户型"
+has "$root/godot/app/joyplan_flow/home.gd" "相册导入"
+has "$root/godot/app/joyplan_flow/home.gd" "拍照"
 has "$root/godot/app/joyplan_flow/home.gd" "pick_gallery"
-has "$root/godot/app/joyplan_flow/home.gd" "选择户型图"
+has "$root/godot/app/joyplan_flow/home.gd" "load_gold_sample"
+has "$root/godot/app/session.gd" "load_gold_sample"
+lacks "$root/godot/app/joyplan_flow/home.gd" 'call_deferred("_open_gallery")'
 lacks "$root/godot/app/joyplan_flow/home.gd" "拍户型"
 lacks "$root/godot/app/joyplan_flow/home.gd" "_island_cta"
+lacks "$root/godot/app/joyplan_flow/home.gd" "选择户型图"
 
 # S2
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "Scale setting"

@@ -32,13 +32,27 @@ func set_sceneir_json(text: String) -> void:
 
 
 func load_photo(path: String) -> void:
-	var abs_path := path
-	if path.begins_with("user://") or path.begins_with("res://"):
-		abs_path = ProjectSettings.globalize_path(path)
-	if abs_path.is_empty() or not FileAccess.file_exists(abs_path):
-		return
 	var img := Image.new()
-	if img.load(abs_path) != OK:
+	var candidates: Array[String] = [path]
+	if path.begins_with("user://") or path.begins_with("res://"):
+		candidates.append(ProjectSettings.globalize_path(path))
+	var ok := false
+	for p in candidates:
+		if p.is_empty():
+			continue
+		var buf := FileAccess.get_file_as_bytes(p)
+		if buf.size() >= 32:
+			var ext := p.get_extension().to_lower()
+			if ext == "png" and img.load_png_from_buffer(buf) == OK:
+				ok = true
+				break
+			if (ext == "jpg" or ext == "jpeg") and img.load_jpg_from_buffer(buf) == OK:
+				ok = true
+				break
+		if img.load(p) == OK:
+			ok = true
+			break
+	if not ok:
 		return
 	_photo = ImageTexture.create_from_image(img)
 	queue_redraw()

@@ -229,14 +229,10 @@ void fragment() {
 
 
 func load_image(path: String) -> bool:
-	var abs_path := path
-	if path.begins_with("user://") or path.begins_with("res://"):
-		abs_path = ProjectSettings.globalize_path(path)
-	if abs_path.is_empty() or not FileAccess.file_exists(abs_path):
+	var img := _decode_image(path)
+	if img == null or img.get_width() < 8:
 		return false
-	_img = Image.new()
-	if _img.load(abs_path) != OK:
-		return false
+	_img = img
 	_photo.texture = ImageTexture.create_from_image(_img)
 	_a = Vector2(_img.get_width() * 0.28, _img.get_height() * 0.52)
 	_b = Vector2(_img.get_width() * 0.72, _img.get_height() * 0.52)
@@ -245,9 +241,37 @@ func load_image(path: String) -> bool:
 	return true
 
 
+func _decode_image(path: String) -> Image:
+	var candidates: Array[String] = [path]
+	if path.begins_with("user://") or path.begins_with("res://"):
+		candidates.append(ProjectSettings.globalize_path(path))
+	for p in candidates:
+		if p.is_empty():
+			continue
+		var buf := FileAccess.get_file_as_bytes(p)
+		if buf.size() >= 32:
+			var img := Image.new()
+			var ext := p.get_extension().to_lower()
+			var err := ERR_FILE_UNRECOGNIZED
+			if ext == "png":
+				err = img.load_png_from_buffer(buf)
+			elif ext == "jpg" or ext == "jpeg":
+				err = img.load_jpg_from_buffer(buf)
+			elif ext == "webp":
+				err = img.load_webp_from_buffer(buf)
+			if err != OK:
+				err = img.load(p)
+			if err == OK:
+				return img
+	if path.begins_with("res://"):
+		var tex = load(path)
+		if tex is Texture2D:
+			return (tex as Texture2D).get_image()
+	return null
+
+
 func _make_demo() -> void:
-	var fixture := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
-	if FileAccess.file_exists(fixture) and load_image(fixture):
+	if load_image("res://fixtures/apt-plan-user-01.png"):
 		return
 	_img = Image.create(720, 960, false, Image.FORMAT_RGB8)
 	_img.fill(Color("EDE8E2"))

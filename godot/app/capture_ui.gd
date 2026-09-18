@@ -10,14 +10,27 @@ func _ready() -> void:
 	for step in ["review_walls", "place_3d"]:
 		Session.mark_coach(step)
 
-	var gold := ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
-	Session.last_import_path = gold
-	Session.last_import_uri = gold
+	var home: Control = preload("res://app/joyplan_flow/home.tscn").instantiate()
+	add_child(home)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.25).timeout
+	await _shot(out_dir.path_join("s1_home.png"))
+	home.queue_free()
+
+	var gold := Session.load_gold_sample()
+	if gold.is_empty():
+		gold = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+		Session.last_import_path = gold
+		Session.last_import_uri = gold
 	var scale: Control = preload("res://app/joyplan_flow/scale_calibrate.tscn").instantiate()
 	add_child(scale)
 	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
 	await _shot(out_dir.path_join("s2_scale.png"))
+	if scale._img == null:
+		push_error("示例户型 did not load into Scale setting")
+	else:
+		print("OK sample→scale image %dx%d" % [scale._img.get_width(), scale._img.get_height()])
 	if scale.has_method("_show_loupe") and scale._img:
 		scale._drag = 1
 		scale._show_loupe(scale._a)
@@ -27,7 +40,10 @@ func _ready() -> void:
 	scale.queue_free()
 
 	if Session.has_core():
-		Session.import_photo_fake("fixture:photo")
+		var vis := Session.import_photo_vision(Session.last_import_path, 0.0)
+		print("OK sample→vision %s walls=%s" % [vis, Session.sceneir_json().find("\"walls\"")])
+		if Session.sceneir_json().find("wall_") < 0:
+			Session.import_photo_fake("fixture:photo")
 	else:
 		Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")
 	Session.coach_seen.erase("library")

@@ -380,16 +380,36 @@ func store_imported_image(src: String) -> String:
 		return dest
 	var copied := DirAccess.copy_absolute(abs_src, dest)
 	if copied != OK:
-		var inf := FileAccess.open(abs_src, FileAccess.READ)
+		var inf := FileAccess.open(src, FileAccess.READ)
 		if inf == null:
-			return ""
-		var outf := FileAccess.open(dest, FileAccess.WRITE)
-		if outf == null:
-			return ""
-		outf.store_buffer(inf.get_buffer(inf.get_length()))
+			inf = FileAccess.open(abs_src, FileAccess.READ)
+		if inf == null:
+			var packed := FileAccess.get_file_as_bytes(src)
+			if packed.is_empty():
+				packed = FileAccess.get_file_as_bytes(abs_src)
+			if packed.is_empty():
+				return ""
+			var outp := FileAccess.open(dest, FileAccess.WRITE)
+			if outp == null:
+				return ""
+			outp.store_buffer(packed)
+		else:
+			var outf := FileAccess.open(dest, FileAccess.WRITE)
+			if outf == null:
+				return ""
+			outf.store_buffer(inf.get_buffer(inf.get_length()))
 	last_import_path = dest
 	last_import_uri = dest
 	return dest
+
+
+func load_gold_sample() -> String:
+	var stored := store_imported_image("res://fixtures/apt-plan-user-01.png")
+	if stored.is_empty():
+		last_import_path = "res://fixtures/apt-plan-user-01.png"
+		last_import_uri = last_import_path
+		return last_import_path
+	return stored
 
 
 func import_photo_fake(image_uri: String = "fixture:photo") -> String:
