@@ -25,7 +25,8 @@ mapping below is the host implementation notes; do not paraphrase the spec.
 | 4 | Room fill + name / area on 2D | `plan_canvas.gd` `_draw_room_fills` | **View only.** Flood pockets of closed walls; labels from SceneIR `rooms` when present |
 | 5 | Bottom-sheet door/window library, long-press drag, snap | `opening_library.gd` + `plan_canvas.snap_opening` | `Session.add_opening(kind, wall_id, offset_mm)` |
 | 6 | Select entity → contextual toolbar + top L/W/H | 2D: `photo_stub.gd` readout + `_ctx`; 3D: `edit_3d.gd` `_lwh` / `_ctx` | Kind changes: `set_wall_kind`. Dims are readout of SceneIR (3D drag still commits via gizmos, ADR-002) |
-| 7 | FAB 2D ↔ 3D | Round FAB on review sheet and 3D HUD | Scene switch only. 3D edit gizmos / lighting / StatusGate preview unchanged (ADR-002) |
+| 7 | FAB 2D ↔ 3D | Round FAB **or** top mode 平/立 | Scene switch only. 3D edit gizmos / lighting / StatusGate preview unchanged (ADR-002) |
+| 8 | Three-zone chrome | `joyplan_chrome.gd` on 2D review + 3D | Visualization. See spec §10 |
 
 Optional polish (same host, still Visualization-only):
 
@@ -44,8 +45,9 @@ Out of scope (not mapped): Elevation Index CAD dark mode; electric/furniture lib
 | `godot/app/scale_calibrate.gd` | Handles A/B, loupe, mm sheet |
 | `godot/app/plan_canvas.gd` | SceneIR 2D view: fills, hatch, snap, drop preview |
 | `godot/app/opening_library.gd` | Bottom-sheet chips; long-press drag ghost |
-| `godot/app/photo_stub.gd` | Import → calibrate → review/demolish sheet + FAB |
-| `godot/app/edit_3d.gd` | Command-synced 3D; L/W/H; FAB back to 2D; dim overlay |
+| `godot/app/ui/joyplan_chrome.gd` | Frosted three-zone chrome (top modes + LWH + 1F, right rail, 3D joystick) |
+| `godot/app/photo_stub.gd` | Import → calibrate → review/demolish + shared chrome |
+| `godot/app/edit_3d.gd` | Command-synced 3D; chrome; L/W/H sheet; dim overlay |
 | `godot/app/session.gd` | InteractionShell façade |
 | `godot/extension/src/toporoom_host.cpp` | `import_vision_image(path, mm_per_px)` |
 
