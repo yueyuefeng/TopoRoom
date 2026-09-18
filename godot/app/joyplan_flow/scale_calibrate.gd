@@ -20,7 +20,10 @@ var _loupe_cross: Control
 var _a := Vector2(80, 200)
 var _b := Vector2(280, 200)
 var _drag := 0
-var _handle_r := 16.0
+var _drag_pos := Vector2.ZERO
+var _handle_r := 18.0
+const HANDLE_HIT := 48.0
+const BAR_HIT := 32.0
 var _snack: PanelContainer
 
 
@@ -43,7 +46,8 @@ func _ready() -> void:
 	overlay.set_anchors_preset(PRESET_FULL_RECT)
 	overlay.offset_top = 56
 	overlay.offset_bottom = -328
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.gui_input.connect(_on_overlay_input)
 	overlay.draw.connect(_draw_scale)
 	overlay.name = "ScaleOverlay"
 	add_child(overlay)
@@ -294,37 +298,59 @@ func _make_demo() -> void:
 	_queue_scale()
 
 
-func _fitted() -> Rect2:
-	if _img == null or _photo == null:
-		return Rect2()
-	var gr := _photo.get_global_rect()
-	var origin: Vector2 = get_global_transform().affine_inverse() * gr.position
-	return Rect2(origin, gr.size)
+func _overlay() -> Control:
+	return get_node_or_null("ScaleOverlay") as Control
 
 
-func _img_to_ctrl(p: Vector2) -> Vector2:
-	var r := _fitted()
+func _cover_rect() -> Rect2:
+	## KEEP_ASPECT_COVERED of the photo, in ScaleOverlay local pixels.
+	var ov := _overlay()
+	var into := Rect2(Vector2.ZERO, ov.size if ov else size)
+	if into.size.x < 8.0 or into.size.y < 8.0:
+		into.size = Vector2(size.x, maxf(size.y - 384.0, 8.0))
+	if _img == null:
+		return into
+	var iw := float(_img.get_width())
+	var ih := float(_img.get_height())
+	var s := maxf(into.size.x / iw, into.size.y / ih)
+	var d := Vector2(iw, ih) * s
+	return Rect2(into.position + (into.size - d) * 0.5, d)
+
+
+func _img_to_overlay(p: Vector2) -> Vector2:
+	var r := _cover_rect()
 	if r.size.x < 1.0 or _img == null:
 		return p
-	return r.position + Vector2(p.x / float(_img.get_width()) * r.size.x, p.y / float(_img.get_height()) * r.size.y)
+	return r.position + Vector2(
+		p.x / float(_img.get_width()) * r.size.x,
+		p.y / float(_img.get_height()) * r.size.y
+	)
 
 
-func _ctrl_to_img(p: Vector2) -> Vector2:
-	var r := _fitted()
+func _overlay_to_img(p: Vector2) -> Vector2:
+	var r := _cover_rect()
 	if r.size.x < 1.0 or _img == null:
 		return p
-	var q := (p - r.position) / r.size
-	q.x = clampf(q.x, 0.0, 1.0)
-	q.y = clampf(q.y, 0.0, 1.0)
-	return Vector2(q.x * float(_img.get_width()), q.y * float(_img.get_height()))
+	var q: Vector2 = (p - r.position) / r.size
+	return Vector2(
+		clampf(q.x, 0.0, 1.0) * float(_img.get_width()),
+		clampf(q.y, 0.0, 1.0) * float(_img.get_height())
+	)
+
+
+func _overlay_to_parent(p: Vector2) -> Vector2:
+	var ov := _overlay()
+	if ov == null:
+		return p
+	return get_global_transform().affine_inverse() * (ov.get_global_transform() * p)
 
 
 func _draw_scale() -> void:
 	var overlay := get_node_or_null("ScaleOverlay") as Control
 	if overlay == null or _img == null:
 		return
-	var pa := _img_to_ctrl(_a)
-	var pb := _img_to_ctrl(_b)
+	var pa := _img_to_overlay(_a)
+	var pb := _img_to_overlay(_b)
 	overlay.draw_line(pa, pb, Color(0.22, 0.55, 1.0, 1), 3.0)
 	var dir: Vector2 = pb - pa
 	var len := dir.length()
@@ -379,63 +405,132 @@ func _draw_loupe_cross() -> void:
 	_loupe_cross.draw_arc(c, 10.0, 0.0, TAU, 32, ink, 1.4)
 
 
-func _gui_input(event: InputEvent) -> void:
+func _to_overlay_local(viewport_pos: Vector2) -> Vector2:
+	var ov := _overlay()
+	if ov == null:
+		return viewport_pos
+	return ov.get_global_transform_with_canvas().affine_inverse() * viewport_pos
+
+
+func _event_pos(event: InputEvent) -> Vector2:
+	## Overlay.gui_input mouse events are overlay-local (also what capture synthesizes).
+	## ScreenTouch/ScreenDrag stay in viewport space on Android.
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		return (event as InputEventMouse).position
+	if event is InputEventScreenTouch:
+		return _to_overlay_local((event as InputEventScreenTouch).position)
+	if event is InputEventScreenDrag:
+		return _to_overlay_local((event as InputEventScreenDrag).position)
+	return Vector2.INF
+
+
+func _input(event: InputEvent) -> void:
+	## Phone taps can miss Control.gui_input; keep handle/bar drags alive via viewport events.
 	if _img == null:
 		return
-	var pos := Vector2.ZERO
-	if event is InputEventMouseButton or event is InputEventMouseMotion:
-		pos = event.position
-	elif event is InputEventScreenTouch or event is InputEventScreenDrag:
-		pos = event.position
-	if pos.y > size.y - 328.0 or pos.y < 56.0:
+	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		return
+	var ov := _overlay()
+	if ov == null:
+		return
+	var pos := _event_pos(event)
+	if not is_finite(pos.x) or not is_finite(pos.y):
+		return
+	if not Rect2(Vector2(-HANDLE_HIT, -HANDLE_HIT), ov.size + Vector2(HANDLE_HIT * 2.0, HANDLE_HIT * 2.0)).has_point(pos):
+		return
+	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed and _hit(pos) == 0 and _drag == 0:
+		return
+	if event is InputEventScreenDrag and _drag == 0:
+		return
+	_on_overlay_input(event)
+	get_viewport().set_input_as_handled()
+
+
+func _on_overlay_input(event: InputEvent) -> void:
+	if _img == null:
+		return
+	var pos := _event_pos(event)
+	if not is_finite(pos.x) or not is_finite(pos.y):
 		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index != MOUSE_BUTTON_LEFT:
 			return
 		if mb.pressed:
-			_drag = _hit(mb.position)
+			_begin_drag(pos)
 			if _drag != 0:
-				_show_loupe(_ctrl_to_img(mb.position))
-				accept_event()
+				get_viewport().set_input_as_handled()
 		else:
-			_drag = 0
-			_loupe.visible = false
-			_queue_scale()
-	elif event is InputEventMouseMotion and _drag != 0:
-		_set_handle(_drag, _ctrl_to_img((event as InputEventMouseMotion).position))
-		_show_loupe(_ctrl_to_img((event as InputEventMouseMotion).position))
-		accept_event()
-	elif event is InputEventScreenTouch:
+			_end_drag()
+		return
+	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
-			_drag = _hit(st.position)
+			_begin_drag(pos)
 			if _drag != 0:
-				_show_loupe(_ctrl_to_img(st.position))
-				accept_event()
+				get_viewport().set_input_as_handled()
 		else:
-			_drag = 0
-			_loupe.visible = false
-			_queue_scale()
-	elif event is InputEventScreenDrag and _drag != 0:
-		var sd := event as InputEventScreenDrag
-		_set_handle(_drag, _ctrl_to_img(sd.position))
-		_show_loupe(_ctrl_to_img(sd.position))
-		accept_event()
+			_end_drag()
+		return
+	if _drag == 0:
+		return
+	if event is InputEventMouseMotion or event is InputEventScreenDrag:
+		_move_drag(pos)
+		get_viewport().set_input_as_handled()
+
+
+func _begin_drag(pos: Vector2) -> void:
+	_drag = _hit(pos)
+	_drag_pos = pos
+	if _drag != 0:
+		_show_loupe(_overlay_to_img(pos))
+
+
+func _move_drag(pos: Vector2) -> void:
+	if _drag == 3:
+		var delta: Vector2 = pos - _drag_pos
+		_a = _overlay_to_img(_img_to_overlay(_a) + delta)
+		_b = _overlay_to_img(_img_to_overlay(_b) + delta)
+		_drag_pos = pos
+	else:
+		_set_handle(_drag, _overlay_to_img(pos))
+		_drag_pos = pos
+	_show_loupe(_overlay_to_img(pos))
+	_queue_scale()
+
+
+func _end_drag() -> void:
+	_drag = 0
+	if _loupe:
+		_loupe.visible = false
+	_queue_scale()
 
 
 func _hit(pos: Vector2) -> int:
-	if _img_to_ctrl(_a).distance_to(pos) <= _handle_r + 10.0:
+	var pa := _img_to_overlay(_a)
+	var pb := _img_to_overlay(_b)
+	if pa.distance_to(pos) <= HANDLE_HIT:
 		return 1
-	if _img_to_ctrl(_b).distance_to(pos) <= _handle_r + 10.0:
+	if pb.distance_to(pos) <= HANDLE_HIT:
 		return 2
+	if _dist_to_seg(pos, pa, pb) <= BAR_HIT:
+		return 3
 	return 0
+
+
+func _dist_to_seg(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab: Vector2 = b - a
+	var denom := ab.length_squared()
+	if denom < 1.0:
+		return p.distance_to(a)
+	var t := clampf((p - a).dot(ab) / denom, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
 
 
 func _set_handle(which: int, img_pt: Vector2) -> void:
 	if which == 1:
 		_a = img_pt
-	else:
+	elif which == 2:
 		_b = img_pt
 	queue_redraw()
 	_queue_scale()
@@ -457,7 +552,7 @@ func _show_loupe(img_pt: Vector2) -> void:
 	_loupe.queue_redraw()
 	if _loupe_cross:
 		_loupe_cross.queue_redraw()
-	var ctrl := _img_to_ctrl(img_pt)
+	var ctrl := _overlay_to_parent(_img_to_overlay(img_pt))
 	var lw := float(LOUPE_DST + 16)
 	var above := ctrl.y - lw - 24.0
 	_loupe.position = Vector2(

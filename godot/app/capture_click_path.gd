@@ -54,18 +54,47 @@ func _ready() -> void:
 	var scale: Control = preload("res://app/joyplan_flow/scale_calibrate.tscn").instantiate()
 	add_child(scale)
 	await get_tree().process_frame
+	await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
-	await _shot(docs, out_dir, "05_scale_1of2.png")
 	if not ("_img" in scale) or scale._img == null:
 		push_error("示例户型 did not load into 1/2 临摹图比例")
 	else:
 		print("OK sample→1/2 scale image %dx%d" % [scale._img.get_width(), scale._img.get_height()])
+		var ov: Control = scale.get_node_or_null("ScaleOverlay")
+		if ov == null:
+			push_error("ScaleOverlay missing")
+		else:
+			var pa: Vector2 = scale._img_to_overlay(scale._a)
+			var pb: Vector2 = scale._img_to_overlay(scale._b)
+			var hit_a: int = scale._hit(pa)
+			var hit_b: int = scale._hit(pb)
+			var hit_bar: int = scale._hit(pa.lerp(pb, 0.5))
+			if hit_a != 1 or hit_b != 2 or hit_bar != 3:
+				push_error("scale hit-test failed a=%s b=%s bar=%s" % [str(hit_a), str(hit_b), str(hit_bar)])
+			else:
+				print("OK scale hit-test handles+bar")
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = true
+			ev.position = pa
+			scale._on_overlay_input(ev)
+			var mv := InputEventMouseMotion.new()
+			mv.position = pa + Vector2(-48, 36)
+			scale._on_overlay_input(mv)
+			var up := InputEventMouseButton.new()
+			up.button_index = MOUSE_BUTTON_LEFT
+			up.pressed = false
+			up.position = mv.position
+			scale._on_overlay_input(up)
+			await get_tree().process_frame
+			print("OK scale drag handle A to %s" % str(scale._a))
 		var px: float = scale._a.distance_to(scale._b)
 		var mm: float = scale._mm.text.strip_edges().to_float()
 		if mm < 10.0:
 			mm = 900.0
 		Session.last_scale_mm = mm
 		Session.last_scale_mm_per_px = (mm / px) if px >= 4.0 else 0.0
+	await _shot(docs, out_dir, "05_scale_1of2.png")
 	scale.queue_free()
 
 	if Session.sceneir_json().find("wall_") < 0:

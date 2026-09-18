@@ -78,6 +78,9 @@ has "$root/godot/app/joyplan_flow/scale_calibrate.gd" '"900"'
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "LOUPE_ZOOM"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_draw_loupe_cross"
 has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "import_photo_vision"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_on_overlay_input"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "HANDLE_HIT"
+has "$root/godot/app/joyplan_flow/scale_calibrate.gd" "_cover_rect"
 has "$root/godot/app/joyplan_flow/generate_space.gd" "2/2 生成空间"
 
 # S3 / S4
