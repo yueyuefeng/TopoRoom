@@ -37,6 +37,12 @@ has "$root/godot/scripts/inject_android_media_plugin.sh" "TopoRoomMediaPlugin"
 has "$root/godot/export_presets.cfg" "READ_MEDIA_IMAGES"
 has "$root/godot/android/plugins/TopoRoomMedia.gdap" "TopoRoomMedia"
 has "$root/godot/android-plugin/toporoom-media/src/main/java/com/toporoom/plugin/TopoRoomMediaPlugin.java" "BitmapFactory"
+has "$root/godot/export_presets.cfg" 'keystore/debug="android/keystore/debug.keystore"'
+has "$root/godot/scripts/bump_android_version.sh" "versionCode"
+has "$root/godot/scripts/wire_android_signing.sh" "debug.keystore"
+has "$root/godot/android/version.json" "versionName"
+test -f "$root/godot/android/keystore/debug.keystore" || fail "missing committed debug.keystore"
+test -f "$root/godot/android/keystore/debug.cert.sha256" || fail "missing debug.cert.sha256"
 
 lacks "$root/godot/app/main.gd" "_btn("
 lacks "$root/godot/app/plan_canvas.gd" "const WALL :="
