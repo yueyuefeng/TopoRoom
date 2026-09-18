@@ -11,6 +11,9 @@ door/window → FAB 2D↔3D** onto TopoRoom. Godot never owns millimetres:
 every structural write goes `Control/gizmo → Session → TopoRoomHost → C API
 → FloorPlanDocument / SceneIR`.
 
+The full gesture table, state machine, gap matrix, and Phase B–E commit
+plan live in [joyplan-interaction-spec.md](./joyplan-interaction-spec.md).
+
 ## Sequence
 
 | Step | JoyPlan-style UX | TopoRoom host | Command / truth |
