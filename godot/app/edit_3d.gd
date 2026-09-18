@@ -329,20 +329,33 @@ func _draw_dim_overlay() -> void:
 	if not _show_dims or _camera == null or _dim_overlay == null:
 		return
 	var fnt: Font = Studio.font if Studio and Studio.font else ThemeDB.fallback_font
+	var pink := Tokens.PAGE_PINK
 	for w in _walls():
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		var fr := _frame(w)
-		var mid := Vector3((fr.x0 + fr.x1) * 0.0005, float(fr.height) * 0.0005 + 0.12, (fr.y0 + fr.y1) * 0.0005)
-		if _camera.is_position_behind(mid):
+		var a := Vector3(fr.x0 * 0.001, float(fr.height) * 0.001 + 0.04, fr.y0 * 0.001)
+		var b := Vector3(fr.x1 * 0.001, float(fr.height) * 0.001 + 0.04, fr.y1 * 0.001)
+		var mid := (a + b) * 0.5
+		if _camera.is_position_behind(a) or _camera.is_position_behind(b):
 			continue
-		var p: Vector2 = _camera.unproject_position(mid)
+		var pa: Vector2 = _camera.unproject_position(a)
+		var pb: Vector2 = _camera.unproject_position(b)
+		_dim_overlay.draw_line(pa, pb, pink, 1.6)
 		var txt := "%d" % int(round(float(fr.length)))
-		var sz: Vector2 = fnt.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
-		var box := Rect2(p - Vector2(sz.x * 0.5 + 6, 10), Vector2(sz.x + 12, 20))
-		_dim_overlay.draw_rect(box, Color(1, 1, 1, 0.88), true)
-		_dim_overlay.draw_rect(box, Tokens.HAIRLINE, false, 1.0)
-		_dim_overlay.draw_string(fnt, p - Vector2(sz.x * 0.5, -5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.TEXT)
+		var p: Vector2 = _camera.unproject_position(mid)
+		_dim_overlay.draw_string(fnt, p - Vector2(18, -4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, pink)
+		if Session.ruler_on("thickness"):
+			var thick := "%d" % int(round(float(fr.thickness)))
+			_dim_overlay.draw_string(fnt, p + Vector2(-14, 16), thick, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Tokens.PAGE_DIM_RED)
+		# storey / opening height tick at wall start
+		var floor_p := Vector3(fr.x0 * 0.001, 0.02, fr.y0 * 0.001)
+		var top_p := Vector3(fr.x0 * 0.001, float(fr.height) * 0.001, fr.y0 * 0.001)
+		if not _camera.is_position_behind(floor_p) and not _camera.is_position_behind(top_p):
+			var pf: Vector2 = _camera.unproject_position(floor_p)
+			var pt: Vector2 = _camera.unproject_position(top_p)
+			_dim_overlay.draw_line(pf, pt, pink, 1.2)
+			_dim_overlay.draw_string(fnt, pt + Vector2(6, 0), "%d" % int(round(float(fr.height))), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, pink)
 	var pick := str(_selected.get("pick", ""))
 	if pick == KIND_OPENING:
 		var op := _opening_by_id(str(_selected.get("opening_id", "")))
@@ -353,8 +366,8 @@ func _draw_dim_overlay() -> void:
 			var pos := _along(f2, t, y)
 			if not _camera.is_position_behind(pos):
 				var p2: Vector2 = _camera.unproject_position(pos)
-				var t2 := "W %d  H %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
-				_dim_overlay.draw_string(fnt, p2 + Vector2(-36, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.PRIMARY)
+				var t2 := "%d × %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
+				_dim_overlay.draw_string(fnt, p2 + Vector2(-28, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Tokens.PAGE_DIM_RED)
 
 
 func _go_2d() -> void:
