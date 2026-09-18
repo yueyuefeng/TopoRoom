@@ -227,6 +227,52 @@ TEST(FloorPlanRaster, GoldenExteriorIsClosedLoop) {
   toporoom_document_destroy(cdoc);
 }
 
+TEST(FloorPlanRaster, GoldenExteriorStaysClosedAfterScaleCalibrate) {
+  RasterImage image;
+  std::string err;
+  ASSERT_TRUE(load_raster_image(fixture_png(), {}, &image, &err)) << err;
+  toporoom::adapters::RasterAnalyzeOptions opt;
+  opt.mm_per_px_override = 18.0;  // host scale sheet → toporoom_vision_import_image_ex
+  const auto detected = analyze_floor_plan_raster(image, opt);
+  ASSERT_TRUE(detected.ok) << detected.error;
+  EXPECT_NEAR(detected.mm_per_px, 18.0, 0.05);
+
+  std::vector<RasterSeg> segs;
+  segs.reserve(detected.walls.size());
+  for (const auto& w : detected.walls) segs.push_back(detected_wall_to_seg(w));
+  EXPECT_GE(envelope_interior_area_mm2(segs, 50.0), 45.0e6);
+  EXPECT_LE(largest_exterior_gap_mm(segs, 120), 150.0);
+
+  double minx = 1e18, miny = 1e18, maxx = -1e18, maxy = -1e18;
+  for (const auto& s : segs) {
+    minx = std::min({minx, s.x0, s.x1});
+    miny = std::min({miny, s.y0, s.y1});
+    maxx = std::max({maxx, s.x0, s.x1});
+    maxy = std::max({maxy, s.y0, s.y1});
+  }
+  const double dx = maxx - minx;
+  const double dy = maxy - miny;
+  EXPECT_TRUE(envelope_point_is_interior(segs, minx + 0.70 * dx, miny + 0.42 * dy, 50.0))
+      << "living leaked after calibrate";
+  EXPECT_TRUE(envelope_point_is_interior(segs, minx + 0.80 * dx, miny + 0.08 * dy, 50.0))
+      << "balcony leaked after calibrate";
+
+  char status[32] = {};
+  char rerr[256] = {};
+  TopoRoomDocument* cdoc = toporoom_document_create("doc_cal_closed");
+  ASSERT_NE(cdoc, nullptr);
+  TopoRoomVisionCounts counts{};
+  ASSERT_EQ(toporoom_vision_import_image_ex(cdoc, fixture_png().c_str(), 18.0, &counts, rerr,
+                                           sizeof(rerr)),
+            0)
+      << rerr;
+  EXPECT_NEAR(counts.mm_per_px, 18.0, 0.05);
+  EXPECT_EQ(toporoom_document_rebuild_status(cdoc, status, sizeof(status), rerr, sizeof(rerr)), 0)
+      << rerr;
+  EXPECT_STREQ(status, "ok");
+  toporoom_document_destroy(cdoc);
+}
+
 TEST(FloorPlanRaster, GoldenHasBayAndFloorCeilingWindows) {
   RasterImage image;
   std::string err;
