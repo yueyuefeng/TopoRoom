@@ -211,7 +211,7 @@ func measure_typed(value_mm: float, explicit: bool) -> String:
 	return _ok("关键尺寸 手输 %smm 确认=%s" % [str(value_mm), str(explicit)])
 
 
-func add_opening(kind: String) -> String:
+func add_opening(kind: String, wall_id: String = "", offset_mm: float = -1.0) -> String:
 	if host == null:
 		return _fail("no core")
 	opening_serial += 1
@@ -224,9 +224,15 @@ func add_opening(kind: String) -> String:
 		sill = 900.0
 	elif kind == "archway":
 		width = 1200.0
+	var host_wall := wall_id
+	if host_wall.is_empty():
+		host_wall = "wall_s"
+	var off := offset_mm
+	if off < 0.0:
+		off = 800.0
 	var d: Dictionary = host.add_opening(
-		host.first_storey_id(), "wall_s", "op_%s_%d" % [kind, opening_serial], kind,
-		width, height, 800.0, sill
+		host.first_storey_id(), host_wall, "op_%s_%d" % [kind, opening_serial], kind,
+		width, height, off, sill
 	)
 	if not d.get("ok", false):
 		opening_serial -= 1

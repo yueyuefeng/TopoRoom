@@ -5,6 +5,7 @@ const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const MediaPickerScript := preload("res://app/media_picker.gd")
 const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
+const OpeningLibrary := preload("res://app/opening_library.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -77,6 +78,7 @@ func _ready() -> void:
 	_canvas.custom_minimum_size = Vector2(0, 220)
 	_canvas.interactive = false
 	_canvas.wall_clicked.connect(_on_wall_clicked)
+	_canvas.opening_clicked.connect(_on_opening_clicked)
 	hcol.add_child(_canvas)
 	hero.add_child(hcol)
 	mid.add_child(hero)
@@ -258,6 +260,7 @@ func _show_review() -> void:
 	row.add_child(shear)
 	row.add_child(mason)
 	_dock.add_child(row)
+	_dock.add_child(_make_library())
 	var next := Studio.primary("进入 3D", func(): _enter_3d())
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dock.add_child(next)
@@ -296,6 +299,7 @@ func _show_demolish() -> void:
 	row2.add_child(c)
 	row2.add_child(d)
 	_dock.add_child(row2)
+	_dock.add_child(_make_library())
 	_dock.add_child(Studio.ghost("返回确认承重", func(): _show_review()))
 	_refresh()
 
@@ -424,8 +428,53 @@ func _load_thumb(path: String) -> void:
 	_preview.texture = ImageTexture.create_from_image(img)
 
 
+func _make_library() -> Control:
+	var lib := OpeningLibrary.new()
+	lib.previewed.connect(_on_library_preview)
+	lib.preview_ended.connect(func(): _canvas.clear_drop_preview())
+	lib.dropped.connect(_on_library_drop)
+	lib.tapped.connect(_on_library_tap)
+	return lib
+
+
+func _on_library_preview(kind: String, global_pos: Vector2) -> void:
+	var local: Vector2 = _canvas.to_canvas(global_pos)
+	_canvas.set_drop_preview(kind, local)
+
+
+func _on_library_drop(kind: String, global_pos: Vector2) -> void:
+	_canvas.clear_drop_preview()
+	var local: Vector2 = _canvas.to_canvas(global_pos)
+	var hit: Dictionary = _canvas.snap_opening(local, kind)
+	if hit.is_empty() or str(hit.get("id", "")).is_empty():
+		_snack.show_message("拖到墙上再松手。", "error")
+		return
+	Session.add_opening(kind, str(hit.get("id", "")), float(hit.get("offset_mm", 0)))
+	_canvas.selected_id = str(hit.get("id", ""))
+	_refresh()
+
+
+func _on_library_tap(kind: String) -> void:
+	var id: String = str(_canvas.selected_id)
+	if id.is_empty():
+		_snack.show_message("先点选一道墙，或长按拖到墙上。", "error")
+		return
+	var len: float = _wall_length(id)
+	var width := 1200.0 if kind != "door" else 900.0
+	var off := maxf((len - width) * 0.5, 50.0)
+	Session.add_opening(kind, id, off)
+	_refresh()
+
+
+func _on_opening_clicked(opening_id: String, wall_id: String) -> void:
+	_canvas.selected_opening_id = opening_id
+	_canvas.selected_id = wall_id
+	_refresh()
+
+
 func _on_wall_clicked(wall_id: String) -> void:
 	_canvas.selected_id = wall_id
+	_canvas.selected_opening_id = ""
 	if _mode == "review":
 		var kind: String = _wall_kind(wall_id)
 		var next: String = "masonry" if kind == "shearWall" else "shearWall"

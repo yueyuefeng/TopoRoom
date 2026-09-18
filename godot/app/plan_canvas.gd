@@ -2,11 +2,14 @@ extends Control
 ## 户型图 canvas driven by SceneIR JSON (walls / 门窗洞 / 垭口). Not a mesh editor.
 
 signal wall_clicked(wall_id)
+signal opening_clicked(opening_id, wall_id)
 
 var snapshot: Dictionary = {}
 var show_chrome: bool = true
 var interactive: bool = false
 var selected_id: String = ""
+var selected_opening_id: String = ""
+var drop_preview: Dictionary = {}
 
 var _map_min_x := 0.0
 var _map_min_y := 0.0
@@ -14,6 +17,7 @@ var _map_ox := 0.0
 var _map_oy := 0.0
 var _map_scale := 1.0
 var _segments: Array = []
+var _openings: Array = []
 
 
 func set_sceneir_json(text: String) -> void:
@@ -62,6 +66,7 @@ func _draw() -> void:
 
 	var opening_count := 0
 	_segments.clear()
+	_openings.clear()
 	_map_min_x = min_x
 	_map_min_y = min_y
 	_map_ox = ox
@@ -72,6 +77,7 @@ func _draw() -> void:
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		opening_count += _draw_wall(w, min_x, min_y, ox, oy, scale)
+	_draw_drop_preview()
 
 	if show_chrome:
 		_draw_chrome(storey_height, rooms, walls.size(), opening_count)
@@ -114,13 +120,18 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	var thickness_mm := float(w.get("thicknessMm", 200))
 	var width: float = clampf(6.0 + thickness_mm / 80.0, 7.0, 14.0)
 	var wid := str(w.get("id", ""))
-	_segments.append({"id": wid, "a": p0, "b": p1, "kind": kind})
-	if selected_id == wid:
+	var length: float = max(Vector2(x1 - x0, y1 - y0).length(), 1.0)
+	_segments.append({
+		"id": wid, "a": p0, "b": p1, "kind": kind,
+		"x0": x0, "y0": y0, "x1": x1, "y1": y1,
+		"length_mm": length, "thickness_mm": thickness_mm,
+		"height_mm": float(w.get("heightMm", 2800)),
+	})
+	if selected_id == wid and selected_opening_id.is_empty():
 		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
 	draw_line(p0, p1, stroke, width)
-	_draw_dim(p0, p1, Vector2(x1 - x0, y1 - y0).length())
+	_draw_dim(p0, p1, length)
 
-	var length: float = max(Vector2(x1 - x0, y1 - y0).length(), 1.0)
 	var ux := (x1 - x0) / length
 	var uy := (y1 - y0) / length
 	var openings: Array = w.get("openings", [])
@@ -130,18 +141,26 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 			continue
 		count += 1
 		var okind := str(op.get("kind", "door"))
+		var oid := str(op.get("id", ""))
 		var color := Tokens.opening_stroke(okind)
 		var offset := float(op.get("offsetMm", 0))
 		var owidth := float(op.get("widthMm", 0))
+		var oheight := float(op.get("heightMm", 2100))
 		var ax := x0 + ux * offset
 		var ay := y0 + uy * offset
 		var bx := ax + ux * owidth
 		var by := ay + uy * owidth
 		var qa := _map(ax, ay, min_x, min_y, ox, oy, scale)
 		var qb := _map(bx, by, min_x, min_y, ox, oy, scale)
+		_openings.append({
+			"id": oid, "wall_id": wid, "kind": okind,
+			"a": qa, "b": qb, "width_mm": owidth, "height_mm": oheight,
+			"offset_mm": offset, "sill_mm": float(op.get("sillHeightMm", 0)),
+		})
+		if selected_opening_id == oid:
+			draw_line(qa, qb, Tokens.PRIMARY_SOFT, width + 8.0)
 		draw_line(qa, qb, Tokens.PAPER, width + 2.0)
 		draw_line(qa, qb, color, width - 1.0)
-		var mid := (qa + qb) * 0.5
 		var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()
 		if okind == "door":
 			draw_line(qa, qa + n * 10.0, color, 1.5)
@@ -409,27 +428,160 @@ func _font() -> Font:
 	return ThemeDB.fallback_font
 
 
+func set_drop_preview(kind: String, canvas_pos: Vector2) -> Dictionary:
+	drop_preview = snap_opening(canvas_pos, kind)
+	queue_redraw()
+	return drop_preview
+
+
+func clear_drop_preview() -> void:
+	if drop_preview.is_empty():
+		return
+	drop_preview = {}
+	queue_redraw()
+
+
+func nearest_wall(pos: Vector2, max_px: float = 56.0) -> Dictionary:
+	var best := {}
+	var best_d := max_px
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY:
+			continue
+		var a: Vector2 = seg.a
+		var b: Vector2 = seg.b
+		var d: float = _dist_seg(pos, a, b)
+		if d >= best_d:
+			continue
+		best_d = d
+		var ab: Vector2 = b - a
+		var t := 0.0
+		var denom: float = ab.length_squared()
+		if denom > 0.0001:
+			t = clampf((pos - a).dot(ab) / denom, 0.0, 1.0)
+		var length_mm := float(seg.get("length_mm", 1.0))
+		best = {
+			"id": str(seg.get("id", "")),
+			"kind": str(seg.get("kind", "")),
+			"offset_mm": t * length_mm,
+			"length_mm": length_mm,
+			"thickness_mm": float(seg.get("thickness_mm", 200)),
+			"height_mm": float(seg.get("height_mm", 2800)),
+			"dist": d,
+			"point": a.lerp(b, t),
+			"a": a,
+			"b": b,
+			"t": t,
+		}
+	return best
+
+
+func snap_opening(pos: Vector2, kind: String, max_px: float = 56.0) -> Dictionary:
+	var hit: Dictionary = nearest_wall(pos, max_px)
+	if hit.is_empty():
+		return {}
+	var width := 900.0
+	if kind == "window" or kind == "archway":
+		width = 1200.0
+	var length := float(hit.get("length_mm", 1.0))
+	var off := clampf(float(hit.get("offset_mm", 0)) - width * 0.5, 0.0, maxf(length - width, 0.0))
+	hit["offset_mm"] = off
+	hit["width_mm"] = width
+	hit["opening_kind"] = kind
+	return hit
+
+
+func wall_metrics(wall_id: String) -> Dictionary:
+	for seg in _segments:
+		if typeof(seg) == TYPE_DICTIONARY and str(seg.get("id", "")) == wall_id:
+			return {
+				"id": wall_id,
+				"length_mm": float(seg.get("length_mm", 0)),
+				"thickness_mm": float(seg.get("thickness_mm", 200)),
+				"height_mm": float(seg.get("height_mm", 2800)),
+				"kind": str(seg.get("kind", "")),
+			}
+	return {}
+
+
+func opening_metrics(opening_id: String) -> Dictionary:
+	for op in _openings:
+		if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == opening_id:
+			return op
+	return {}
+
+
+func to_canvas(global_pos: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * global_pos
+
+
+func _draw_drop_preview() -> void:
+	if drop_preview.is_empty():
+		return
+	var kind := str(drop_preview.get("opening_kind", "door"))
+	var color := Tokens.opening_stroke(kind)
+	var a: Vector2 = drop_preview.get("a", Vector2.ZERO)
+	var b: Vector2 = drop_preview.get("b", Vector2.ZERO)
+	var length := float(drop_preview.get("length_mm", 1.0))
+	if length < 1.0:
+		return
+	var t0 := float(drop_preview.get("offset_mm", 0)) / length
+	var t1 := (float(drop_preview.get("offset_mm", 0)) + float(drop_preview.get("width_mm", 900))) / length
+	var qa: Vector2 = a.lerp(b, clampf(t0, 0.0, 1.0))
+	var qb: Vector2 = a.lerp(b, clampf(t1, 0.0, 1.0))
+	draw_line(qa, qb, Color(color.r, color.g, color.b, 0.28), 16.0)
+	draw_line(qa, qb, color, 6.0)
+	draw_circle(qa, 5.0, color)
+	draw_circle(qb, 5.0, color)
+	var label := Tokens.opening_label(kind)
+	draw_string(_font(), (qa + qb) * 0.5 + Vector2(-18, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
 func _gui_input(event: InputEvent) -> void:
 	if not interactive:
 		return
+	var pos := Vector2.ZERO
+	var pressed := false
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			var hit: String = _hit_wall(mb.position)
-			if not hit.is_empty():
-				selected_id = hit
-				wall_clicked.emit(hit)
-				queue_redraw()
-				accept_event()
+			pos = mb.position
+			pressed = true
 	elif event is InputEventScreenTouch:
 		var st: InputEventScreenTouch = event as InputEventScreenTouch
 		if st.pressed:
-			var hit2: String = _hit_wall(st.position)
-			if not hit2.is_empty():
-				selected_id = hit2
-				wall_clicked.emit(hit2)
-				queue_redraw()
-				accept_event()
+			pos = st.position
+			pressed = true
+	if not pressed:
+		return
+	var oid: String = _hit_opening(pos)
+	if not oid.is_empty():
+		selected_opening_id = oid
+		var op: Dictionary = opening_metrics(oid)
+		selected_id = str(op.get("wall_id", ""))
+		opening_clicked.emit(oid, selected_id)
+		queue_redraw()
+		accept_event()
+		return
+	var hit: String = _hit_wall(pos)
+	if not hit.is_empty():
+		selected_id = hit
+		selected_opening_id = ""
+		wall_clicked.emit(hit)
+		queue_redraw()
+		accept_event()
+
+
+func _hit_opening(pos: Vector2) -> String:
+	var best := ""
+	var best_d := 16.0
+	for op in _openings:
+		if typeof(op) != TYPE_DICTIONARY:
+			continue
+		var d: float = _dist_seg(pos, op.a, op.b)
+		if d < best_d:
+			best_d = d
+			best = str(op.get("id", ""))
+	return best
 
 
 func _hit_wall(pos: Vector2) -> String:
