@@ -21,11 +21,11 @@ Boot: **usable home** (`s1_home.png`) with 示例户型 / 相册导入 / 拍照.
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.1** (`versionCode` 2) arm64-v8a Debug |
+| Package | `com.toporoom.godot` **0.1.2** (`versionCode` 3) arm64-v8a Debug |
 | File | `toporoom-android-debug.apk` (74 MB) |
-| SHA-256 | `ae9cd82e7383a37105effdb623e424fde0fb261e801a0c1ec23f040b9cd048ea` |
+| SHA-256 | `2adba42bc435518392f3c41498da81ba55430923facbb875696abc266d6994c8` |
 | Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
-| Direct | https://litter.catbox.moe/i352c3.apk |
-| Mirror | https://gofile.io/d/LgzMX1WS |
+| Direct | https://litter.catbox.moe/1m5jce.apk |
+| Mirror | https://gofile.io/d/WU3MmzGd |
 
 Same signature as **0.1.0** so the phone can upgrade without uninstall. Keystore: `godot/android/keystore/debug.keystore`. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate + `READ_MEDIA_IMAGES` present. `main.tscn` boots `joyplan_flow/home.tscn` (示例户型 / 相册导入 / 拍照). `TopoRoomMedia` is in `classes.dex` (`ACTION_PICK_IMAGES`, `BitmapFactory`).
