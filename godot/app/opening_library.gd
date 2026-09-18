@@ -22,7 +22,7 @@ func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var col := Studio.vbox(6)
-	col.add_child(Studio.caption("门窗库 · 长按拖到墙上，或点选墙后轻点图标"))
+	col.add_child(Studio.caption("长按拖到墙上，或点选墙后轻点"))
 	var row := Studio.hbox(Tokens.S1)
 	row.add_child(_item("door", "门", Tokens.OPENING_DOOR, Tokens.SUCCESS_SOFT))
 	row.add_child(_item("window", "窗", Tokens.OPENING_WINDOW, Tokens.PRIMARY_SOFT))

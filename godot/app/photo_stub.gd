@@ -162,9 +162,9 @@ func _ready() -> void:
 	_fab.anchor_right = 1.0
 	_fab.anchor_bottom = 1.0
 	_fab.offset_left = -78
-	_fab.offset_top = -156
+	_fab.offset_top = -268
 	_fab.offset_right = -20
-	_fab.offset_bottom = -98
+	_fab.offset_bottom = -210
 	add_child(_fab)
 
 	_show_pick()
@@ -272,6 +272,7 @@ func _show_preview(path: String) -> void:
 	_thumb_path = path
 	_load_thumb(path)
 	_preview.visible = true
+	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.visible = false
 	_hint.text = "确认这张图无误。识别会标出承重墙、砌体墙和门窗。"
 	_clear_dock()
@@ -292,11 +293,11 @@ func _show_review() -> void:
 	_mode = "review"
 	_phase.text = "确认承重"
 	_hint.text = _review_hint()
-	_preview.visible = not _thumb_path.is_empty()
-	if _preview.visible:
-		_preview.custom_minimum_size = Vector2(0, 96)
+	_preview.visible = false
+	_preview.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_canvas.visible = true
 	_canvas.interactive = true
+	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_clear_dock()
 	_ctx = Studio.hbox(Tokens.S1)
 	_dock.add_child(_ctx)
@@ -315,9 +316,11 @@ func _show_demolish() -> void:
 	_mode = "demolish"
 	_phase.text = "拆改"
 	_hint.text = "点选墙段。隔墙可直接拆；承重墙会再问一次。"
+	_preview.visible = false
+	_preview.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_canvas.interactive = true
 	_canvas.visible = true
-	_preview.visible = not _thumb_path.is_empty()
+	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_clear_dock()
 	_ctx = Studio.hbox(Tokens.S1)
 	_dock.add_child(_ctx)
