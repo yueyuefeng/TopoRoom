@@ -1,6 +1,6 @@
 # JoyPlan click path (user screenshots)
 
-Recreated screens. One tap advances. Import path is **导入户型图**; other new-plan cards toast 即将支持.
+Recreated screens. One tap advances. **自由绘制** opens the draw canvas; **导入户型图** is the photo path. AR扫描 / 手绘草图 still toast 即将支持.
 
 | Ours | Reference | Screen |
 |------|-----------|--------|
@@ -34,17 +34,17 @@ Quick-cancel &lt;450ms retries the next Intent. `content://` → `ContentResolve
 
 **OEM caveats:** Photo Picker often opens-and-cancels on CN skins; do not put it first. API 31+ package visibility hides camera/gallery without `<queries>`. Xiaomi/Huawei HEIC albums are recompressed to JPEG. Some camera apps write `EXTRA_OUTPUT` then return canceled.
 
-## Debug APK 0.1.5 (`versionCode` 6)
+## Debug APK 0.1.6 (`versionCode` 7)
 
-Same debug cert as 0.1.0–0.1.4. Install over the previous build.
+Same debug cert as 0.1.0–0.1.5. Install over the previous build.
 
-0.1.5 polishes 导入户型图: 1/2 scale ruler handles+bar drag on phone; 2/2 walls register onto the floor-plan photo (`mm_per_px` + origin + COVER fit).
+0.1.6 adds **自由绘制**: 新建户型 → blank canvas → SceneIR walls → 完成 → 2D/3D. 导入户型图 from 0.1.5 is unchanged.
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.5** (`versionCode` 6) arm64-v8a Debug |
-| File | `toporoom-android-debug.apk` (75 MB) |
-| SHA-256 | `77707c2275aae9c4d05c1b5cb5e7ffda919c84f5d5e526e18733b0dbc6856d08` |
+| Package | `com.toporoom.godot` **0.1.6** (`versionCode` 7) arm64-v8a Debug |
+| File | `toporoom-android-debug.apk` (74 MB) |
+| SHA-256 | `39d30930b66a5a97a16164eb84acf1c35ad858997dbd22588a4f35e52a791407` |
 | Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
-| Direct | https://litter.catbox.moe/ir5ukreea8ezjmfn.apk |
-| Mirror | https://gofile.io/d/sq76niVp |
+| Direct | https://litter.catbox.moe/butvhs.apk |
+| Mirror | https://gofile.io/d/C02zn9Hk |

@@ -60,10 +60,15 @@ func _ready() -> void:
 	await _shot(docs, out_dir, "04_edit_2d.png")
 	edit2.queue_free()
 
-	var edit3: Control = preload("res://app/joyplan_flow/edit_3d.tscn").instantiate()
+	var edit3: Node3D = preload("res://app/joyplan_flow/edit_3d.tscn").instantiate()
 	add_child(edit3)
 	await get_tree().process_frame
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.45).timeout
+	if edit3.has_method("_orbit"):
+		edit3._pitch = -0.82
+		edit3._distance = 13.5
+		edit3._orbit()
+	await get_tree().process_frame
 	await _shot(docs, out_dir, "05_edit_3d.png")
 	edit3.queue_free()
 	print("OK free-draw capture done")

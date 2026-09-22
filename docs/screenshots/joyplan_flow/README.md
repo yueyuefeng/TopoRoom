@@ -21,11 +21,11 @@ new `joyplan_flow/` scene graph. Not the quarantined `_legacy/` workbench.
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.5** (`versionCode` 6) arm64-v8a |
-| File | `toporoom-android-debug.apk` (75 MB) |
-| SHA-256 | `77707c2275aae9c4d05c1b5cb5e7ffda919c84f5d5e526e18733b0dbc6856d08` |
+| Package | `com.toporoom.godot` **0.1.6** (`versionCode` 7) arm64-v8a |
+| File | `toporoom-android-debug.apk` (74 MB) |
+| SHA-256 | `39d30930b66a5a97a16164eb84acf1c35ad858997dbd22588a4f35e52a791407` |
 | Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
-| Direct | https://litter.catbox.moe/ir5ukreea8ezjmfn.apk |
-| Mirror | https://gofile.io/d/sq76niVp |
+| Direct | https://litter.catbox.moe/butvhs.apk |
+| Mirror | https://gofile.io/d/C02zn9Hk |
 
-Same signature as **0.1.0–0.1.4** — install over the previous Debug APK without uninstall. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots JoyPlan home (我的项目 → 工程项目 → 导入户型图). Click-path captures: `docs/screenshots/joyplan_click_path/`.
+Same signature as **0.1.0–0.1.5** — install over the previous Debug APK without uninstall. Contains `lib/arm64-v8a/libtoporoom.android.template_debug.arm64.so`. Export filter excludes `app/_legacy/*`. Camera / gallery / vibrate permissions present. `main.tscn` boots JoyPlan home (我的项目 → 工程项目 → **自由绘制** / 导入户型图). Free-draw captures: `docs/screenshots/free_draw/`.

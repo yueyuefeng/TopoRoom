@@ -122,6 +122,7 @@ static func cjk_font() -> Font:
 		"Noto Sans CJK",
 		"Source Han Sans SC",
 		"DroidSansFallback",
+		"Droid Sans Fallback",
 		"Noto Sans SC",
 		"WenQuanYi Micro Hei",
 		"sans-serif",
