@@ -181,3 +181,47 @@ TEST(CApi, HubGattGoldenBytes) {
                                 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
   EXPECT_NE(toporoom_hub_parse_length_notify_mm(rf, 12, &mm), 0);
 }
+
+TEST(CApi, FreeDrawClosedRectangleCommands) {
+  TopoRoomDocument* doc = toporoom_document_create("doc_free_draw");
+  ASSERT_NE(doc, nullptr);
+  char storey[64] = {};
+  ASSERT_EQ(toporoom_document_first_storey_id(doc, storey, sizeof(storey)), 0);
+  char err[256] = {};
+  ASSERT_EQ(toporoom_document_add_wall(doc, storey, "wall_d1", 0, 0, 4000, 0, 200, 2800, err,
+                                       sizeof(err)),
+            0)
+      << err;
+  ASSERT_EQ(toporoom_document_add_wall(doc, storey, "wall_d2", 4000, 0, 4000, 3000, 200, 2800,
+                                       err, sizeof(err)),
+            0)
+      << err;
+  ASSERT_EQ(toporoom_document_add_wall(doc, storey, "wall_d3", 4000, 3000, 0, 3000, 200, 2800,
+                                       err, sizeof(err)),
+            0)
+      << err;
+  ASSERT_EQ(toporoom_document_add_wall(doc, storey, "wall_d4", 0, 3000, 0, 0, 200, 2800, err,
+                                       sizeof(err)),
+            0)
+      << err;
+  ASSERT_EQ(toporoom_document_move_wall(doc, storey, "wall_d2", 4000, 0, 4000, 3200, err,
+                                        sizeof(err)),
+            0)
+      << err;
+  ASSERT_EQ(toporoom_document_resize_wall(doc, storey, "wall_d1", 4200, err, sizeof(err)), 0)
+      << err;
+  char* json = toporoom_document_to_sceneir_json(doc);
+  ASSERT_NE(json, nullptr);
+  const std::string text(json);
+  toporoom_string_free(json);
+  EXPECT_NE(text.find("wall_d1"), std::string::npos);
+  EXPECT_NE(text.find("wall_d2"), std::string::npos);
+  EXPECT_NE(text.find("wall_d3"), std::string::npos);
+  EXPECT_NE(text.find("wall_d4"), std::string::npos);
+  ASSERT_EQ(toporoom_document_delete_wall(doc, storey, "wall_d3", err, sizeof(err)), 0) << err;
+  json = toporoom_document_to_sceneir_json(doc);
+  ASSERT_NE(json, nullptr);
+  EXPECT_EQ(std::string(json).find("wall_d3"), std::string::npos);
+  toporoom_string_free(json);
+  toporoom_document_destroy(doc);
+}

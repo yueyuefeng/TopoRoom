@@ -23,6 +23,9 @@ var last_import_uri: String = ""
 var last_vision: Dictionary = {}
 var last_scale_mm: float = 900.0
 var last_scale_mm_per_px: float = 0.0
+var wall_serial: int = 0
+var from_free_draw: bool = false
+var draw_undo: Array = []
 var favorite_kinds: PackedStringArray = PackedStringArray(["door", "window"])
 var coach_seen: Dictionary = {}
 var ruler_flags: Dictionary = {
@@ -133,6 +136,7 @@ func new_scheme(id: String = "doc_godot") -> String:
 	var d: Dictionary = host.create_document(id)
 	opening_serial = 0
 	key_serial = 0
+	wall_serial = 0
 	fake_laser_queue = [4000.0, 3000.0]
 	glb_ok = false
 	last_glb_path = ""
@@ -703,6 +707,128 @@ func resize_wall_length(wall_id: String, length_mm: float) -> String:
 	if not d.get("ok", false):
 		return _fail(str(d.get("error", "resize_wall")))
 	return _after_structural_edit("墙长 %s %smm" % [wall_id, str(length_mm)])
+
+
+func start_free_draw(reset_doc: bool = true) -> String:
+	from_free_draw = true
+	last_import_path = ""
+	last_import_uri = ""
+	last_vision = {}
+	last_scale_mm_per_px = 0.0
+	if not reset_doc:
+		screen = "free_draw"
+		return ""
+	draw_undo.clear()
+	wall_serial = 0
+	var err := new_scheme("doc_draw_%d" % Time.get_ticks_msec())
+	screen = "free_draw"
+	return err
+
+
+func add_drawn_wall(x0: float, y0: float, x1: float, y1: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var length := Vector2(x1 - x0, y1 - y0).length()
+	if length < 200.0:
+		return _fail("墙太短")
+	wall_serial += 1
+	var wid := "wall_d%d" % wall_serial
+	var d: Dictionary = host.add_wall(host.first_storey_id(), wid, x0, y0, x1, y1, 200.0, 2800.0)
+	if not d.get("ok", false):
+		wall_serial -= 1
+		return _fail(str(d.get("error", "add_wall")))
+	draw_undo.append({"op": "add", "id": wid, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
+	host.guide_note_wall()
+	host.guide_sync_from_document(false)
+	auto_save()
+	return _ok("画墙 %s  %d mm" % [wid, int(round(length))])
+
+
+func move_drawn_wall(wall_id: String, x0: float, y0: float, x1: float, y1: float, record_undo: bool = true) -> String:
+	if host == null:
+		return _fail("no core")
+	var prev: Dictionary = find_wall(wall_id)
+	if prev.is_empty():
+		return _fail("墙不存在")
+	var a: Dictionary = prev.get("start", {})
+	var b: Dictionary = prev.get("end", {})
+	var d: Dictionary = host.move_wall(host.first_storey_id(), wall_id, x0, y0, x1, y1)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "move_wall")))
+	if record_undo:
+		draw_undo.append({
+			"op": "move", "id": wall_id,
+			"x0": float(a.get("x", 0)), "y0": float(a.get("y", 0)),
+			"x1": float(b.get("x", 0)), "y1": float(b.get("y", 0)),
+		})
+	return _after_structural_edit("改墙 %s" % wall_id)
+
+
+func delete_drawn_wall(wall_id: String) -> String:
+	if host == null:
+		return _fail("no core")
+	var prev: Dictionary = find_wall(wall_id)
+	if prev.is_empty():
+		return _fail("墙不存在")
+	var a: Dictionary = prev.get("start", {})
+	var b: Dictionary = prev.get("end", {})
+	var d: Dictionary = host.delete_wall(host.first_storey_id(), wall_id)
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "delete_wall")))
+	draw_undo.append({
+		"op": "delete", "id": wall_id,
+		"x0": float(a.get("x", 0)), "y0": float(a.get("y", 0)),
+		"x1": float(b.get("x", 0)), "y1": float(b.get("y", 0)),
+	})
+	return _after_structural_edit("删除 %s" % wall_id)
+
+
+func undo_draw() -> String:
+	if host == null:
+		return _fail("no core")
+	if draw_undo.is_empty():
+		return _fail("没有可撤销的绘制")
+	var last: Dictionary = draw_undo.pop_back()
+	var op := str(last.get("op", ""))
+	var wid := str(last.get("id", ""))
+	var d := {}
+	if op == "add":
+		d = host.delete_wall(host.first_storey_id(), wid)
+	elif op == "delete":
+		d = host.add_wall(
+			host.first_storey_id(), wid,
+			float(last.get("x0", 0)), float(last.get("y0", 0)),
+			float(last.get("x1", 0)), float(last.get("y1", 0)),
+			200.0, 2800.0
+		)
+	elif op == "move":
+		d = host.move_wall(
+			host.first_storey_id(), wid,
+			float(last.get("x0", 0)), float(last.get("y0", 0)),
+			float(last.get("x1", 0)), float(last.get("y1", 0))
+		)
+	else:
+		return _fail("未知撤销")
+	if not d.get("ok", false):
+		return _fail(str(d.get("error", "undo")))
+	host.guide_sync_from_document(false)
+	auto_save()
+	return _ok("已撤销")
+
+
+func clear_last_drawn() -> String:
+	for i in range(wall_serial, 0, -1):
+		var wid := "wall_d%d" % i
+		if not find_wall(wid).is_empty():
+			return delete_drawn_wall(wid)
+	var walls := _scene_walls()
+	if walls.is_empty():
+		return _fail("没有墙")
+	return delete_drawn_wall(str(walls[walls.size() - 1].get("id", "")))
+
+
+func drawn_wall_count() -> int:
+	return _scene_walls().size()
 
 
 func set_wall_thickness_mm(wall_id: String, thickness_mm: float) -> String:
