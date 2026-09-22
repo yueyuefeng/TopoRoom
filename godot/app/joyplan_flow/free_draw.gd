@@ -13,6 +13,8 @@ const HANDLE_HIT := 36.0
 const WALL_HIT := 20.0
 const MIN_MM := 200.0
 const AXIS_RATIO := 2.4
+const BAR_H := 132.0
+const SAFE_BOTTOM := 16.0
 
 var _canvas: Control
 var _numeric: Control
@@ -43,25 +45,19 @@ func _ready() -> void:
 	_canvas = Control.new()
 	_canvas.name = "DrawCanvas"
 	_canvas.set_anchors_preset(PRESET_FULL_RECT)
-	_canvas.offset_top = 56
-	_canvas.offset_bottom = -80
+	_canvas.offset_top = 0
+	_canvas.offset_bottom = -(BAR_H + SAFE_BOTTOM)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.gui_input.connect(_on_canvas_input)
 	_canvas.draw.connect(_draw_canvas)
 	add_child(_canvas)
 
-	add_child(JoyplanChrome.step_bar(
-		"自由绘制",
-		"完成",
-		func(): FlowRouter.new_plan(self),
-		func(): _finish()
-	))
-
 	_hint = Studio.label("拖动画墙 · 对齐轴线与端点", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.set_anchors_preset(PRESET_TOP_WIDE)
-	_hint.offset_top = 64
-	_hint.offset_bottom = 88
+	_hint.offset_top = 12
+	_hint.offset_bottom = 36
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hint)
 
 	_build_dock()
@@ -74,36 +70,43 @@ func _ready() -> void:
 	_snack.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_snack.offset_left = 24
 	_snack.offset_right = -24
-	_snack.offset_top = -148
-	_snack.offset_bottom = -98
+	_snack.offset_top = -(BAR_H + SAFE_BOTTOM + 68)
+	_snack.offset_bottom = -(BAR_H + SAFE_BOTTOM + 18)
 	add_child(_snack)
 	Session.document_changed.connect(_queue_draw)
 
 
 func _build_dock() -> void:
 	var dock := PanelContainer.new()
+	dock.name = "DrawToolbar"
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color.WHITE
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 10
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8 + SAFE_BOTTOM
 	dock.add_theme_stylebox_override("panel", sb)
 	dock.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	dock.anchor_top = 1.0
-	dock.offset_top = -80
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.add_child(_dock_btn("↶ 撤销", func(): _undo()))
-	row.add_child(_dock_btn("清除上一段", func(): _clear_last()))
-	var grow := Control.new()
-	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(grow)
-	row.add_child(_dock_btn("删除", func(): _delete_selected(), Tokens.DANGER))
+	dock.offset_top = -(BAR_H + SAFE_BOTTOM)
+	dock.offset_bottom = 0
+	dock.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+
+	var nav := HBoxContainer.new()
+	nav.add_theme_constant_override("separation", 8)
+	nav.add_child(JoyplanChrome.icon_btn("‹", func(): FlowRouter.new_plan(self), 44))
+	var title := Studio.label("自由绘制", Tokens.FONT_SECTION, Tokens.TEXT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.clip_text = true
+	nav.add_child(title)
 	var done := Button.new()
 	done.text = "完成"
 	done.focus_mode = Control.FOCUS_NONE
-	done.custom_minimum_size = Vector2(88, 44)
+	done.custom_minimum_size = Vector2(72, 44)
 	done.add_theme_font_override("font", Studio.font)
 	done.add_theme_font_size_override("font_size", 16)
 	done.add_theme_color_override("font_color", Tokens.JP_ORANGE)
@@ -113,8 +116,20 @@ func _build_dock() -> void:
 	done.add_theme_stylebox_override("hover", empty)
 	done.add_theme_stylebox_override("pressed", empty)
 	done.pressed.connect(_finish)
-	row.add_child(done)
-	dock.add_child(row)
+	nav.add_child(done)
+	col.add_child(nav)
+
+	var tools := HBoxContainer.new()
+	tools.add_theme_constant_override("separation", 10)
+	tools.add_child(_dock_btn("↶ 撤销", func(): _undo()))
+	tools.add_child(_dock_btn("清除上一段", func(): _clear_last()))
+	var grow := Control.new()
+	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tools.add_child(grow)
+	tools.add_child(_dock_btn("删除", func(): _delete_selected(), Tokens.DANGER))
+	col.add_child(tools)
+
+	dock.add_child(col)
 	add_child(dock)
 
 
