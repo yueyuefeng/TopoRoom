@@ -38,12 +38,11 @@ func _ready() -> void:
 	var photo_path := Session.last_import_path
 	if photo_path.is_empty():
 		photo_path = Session.last_import_uri
-	if photo_path.is_empty() or photo_path.begins_with("fixture:"):
-		photo_path = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
-	_canvas.load_photo(photo_path)
+	if not photo_path.is_empty() and not photo_path.begins_with("fixture:"):
+		_canvas.load_photo(photo_path)
 
 	add_child(FlowIslands.top_bar(
-		func(): FlowRouter.generate(self),
+		func(): _back(),
 		FlowIslands.mode_capsule(0, func(): pass, func(): _go_3d(), func(): _toast("Walk"), func(): _toast("Crop")),
 		func(): pass
 	))
@@ -173,7 +172,7 @@ func _show_add_menu() -> void:
 	head.add_child(grow)
 	head.add_child(JoyplanChrome.icon_btn("✕", func(): _show_add_menu(), 36, Tokens.TEXT_SECONDARY))
 	col.add_child(head)
-	col.add_child(_add_row("自由绘制", Color("3B7AE8"), func(): _toast("即将支持")))
+	col.add_child(_add_row("自由绘制", Color("3B7AE8"), func(): _open_free_draw()))
 	col.add_child(_add_row("导入户型图", Color("34C759"), func(): _import_from_2d()))
 	col.add_child(_add_row("手绘草图&房间", Color("8E8E93"), func(): _toast("即将支持")))
 	_add_menu.add_child(col)
@@ -205,6 +204,22 @@ func _add_row(title: String, swatch: Color, cb: Callable) -> Button:
 	row.add_child(lab)
 	b.add_child(row)
 	return b
+
+
+func _back() -> void:
+	if Session.from_free_draw:
+		Session.start_free_draw(false)
+		FlowRouter.free_draw(self)
+		return
+	FlowRouter.generate(self)
+
+
+func _open_free_draw() -> void:
+	if _add_menu:
+		_add_menu.queue_free()
+		_add_menu = null
+	Session.start_free_draw(false)
+	FlowRouter.free_draw(self)
 
 
 func _import_from_2d() -> void:

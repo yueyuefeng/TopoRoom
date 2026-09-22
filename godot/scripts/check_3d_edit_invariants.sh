@@ -17,6 +17,8 @@ lacks "$root/godot/app/lighting.gd" "add_wall"
 lacks "$root/godot/app/lighting.gd" "set_measurement"
 
 has "$root/godot/app/session.gd" "host.add_wall" || fail "session.gd missing host.add_wall"
+has "$root/godot/app/session.gd" "host.delete_wall" || fail "session.gd missing host.delete_wall"
+lacks "$root/godot/app/joyplan_flow/free_draw.gd" "host.add_wall"
 has "$root/godot/app/session.gd" "host.set_measurement" || fail "session.gd missing host.set_measurement"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "Session.move_shared_vertex" || fail "edit_3d missing Session.move_shared_vertex"
 has "$root/godot/app/joyplan_flow/edit_3d.gd" "Session.update_opening_geom" || fail "edit_3d missing Session.update_opening_geom"

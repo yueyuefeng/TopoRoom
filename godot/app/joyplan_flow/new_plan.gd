@@ -1,5 +1,5 @@
 extends Control
-## 新建户型 list. 导入户型图 opens 选择户型图; other cards toast 即将支持.
+## 新建户型 list. 导入户型图 opens 选择户型图; 自由绘制 opens the draw canvas.
 
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
@@ -95,9 +95,14 @@ func _build() -> void:
 	ar.add_child(ar_col)
 	col.add_child(ar)
 
-	col.add_child(JoyplanChrome.list_row("自由绘制", "使用光标开始绘制新布局", "✎", func(): _soon()))
+	col.add_child(JoyplanChrome.list_row("自由绘制", "使用光标开始绘制新布局", "✎", func(): _open_draw()))
 	col.add_child(JoyplanChrome.list_row("导入户型图", "导入户型图用于临摹绘制", "⇧", func(): _open_pick(), "新用户"))
 	col.add_child(JoyplanChrome.list_row("手绘草图&房间", "手绘勾勒，户型立现", "✎", func(): _soon()))
+
+
+func _open_draw() -> void:
+	Session.start_free_draw(true)
+	FlowRouter.free_draw(self)
 
 
 func _open_pick() -> void:

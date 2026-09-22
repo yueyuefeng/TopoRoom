@@ -7,6 +7,7 @@ const PROJECTS := "res://app/joyplan_flow/projects.tscn"
 const NEW_PLAN := "res://app/joyplan_flow/new_plan.tscn"
 const SCALE := "res://app/joyplan_flow/scale_calibrate.tscn"
 const GENERATE := "res://app/joyplan_flow/generate_space.tscn"
+const FREE_DRAW := "res://app/joyplan_flow/free_draw.tscn"
 const EDIT_2D := "res://app/joyplan_flow/edit_2d.tscn"
 const EDIT_3D := "res://app/joyplan_flow/edit_3d.tscn"
 const ELEVATION := "res://app/joyplan_flow/elevation_index.tscn"
@@ -16,6 +17,7 @@ const SCREEN_PROJECTS := "projects"
 const SCREEN_NEW_PLAN := "new_plan"
 const SCREEN_SCALE := "scale"
 const SCREEN_GENERATE := "generate"
+const SCREEN_FREE_DRAW := "free_draw"
 const SCREEN_EDIT_2D := "edit_2d"
 const SCREEN_EDIT_3D := "edit_3d"
 const SCREEN_ELEVATION := "elevation"
@@ -45,6 +47,10 @@ static func scale(node: Node) -> void:
 
 static func generate(node: Node) -> void:
 	go(node, GENERATE, SCREEN_GENERATE)
+
+
+static func free_draw(node: Node) -> void:
+	go(node, FREE_DRAW, SCREEN_FREE_DRAW)
 
 
 static func edit_2d(node: Node) -> void:
