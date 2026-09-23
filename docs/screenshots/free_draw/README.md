@@ -12,17 +12,17 @@
 
 Walls are SceneIR commands (`add_wall` / `move_wall` / `delete_wall` / `resize_wall`) via Session. Snap to axis and nearby endpoints. Length labels open the numeric sheet.
 
-## Debug APK 0.1.7 (`versionCode` 8)
+## Debug APK 0.1.8 (`versionCode` 9)
 
-**每次构建升版本；签名固定.** Same debug cert as 0.1.0–0.1.6. Install over the previous build.
+**每次构建升版本；签名固定.** Same debug cert as 0.1.0–0.1.7. Install over the previous build.
 
-0.1.7 moves the 自由绘制 chrome (back / title / 完成 + tools) to the **bottom**.
+0.1.8 moves the 2D/3D four-icon view-mode pill (▦ ▣ 🚶 ⛶) to a **bottom compass**. 自由绘制 header stays at the top.
 
 | | |
 |---|---|
-| Package | `com.toporoom.godot` **0.1.7** (`versionCode` 8) arm64-v8a Debug |
+| Package | `com.toporoom.godot` **0.1.8** (`versionCode` 9) arm64-v8a Debug |
 | File | `toporoom-android-debug.apk` (74 MB) |
-| SHA-256 | `2f7b52003054f636e08b0b9d7aa4e612b1e3b7e1a86759c93f4ba3115dd21cc7` |
+| SHA-256 | `0f93f37ad665fecdb547c638c35695c7a50624566413f9ed121d426ef166dc44` |
 | Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
-| Direct | https://litter.catbox.moe/23jrpq.apk |
-| Mirror | https://gofile.io/d/vtPCY7I3 |
+| Direct | https://litter.catbox.moe/oraxhg.apk |
+| Mirror | https://gofile.io/d/Ax6iAJGg |
