@@ -106,9 +106,10 @@ func _build_hud() -> void:
 
 	root.add_child(FlowIslands.top_bar(
 		func(): _go_2d(),
-		FlowIslands.mode_capsule(1, func(): _go_2d(), func(): pass, func(): _snack("Walk"), func(): _snack("Crop")),
+		null,
 		func(): pass
 	))
+	root.add_child(FlowIslands.mode_compass(1, func(): _go_2d(), func(): pass, func(): _snack("Walk"), func(): _snack("Crop")))
 
 	_minimap = Minimap.new()
 	_minimap.visible = false

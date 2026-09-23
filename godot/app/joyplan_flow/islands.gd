@@ -119,6 +119,21 @@ static func mode_capsule(selected: int, on_2d: Callable, on_3d: Callable, on_wal
 	return wrap
 
 
+## JoyPlan-style bottom compass: the four-icon view-mode pill, not a top strip.
+static func mode_compass(selected: int, on_2d: Callable, on_3d: Callable, on_walk: Callable, on_crop: Callable) -> PanelContainer:
+	var wrap := mode_capsule(selected, on_2d, on_3d, on_walk, on_crop)
+	wrap.name = "ModeCompass"
+	wrap.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	wrap.anchor_left = 0.5
+	wrap.anchor_right = 0.5
+	wrap.anchor_top = 1.0
+	wrap.offset_left = -124
+	wrap.offset_right = 124
+	wrap.offset_top = -96
+	wrap.offset_bottom = -28
+	return wrap
+
+
 static func dark_readout() -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := frost(Color(0.12, 0.12, 0.14, 0.92), Tokens.R_PILL)

@@ -43,9 +43,10 @@ func _ready() -> void:
 
 	add_child(FlowIslands.top_bar(
 		func(): _back(),
-		FlowIslands.mode_capsule(0, func(): pass, func(): _go_3d(), func(): _toast("Walk"), func(): _toast("Crop")),
+		null,
 		func(): pass
 	))
+	add_child(FlowIslands.mode_compass(0, func(): pass, func(): _go_3d(), func(): _toast("Walk"), func(): _toast("Crop")))
 
 	_readout_wrap = FlowIslands.dark_readout()
 	_readout_wrap.set_anchors_preset(PRESET_CENTER_TOP)
