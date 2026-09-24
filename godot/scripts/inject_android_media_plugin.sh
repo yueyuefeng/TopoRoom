@@ -52,6 +52,9 @@ META = '''
         <meta-data
             android:name="org.godotengine.plugin.v2.TopoRoomMedia"
             android:value="com.toporoom.plugin.TopoRoomMediaPlugin" />
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="optional" />
 '''
 
 PERMS = [
@@ -69,6 +72,18 @@ def patch(path: pathlib.Path) -> None:
     if 'org.godotengine.plugin.v2.TopoRoomMedia' not in text and '</application>' in text:
         text = text.replace('</application>', META + '    </application>', 1)
         print('Registered TopoRoomMedia v2 meta-data in', path)
+    if 'com.google.ar.core' not in text and '</application>' in text:
+        text = text.replace(
+            '</application>',
+            '        <meta-data android:name="com.google.ar.core" android:value="optional" />\n    </application>',
+            1,
+        )
+        print('Declared optional ARCore in', path)
+    if 'android.hardware.camera.ar' not in text:
+        snippet = '    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />\n'
+        if '<application' in text:
+            text = text.replace('<application', snippet + '    <application', 1)
+        print('Declared optional camera.ar in', path)
     for needle, snippet in PERMS:
         if needle not in text:
             if '<application' in text:

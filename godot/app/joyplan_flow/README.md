@@ -8,7 +8,8 @@ Click path: **Home → 我的项目 → 工程项目 → 新建项目 → 新建
 |---|---|---|
 | `home.tscn` | Home | Hero interior, 2×2 cards, dark capsule nav |
 | `projects.tscn` | 工程项目 | Orange 新建项目 + quota banner |
-| `new_plan.tscn` | 新建户型 | AR/自由绘制 toast; 导入户型图 works |
+| `new_plan.tscn` | 新建户型 | AR扫描 + 自由绘制 + 导入户型图; 手绘 stub |
+| `ar_scan.tscn` | AR扫描 | Camera-guided measure → SceneIR walls → 2D |
 | `pick_source_modal.gd` | 选择户型图 | 相册 / 拍照 / 使用示例户型 |
 | `scale_calibrate.tscn` | 1/2 临摹图比例 | Blue handles + mm keypad |
 | `generate_space.tscn` | 2/2 生成空间 | Preview then 确定 → 2D |

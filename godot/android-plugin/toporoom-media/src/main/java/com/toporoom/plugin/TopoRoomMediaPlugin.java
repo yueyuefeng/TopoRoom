@@ -4,9 +4,11 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.opengl.GLES20;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -59,6 +61,7 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     private static final SignalInfo IMAGE_PICKED = new SignalInfo("image_picked", String.class);
     private static final SignalInfo PICK_CANCELLED = new SignalInfo("pick_cancelled");
     private static final SignalInfo PICK_ERROR = new SignalInfo("pick_error", String.class);
+    private static final SignalInfo AR_STATUS = new SignalInfo("ar_status", String.class);
 
     @Nullable private File pendingPhoto;
     private boolean cameraAwaitingResult;
@@ -66,6 +69,8 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     private int galleryAttempt;
     private long galleryLaunchedAt;
     private boolean awaitingReadPerm;
+    @Nullable private Object arSession;
+    private int arTexId;
 
     public TopoRoomMediaPlugin(Godot godot) {
         super(godot);
@@ -80,13 +85,15 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
     @NonNull
     @Override
     public Set<SignalInfo> getPluginSignals() {
-        return new HashSet<>(Arrays.asList(IMAGE_PICKED, PICK_CANCELLED, PICK_ERROR));
+        return new HashSet<>(Arrays.asList(IMAGE_PICKED, PICK_CANCELLED, PICK_ERROR, AR_STATUS));
     }
 
     @NonNull
     @Override
     public List<String> getPluginMethods() {
-        return Arrays.asList("capture_photo", "pick_gallery");
+        return Arrays.asList(
+                "capture_photo", "pick_gallery",
+                "ar_available", "ar_start", "ar_hit_center", "ar_stop");
     }
 
     @UsedByGodot
@@ -99,6 +106,149 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
         galleryAttempt = 0;
         awaitingReadPerm = false;
         runOnUiThread(this::launchGallery);
+    }
+
+    /**
+     * Optional ARCore (reflection — no compile-time import). Phone-camera planes
+     * only; never requires a LiDAR accessory. Missing / unsupported → "unsupported"
+     * so GDScript can degrade to guided measure + demo room.
+     */
+    @UsedByGodot
+    @NonNull
+    public String ar_available() {
+        Activity activity = getActivity();
+        if (activity == null) {
+            return "no_activity";
+        }
+        try {
+            Class<?> apkCl = Class.forName("com.google.ar.core.ArCoreApk");
+            Object apk = apkCl.getMethod("getInstance").invoke(null);
+            Object avail = apkCl.getMethod("checkAvailability", Context.class).invoke(apk, activity);
+            String name = String.valueOf(avail);
+            if (name.contains("SUPPORTED_INSTALLED")) {
+                return "ok";
+            }
+            if (name.contains("SUPPORTED_APK_TOO_OLD") || name.contains("SUPPORTED_NOT_INSTALLED")) {
+                return "install";
+            }
+            if (name.contains("UNKNOWN_CHECKING") || name.contains("UNKNOWN_TIMED_OUT")
+                    || name.contains("UNKNOWN_ERROR")) {
+                return "unknown";
+            }
+            return "unsupported";
+        } catch (ClassNotFoundException e) {
+            return "missing_sdk";
+        } catch (Throwable t) {
+            Log.w(TAG, "ar_available", t);
+            return "error";
+        }
+    }
+
+    @UsedByGodot
+    @NonNull
+    public String ar_start() {
+        Activity activity = getActivity();
+        if (activity == null) {
+            return "no_activity";
+        }
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            return "need_camera";
+        }
+        try {
+            ar_stop();
+            Class<?> sessionCl = Class.forName("com.google.ar.core.Session");
+            Object session = sessionCl.getConstructor(Context.class).newInstance(activity);
+            Class<?> configCl = Class.forName("com.google.ar.core.Config");
+            Object config = configCl.getConstructor(sessionCl).newInstance(session);
+            Class<?> planeMode = Class.forName("com.google.ar.core.Config$PlaneFindingMode");
+            Object horizontal = Enum.valueOf(planeMode.asSubclass(Enum.class), "HORIZONTAL");
+            configCl.getMethod("setPlaneFindingMode", planeMode).invoke(config, horizontal);
+            Class<?> updateMode = Class.forName("com.google.ar.core.Config$UpdateMode");
+            try {
+                Object latest = Enum.valueOf(updateMode.asSubclass(Enum.class), "LATEST_CAMERA_IMAGE");
+                configCl.getMethod("setUpdateMode", updateMode).invoke(config, latest);
+            } catch (Throwable ignored) {
+            }
+            sessionCl.getMethod("configure", configCl).invoke(session, config);
+            if (arTexId == 0) {
+                int[] tex = new int[1];
+                GLES20.glGenTextures(1, tex, 0);
+                arTexId = tex[0];
+            }
+            if (arTexId != 0) {
+                sessionCl.getMethod("setCameraTextureName", int.class).invoke(session, arTexId);
+            }
+            android.util.DisplayMetrics dm = activity.getResources().getDisplayMetrics();
+            int rot = activity.getWindowManager().getDefaultDisplay().getRotation();
+            sessionCl.getMethod("setDisplayGeometry", int.class, int.class, int.class)
+                    .invoke(session, rot, dm.widthPixels, dm.heightPixels);
+            sessionCl.getMethod("resume").invoke(session);
+            arSession = session;
+            emitSignalOnRender("ar_status", "started");
+            Log.i(TAG, "ar_start ok tex=" + arTexId);
+            return "ok";
+        } catch (ClassNotFoundException e) {
+            return "missing_sdk";
+        } catch (Throwable t) {
+            Log.w(TAG, "ar_start", t);
+            arSession = null;
+            return "error";
+        }
+    }
+
+    @UsedByGodot
+    @NonNull
+    public String ar_hit_center() {
+        if (arSession == null) {
+            return "no_session";
+        }
+        Activity activity = getActivity();
+        if (activity == null) {
+            return "no_activity";
+        }
+        try {
+            Class<?> sessionCl = arSession.getClass();
+            android.util.DisplayMetrics dm = activity.getResources().getDisplayMetrics();
+            int rot = activity.getWindowManager().getDefaultDisplay().getRotation();
+            sessionCl.getMethod("setDisplayGeometry", int.class, int.class, int.class)
+                    .invoke(arSession, rot, dm.widthPixels, dm.heightPixels);
+            Object frame = sessionCl.getMethod("update").invoke(arSession);
+            float cx = dm.widthPixels * 0.5f;
+            float cy = dm.heightPixels * 0.42f;
+            @SuppressWarnings("unchecked")
+            List<Object> hits = (List<Object>) frame.getClass()
+                    .getMethod("hitTest", float.class, float.class)
+                    .invoke(frame, cx, cy);
+            if (hits == null || hits.isEmpty()) {
+                return "miss";
+            }
+            Object pose = hits.get(0).getClass().getMethod("getHitPose").invoke(hits.get(0));
+            float x = ((Number) pose.getClass().getMethod("tx").invoke(pose)).floatValue();
+            float z = ((Number) pose.getClass().getMethod("tz").invoke(pose)).floatValue();
+            return String.format(Locale.US, "ok,%.4f,%.4f", x, z);
+        } catch (Throwable t) {
+            Log.w(TAG, "ar_hit_center", t);
+            return "error";
+        }
+    }
+
+    @UsedByGodot
+    public void ar_stop() {
+        Object session = arSession;
+        arSession = null;
+        if (session == null) {
+            return;
+        }
+        try {
+            session.getClass().getMethod("pause").invoke(session);
+        } catch (Throwable ignored) {
+        }
+        try {
+            session.getClass().getMethod("close").invoke(session);
+        } catch (Throwable ignored) {
+        }
+        emitSignalOnRender("ar_status", "stopped");
     }
 
     private void launchCamera() {
@@ -624,5 +774,9 @@ public class TopoRoomMediaPlugin extends GodotPlugin {
 
     private void emitSignalOnRender(@NonNull String name) {
         runOnRenderThread(() -> emitSignal(name));
+    }
+
+    private void emitSignalOnRender(@NonNull String name, @NonNull String value) {
+        runOnRenderThread(() -> emitSignal(name, value));
     }
 }

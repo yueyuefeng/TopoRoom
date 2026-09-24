@@ -1,5 +1,5 @@
 extends Control
-## 新建户型 list. 导入户型图 opens 选择户型图; 自由绘制 opens the draw canvas.
+## 新建户型 list. AR扫描 / 自由绘制 / 导入户型图. 手绘 still stub.
 
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
@@ -74,7 +74,7 @@ func _build() -> void:
 	ar_btn.flat = true
 	ar_btn.focus_mode = Control.FOCUS_NONE
 	ar_btn.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	ar_btn.pressed.connect(func(): _soon())
+	ar_btn.pressed.connect(func(): _open_ar())
 	ar.add_child(ar_btn)
 	var ar_col := VBoxContainer.new()
 	ar_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -103,6 +103,11 @@ func _build() -> void:
 func _open_draw() -> void:
 	Session.start_free_draw(true)
 	FlowRouter.free_draw(self)
+
+
+func _open_ar() -> void:
+	Session.start_ar_scan(true)
+	FlowRouter.ar_scan(self)
 
 
 func _open_pick() -> void:

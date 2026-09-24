@@ -208,6 +208,10 @@ func _add_row(title: String, swatch: Color, cb: Callable) -> Button:
 
 
 func _back() -> void:
+	if Session.from_ar_scan:
+		Session.start_ar_scan(false)
+		FlowRouter.ar_scan(self)
+		return
 	if Session.from_free_draw:
 		Session.start_free_draw(false)
 		FlowRouter.free_draw(self)

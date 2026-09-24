@@ -225,3 +225,52 @@ TEST(CApi, FreeDrawClosedRectangleCommands) {
   toporoom_string_free(json);
   toporoom_document_destroy(doc);
 }
+
+TEST(CApi, ArScanClosedPolylineCommands) {
+  TopoRoomDocument* doc = toporoom_document_create("doc_ar_scan");
+  ASSERT_NE(doc, nullptr);
+  char storey[64] = {};
+  ASSERT_EQ(toporoom_document_first_storey_id(doc, storey, sizeof(storey)), 0);
+  char err[256] = {};
+  const double rect[] = {0, 0, 4000, 0, 4000, 3000, 0, 3000};
+  int added = 0;
+  ASSERT_EQ(toporoom_document_add_polyline_walls(doc, storey, "wall_a", 1, rect, 4, 1, 200,
+                                                 2800, 200, &added, err, sizeof(err)),
+            0)
+      << err;
+  EXPECT_EQ(added, 4);
+  char* json = toporoom_document_to_sceneir_json(doc);
+  ASSERT_NE(json, nullptr);
+  const std::string text(json);
+  toporoom_string_free(json);
+  EXPECT_NE(text.find("wall_a1"), std::string::npos);
+  EXPECT_NE(text.find("wall_a2"), std::string::npos);
+  EXPECT_NE(text.find("wall_a3"), std::string::npos);
+  EXPECT_NE(text.find("wall_a4"), std::string::npos);
+
+  TopoRoomDocument* near_doc = toporoom_document_create("doc_ar_near");
+  ASSERT_NE(near_doc, nullptr);
+  char storey2[64] = {};
+  ASSERT_EQ(toporoom_document_first_storey_id(near_doc, storey2, sizeof(storey2)), 0);
+  const double near_closed[] = {0, 0, 4000, 0, 4000, 3000, 0, 3000, 80, 40};
+  int near_added = 0;
+  ASSERT_EQ(toporoom_document_add_polyline_walls(near_doc, storey2, "wall_a", 1, near_closed,
+                                                 5, 1, 200, 2800, 200, &near_added, err,
+                                                 sizeof(err)),
+            0)
+      << err;
+  EXPECT_EQ(near_added, 4);
+  json = toporoom_document_to_sceneir_json(near_doc);
+  ASSERT_NE(json, nullptr);
+  EXPECT_NE(std::string(json).find("wall_a4"), std::string::npos);
+  toporoom_string_free(json);
+
+  int none = -1;
+  EXPECT_NE(toporoom_document_add_polyline_walls(doc, storey, "wall_x", 1, rect, 1, 1, 200,
+                                                 2800, 200, &none, err, sizeof(err)),
+            0);
+  EXPECT_EQ(none, 0);
+
+  toporoom_document_destroy(near_doc);
+  toporoom_document_destroy(doc);
+}

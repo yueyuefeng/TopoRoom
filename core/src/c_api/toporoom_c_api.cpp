@@ -22,6 +22,7 @@
 #include "toporoom/app/export_app_service.hpp"
 #include "toporoom/app/guided_room_session.hpp"
 #include "toporoom/app/status_gate.hpp"
+#include "toporoom/app/wall_draw_tool.hpp"
 #include "toporoom/domain/floor_plan_document.hpp"
 #include "toporoom/domain/kinds.hpp"
 #include "toporoom/ports/geometry_port.hpp"
@@ -157,6 +158,46 @@ int toporoom_document_add_wall(TopoRoomDocument* doc, const char* storey_id,
     props.height = toporoom::domain::LengthMm::of(height_mm);
     props.kind = toporoom::domain::WallKind::Exterior;
     doc->impl.add_wall(std::move(props));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_add_polyline_walls(TopoRoomDocument* doc, const char* storey_id,
+                                         const char* wall_id_prefix, int serial_start,
+                                         const double* xy_mm, int n_points, int close_loop,
+                                         double thickness_mm, double height_mm,
+                                         double min_len_mm, int* walls_added, char* errbuf,
+                                         int errbuf_len) {
+  if (walls_added) *walls_added = 0;
+  if (!doc || !storey_id || !xy_mm || n_points < 2) return 1;
+  try {
+    std::vector<toporoom::domain::PointMm> pts;
+    pts.reserve(static_cast<std::size_t>(n_points));
+    for (int i = 0; i < n_points; ++i) {
+      pts.push_back(toporoom::domain::PointMm::of(xy_mm[i * 2], xy_mm[i * 2 + 1]));
+    }
+    const auto segs = toporoom::app::walls_from_polyline(
+        pts, close_loop != 0, wall_id_prefix ? wall_id_prefix : "wall_a", serial_start,
+        min_len_mm, 400.0);
+    if (segs.walls.empty()) {
+      return write_error(errbuf, errbuf_len, "polyline produced no walls");
+    }
+    int added = 0;
+    for (const auto& seg : segs.walls) {
+      toporoom::domain::AddWallProps props;
+      props.storey_id = storey_id;
+      props.id = seg.id;
+      props.start = toporoom::domain::PointMm::of(seg.x0, seg.y0);
+      props.end = toporoom::domain::PointMm::of(seg.x1, seg.y1);
+      props.thickness = toporoom::domain::LengthMm::of(thickness_mm);
+      props.height = toporoom::domain::LengthMm::of(height_mm);
+      props.kind = toporoom::domain::WallKind::Exterior;
+      doc->impl.add_wall(std::move(props));
+      added += 1;
+    }
+    if (walls_added) *walls_added = added;
     return 0;
   } catch (const std::exception& ex) {
     return write_error(errbuf, errbuf_len, ex.what());

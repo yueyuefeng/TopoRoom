@@ -9,6 +9,9 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.ar"
+        android:required="false" />
     <queries>
         <intent>
             <action android:name="android.intent.action.GET_CONTENT" />
@@ -33,5 +36,8 @@
         <meta-data
             android:name="org.godotengine.plugin.v2.TopoRoomMedia"
             android:value="com.toporoom.plugin.TopoRoomMediaPlugin" />
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="optional" />
     </application>
 </manifest>

@@ -63,4 +63,23 @@ class WallDrawTool {
   }
 };
 
+struct PolylineSeg {
+  std::string id;
+  double x0 = 0;
+  double y0 = 0;
+  double x1 = 0;
+  double y1 = 0;
+};
+
+struct PolylineWallsResult {
+  std::vector<PolylineSeg> walls;
+  bool closed = false;
+};
+
+/* Floor outline → axis-agnostic wall segments. Near-closed last≈first snaps. */
+PolylineWallsResult walls_from_polyline(const std::vector<domain::PointMm>& pts,
+                                        bool close_loop, const std::string& prefix,
+                                        int serial_start, double min_len_mm = 200.0,
+                                        double close_snap_mm = 400.0);
+
 }  // namespace toporoom::app

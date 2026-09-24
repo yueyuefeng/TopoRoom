@@ -27,6 +27,19 @@ int toporoom_document_add_wall(TopoRoomDocument* doc, const char* storey_id,
                                double y1, double thickness_mm, double height_mm,
                                char* errbuf, int errbuf_len);
 
+/*
+ * Floor outline → add_wall for each segment. xy_mm is interleaved x,y (n_points
+ * vertices). close_loop!=0 appends last→first when the gap is a real wall, or
+ * snaps a near-closed last≈first. wall_id_prefix + serial_start → wall_a1…
+ * walls_added may be NULL. min_len_mm<=0 uses 200 mm.
+ */
+int toporoom_document_add_polyline_walls(TopoRoomDocument* doc, const char* storey_id,
+                                         const char* wall_id_prefix, int serial_start,
+                                         const double* xy_mm, int n_points, int close_loop,
+                                         double thickness_mm, double height_mm,
+                                         double min_len_mm, int* walls_added, char* errbuf,
+                                         int errbuf_len);
+
 /* kind: "door" | "window" | "archway" (门洞/窗洞/垭口). */
 int toporoom_document_add_opening(TopoRoomDocument* doc, const char* storey_id,
                                   const char* wall_id, const char* opening_id,

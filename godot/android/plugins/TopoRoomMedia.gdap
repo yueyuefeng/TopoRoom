@@ -7,5 +7,5 @@ binary="TopoRoomMedia.release.aar"
 [dependencies]
 
 local=[]
-remote=[]
+remote=["com.google.ar:core:1.46.0"]
 custom_maven_repos=[]

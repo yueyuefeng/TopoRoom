@@ -25,6 +25,7 @@ var last_scale_mm: float = 900.0
 var last_scale_mm_per_px: float = 0.0
 var wall_serial: int = 0
 var from_free_draw: bool = false
+var from_ar_scan: bool = false
 var draw_undo: Array = []
 var favorite_kinds: PackedStringArray = PackedStringArray(["door", "window"])
 var coach_seen: Dictionary = {}
@@ -711,6 +712,7 @@ func resize_wall_length(wall_id: String, length_mm: float) -> String:
 
 func start_free_draw(reset_doc: bool = true) -> String:
 	from_free_draw = true
+	from_ar_scan = false
 	last_import_path = ""
 	last_import_uri = ""
 	last_vision = {}
@@ -723,6 +725,81 @@ func start_free_draw(reset_doc: bool = true) -> String:
 	var err := new_scheme("doc_draw_%d" % Time.get_ticks_msec())
 	screen = "free_draw"
 	return err
+
+
+func start_ar_scan(reset_doc: bool = true) -> String:
+	from_ar_scan = true
+	from_free_draw = false
+	last_import_path = ""
+	last_import_uri = ""
+	last_vision = {}
+	last_scale_mm_per_px = 0.0
+	if not reset_doc:
+		screen = "ar_scan"
+		return ""
+	draw_undo.clear()
+	wall_serial = 0
+	var err := new_scheme("doc_ar_%d" % Time.get_ticks_msec())
+	screen = "ar_scan"
+	return err
+
+
+func add_ar_wall(x0: float, y0: float, x1: float, y1: float) -> String:
+	if host == null:
+		return _fail("no core")
+	var length := Vector2(x1 - x0, y1 - y0).length()
+	if length < 200.0:
+		return _fail("墙太短")
+	wall_serial += 1
+	var wid := "wall_a%d" % wall_serial
+	var d: Dictionary = host.add_wall(host.first_storey_id(), wid, x0, y0, x1, y1, 200.0, 2800.0)
+	if not d.get("ok", false):
+		wall_serial -= 1
+		return _fail(str(d.get("error", "add_wall")))
+	draw_undo.append({"op": "add", "id": wid, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
+	host.guide_note_wall()
+	host.guide_sync_from_document(false)
+	auto_save()
+	return _ok("AR墙 %s  %d mm" % [wid, int(round(length))])
+
+
+func commit_ar_polyline(points: PackedVector2Array, close_loop: bool = true) -> String:
+	if host == null:
+		return _fail("no core")
+	if points.size() < 2:
+		return _fail("至少两个墙角")
+	var ring: Array[Vector2] = []
+	for i in range(points.size()):
+		ring.append(points[i])
+	if close_loop and ring.size() >= 3 and ring[ring.size() - 1].distance_to(ring[0]) < 400.0:
+		ring.remove_at(ring.size() - 1)
+	if ring.size() < 2:
+		return _fail("轮廓太短")
+	var added := 0
+	for i in range(ring.size() - 1):
+		if ring[i].distance_to(ring[i + 1]) < 200.0:
+			continue
+		var err := add_ar_wall(ring[i].x, ring[i].y, ring[i + 1].x, ring[i + 1].y)
+		if err != "":
+			return err
+		added += 1
+	if close_loop and ring.size() >= 3 and ring[ring.size() - 1].distance_to(ring[0]) >= 200.0:
+		var err := add_ar_wall(ring[ring.size() - 1].x, ring[ring.size() - 1].y, ring[0].x, ring[0].y)
+		if err != "":
+			return err
+		added += 1
+	if added <= 0:
+		return _fail("没有可写入的墙")
+	return ""
+
+
+func ar_demo_rectangle(width_mm: float = 4000.0, depth_mm: float = 3000.0) -> String:
+	return commit_ar_polyline(PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(width_mm, 0),
+		Vector2(width_mm, depth_mm),
+		Vector2(0, depth_mm),
+	]), true)
 
 
 func add_drawn_wall(x0: float, y0: float, x1: float, y1: float) -> String:

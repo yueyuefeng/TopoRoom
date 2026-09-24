@@ -46,6 +46,7 @@ The selected `content://` URI is decoded with `ContentResolver` +
 |----------|---------|
 | `capture_photo()` | Request `CAMERA` if needed, then `MediaStore.ACTION_IMAGE_CAPTURE` with `FileProvider` `EXTRA_OUTPUT` |
 | `pick_gallery()` | OEM-aware chain above; never only Photo Picker |
+| `ar_available()` / `ar_start()` / `ar_hit_center()` / `ar_stop()` | Optional ARCore (reflection + `com.google.ar.core=optional`). No LiDAR accessory. Missing SDK / emulator → GDScript 引导量墙 + 演示房间 |
 | signal `image_picked(path)` | Absolute JPEG path under app cache/imports |
 | signal `pick_cancelled` | User backed out after a real picker (slow cancel) |
 | signal `pick_error(message)` | No gallery / permission denied / copy failed |
