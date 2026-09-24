@@ -1,5 +1,7 @@
 #include "toporoom/c_api/toporoom.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -20,6 +22,7 @@
 #include "toporoom/app/export_app_service.hpp"
 #include "toporoom/app/guided_room_session.hpp"
 #include "toporoom/app/status_gate.hpp"
+#include "toporoom/app/wall_draw_tool.hpp"
 #include "toporoom/domain/floor_plan_document.hpp"
 #include "toporoom/domain/kinds.hpp"
 #include "toporoom/ports/geometry_port.hpp"
@@ -155,6 +158,46 @@ int toporoom_document_add_wall(TopoRoomDocument* doc, const char* storey_id,
     props.height = toporoom::domain::LengthMm::of(height_mm);
     props.kind = toporoom::domain::WallKind::Exterior;
     doc->impl.add_wall(std::move(props));
+    return 0;
+  } catch (const std::exception& ex) {
+    return write_error(errbuf, errbuf_len, ex.what());
+  }
+}
+
+int toporoom_document_add_polyline_walls(TopoRoomDocument* doc, const char* storey_id,
+                                         const char* wall_id_prefix, int serial_start,
+                                         const double* xy_mm, int n_points, int close_loop,
+                                         double thickness_mm, double height_mm,
+                                         double min_len_mm, int* walls_added, char* errbuf,
+                                         int errbuf_len) {
+  if (walls_added) *walls_added = 0;
+  if (!doc || !storey_id || !xy_mm || n_points < 2) return 1;
+  try {
+    std::vector<toporoom::domain::PointMm> pts;
+    pts.reserve(static_cast<std::size_t>(n_points));
+    for (int i = 0; i < n_points; ++i) {
+      pts.push_back(toporoom::domain::PointMm::of(xy_mm[i * 2], xy_mm[i * 2 + 1]));
+    }
+    const auto segs = toporoom::app::walls_from_polyline(
+        pts, close_loop != 0, wall_id_prefix ? wall_id_prefix : "wall_a", serial_start,
+        min_len_mm, 400.0);
+    if (segs.walls.empty()) {
+      return write_error(errbuf, errbuf_len, "polyline produced no walls");
+    }
+    int added = 0;
+    for (const auto& seg : segs.walls) {
+      toporoom::domain::AddWallProps props;
+      props.storey_id = storey_id;
+      props.id = seg.id;
+      props.start = toporoom::domain::PointMm::of(seg.x0, seg.y0);
+      props.end = toporoom::domain::PointMm::of(seg.x1, seg.y1);
+      props.thickness = toporoom::domain::LengthMm::of(thickness_mm);
+      props.height = toporoom::domain::LengthMm::of(height_mm);
+      props.kind = toporoom::domain::WallKind::Exterior;
+      doc->impl.add_wall(std::move(props));
+      added += 1;
+    }
+    if (walls_added) *walls_added = added;
     return 0;
   } catch (const std::exception& ex) {
     return write_error(errbuf, errbuf_len, ex.what());
@@ -402,6 +445,10 @@ void zero_counts(TopoRoomVisionCounts* counts) {
   counts->door_count = 0;
   counts->window_count = 0;
   counts->mm_per_px = 0;
+  counts->origin_x_px = 0;
+  counts->origin_y_px = 0;
+  counts->image_width = 0;
+  counts->image_height = 0;
 }
 
 void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResult& detected,
@@ -409,8 +456,34 @@ void fill_counts(TopoRoomVisionCounts* counts, const toporoom::ports::VisionResu
   if (!counts) return;
   zero_counts(counts);
   counts->mm_per_px = detected.mm_per_px;
+  counts->origin_x_px = detected.origin_x_px;
+  counts->origin_y_px = detected.origin_y_px;
+  counts->image_width = detected.image_width;
+  counts->image_height = detected.image_height;
   if (doc.storeys().empty()) return;
   const auto& storey = doc.storeys()[0];
+  // apply_vision_result may translate walls to keep SceneIR non-negative.
+  // Shift the stored origin so overlay inversion still hits the photo.
+  if (detected.mm_per_px > 0.05 && !detected.walls.empty() && !storey.walls().empty()) {
+    double det_min_x = 1e18;
+    double det_min_y = 1e18;
+    for (const auto& w : detected.walls) {
+      det_min_x = std::min({det_min_x, w.start_x, w.end_x});
+      det_min_y = std::min({det_min_y, w.start_y, w.end_y});
+    }
+    double doc_min_x = 1e18;
+    double doc_min_y = 1e18;
+    for (const auto& wall : storey.walls()) {
+      doc_min_x = std::min({doc_min_x, wall.start().x(), wall.end().x()});
+      doc_min_y = std::min({doc_min_y, wall.start().y(), wall.end().y()});
+    }
+    if (det_min_x < 1e17 && doc_min_x < 1e17) {
+      const double dx = doc_min_x - det_min_x;
+      const double dy = doc_min_y - det_min_y;
+      counts->origin_x_px = detected.origin_x_px - dx / detected.mm_per_px;
+      counts->origin_y_px = detected.origin_y_px + dy / detected.mm_per_px;
+    }
+  }
   counts->wall_count = static_cast<int>(storey.walls().size());
   int opening_n = 0;
   int shear = 0;

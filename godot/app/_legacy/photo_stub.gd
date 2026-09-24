@@ -4,11 +4,11 @@ extends Control
 const PlanCanvas := preload("res://app/plan_canvas.gd")
 const Snackbar := preload("res://app/ui/snackbar.gd")
 const MediaPickerScript := preload("res://app/media_picker.gd")
-const ScaleCalibrate := preload("res://app/scale_calibrate.gd")
-const OpeningLibrary := preload("res://app/opening_library.gd")
+const ScaleCalibrate := preload("res://app/_legacy/scale_calibrate.gd")
+const OpeningLibrary := preload("res://app/_legacy/opening_library.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
-const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
-const CoachMarks := preload("res://app/ui/coach_marks.gd")
+const RulerSheet := preload("res://app/_legacy/ui/ruler_sheet.gd")
+const CoachMarks := preload("res://app/_legacy/ui/coach_marks.gd")
 
 var _mode := "pick"  # pick | preview | calibrate | review | demolish
 var _canvas: Control
@@ -430,10 +430,10 @@ func _enter_3d() -> void:
 			tw.set_trans(Tween.TRANS_CUBIC)
 			tw.tween_property(_canvas, "modulate:a", 0.15, 0.18)
 			tw.tween_callback(func():
-				get_tree().change_scene_to_file("res://app/edit_3d.tscn")
+				get_tree().change_scene_to_file("res://app/_legacy/edit_3d.tscn")
 			)
 			return
-	get_tree().change_scene_to_file("res://app/edit_3d.tscn")
+	get_tree().change_scene_to_file("res://app/_legacy/edit_3d.tscn")
 
 
 func _review_hint() -> String:

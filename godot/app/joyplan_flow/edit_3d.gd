@@ -1,13 +1,14 @@
 extends Node3D
-## Command-synced 3D edit. Meshes/gizmos are InteractionShell; millimetres live in SceneIR.
-## Dragged triangle vertices are never written back. Lighting is Visualization-only.
+## S5–S7 3D walkthrough: detached right circles, minimap FOV, green back-to-2D, pink dims.
+## Meshes/gizmos are InteractionShell; millimetres live in SceneIR.
 
 const Lighting := preload("res://app/lighting.gd")
 const NumericSheet := preload("res://app/ui/numeric_sheet.gd")
-const OpeningLibrary := preload("res://app/opening_library.gd")
+const LibrarySheet := preload("res://app/joyplan_flow/library_sheet.gd")
+const RulerSheet := preload("res://app/joyplan_flow/ruler_sheet.gd")
+const Minimap := preload("res://app/joyplan_flow/minimap.gd")
+const Snackbar := preload("res://app/ui/snackbar.gd")
 const Haptics := preload("res://app/ui/haptics.gd")
-const RulerSheet := preload("res://app/ui/ruler_sheet.gd")
-const CoachMarks := preload("res://app/ui/coach_marks.gd")
 
 const KIND_WALL := "wall"
 const KIND_OPENING := "opening"
@@ -29,10 +30,14 @@ var _lwh_row: HBoxContainer
 var _numeric: Control
 var _ruler: Control
 var _pending_dim: Dictionary = {}
-var _ctx: HBoxContainer
+var _ctx: Control
 var _dim_chip: Button
 var _dim_overlay: Control
 var _show_dims := false
+var _minimap: Control
+var _library: Control
+var _hud_layer: CanvasLayer
+var _readout: Label
 var _yaw := 0.55
 var _pitch := -0.48
 var _distance := 11.0
@@ -90,77 +95,101 @@ func _ready() -> void:
 
 
 func _build_hud() -> void:
-	var hud: Dictionary = Studio.attach_hud(self)
-	var col: VBoxContainer = hud.column
-	var row := Studio.hbox(Tokens.S1)
-	row.add_child(Studio.ghost("返回", func(): get_tree().change_scene_to_file("res://app/main.tscn")))
-	row.add_child(Studio.chip("加载夹具", func(): Session.load_fixture_json("res://fixtures/rect-room-v02-archway-clearheight.sceneir.json")))
-	var grow := Control.new()
-	grow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(grow)
-	var light_idx := 0
-	if _lighting and _lighting.preset == Lighting.PRESET_WARM:
-		light_idx = 1
-	row.add_child(Studio.segmented(PackedStringArray(["白天", "暖光"]), light_idx, func(_i: int, name: String):
-		_lighting.apply_preset(Lighting.PRESET_WARM if name == "暖光" else Lighting.PRESET_DAY)
-		_update_hud()
+	Session.screen = FlowRouter.SCREEN_EDIT_3D
+	_hud_layer = CanvasLayer.new()
+	add_child(_hud_layer)
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = Studio.theme
+	_hud_layer.add_child(root)
+
+	root.add_child(FlowIslands.top_bar(
+		func(): _go_2d(),
+		null,
+		func(): pass
 	))
-	_dim_chip = Studio.chip("标尺", func(): _open_ruler(), false)
-	row.add_child(_dim_chip)
-	col.add_child(row)
-	_lwh = Studio.label("点选墙或门窗，看长宽高", Tokens.FONT_TITLE, Tokens.TEXT)
-	_lwh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_lwh)
-	_lwh_row = Studio.hbox(Tokens.S1)
-	_lwh_row.visible = false
-	col.add_child(_lwh_row)
-	_status = Studio.label("", Tokens.FONT_BODY, Tokens.TEXT, true)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_status)
-	_sel_label = Studio.caption("")
-	col.add_child(_sel_label)
-	_ctx = Studio.hbox(Tokens.S1)
-	col.add_child(_ctx)
-	col.add_child(Studio.caption("左键选择 / 拖动手柄 · 右键旋转 · 滚轮缩放。松开后经命令写回 SceneIR。"))
-	var snack := preload("res://app/ui/snackbar.gd").new()
-	snack.theme = Studio.theme
-	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	snack.anchor_top = 1.0
-	snack.offset_left = 16
-	snack.offset_right = -16
-	snack.offset_top = -80
-	snack.offset_bottom = -16
-	hud.layer.add_child(snack)
-	Session.log_line.connect(func(text: String): snack.show_message(text))
-	var fab := Studio.fab("2D", func(): _go_2d())
-	fab.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	fab.anchor_left = 1.0
-	fab.anchor_top = 1.0
-	fab.anchor_right = 1.0
-	fab.anchor_bottom = 1.0
-	fab.offset_left = -78
-	fab.offset_top = -90
-	fab.offset_right = -20
-	fab.offset_bottom = -32
-	hud.layer.add_child(fab)
+	root.add_child(FlowIslands.mode_compass(1, func(): _go_2d(), func(): pass, func(): _snack("Walk"), func(): _snack("Crop")))
+
+	_minimap = Minimap.new()
+	_minimap.visible = false
+	root.add_child(_minimap)
+
+	root.add_child(FlowIslands.right_circles([
+		["doc", "▢", func(): _snack("图层")],
+		["gear", "⚙", func(): _snack("设置")],
+		["mail", "✉", func(): _open_ruler()],
+		["cube", "▣", func(): _toggle_library()],
+		["pen", "✎", func(): FlowRouter.elevation(self)],
+	]))
+
+	root.add_child(FlowIslands.green_fab("▶", func(): pass))
+	root.add_child(FlowIslands.plus_fab(func(): _toggle_library()))
+	var sun := FlowIslands.circle_btn("☀", func():
+		if _lighting:
+			_lighting.apply_preset(Lighting.PRESET_WARM if _lighting.preset == Lighting.PRESET_DAY else Lighting.PRESET_DAY)
+	, 44)
+	sun.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	sun.anchor_top = 1.0
+	sun.offset_left = 84
+	sun.offset_top = -82
+	sun.offset_right = 128
+	sun.offset_bottom = -38
+	root.add_child(sun)
+	var lib_btn := FlowIslands.circle_btn("☰", func(): _toggle_library(), 44)
+	lib_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	lib_btn.anchor_left = 1.0
+	lib_btn.anchor_top = 1.0
+	lib_btn.offset_left = -72
+	lib_btn.offset_top = -82
+	lib_btn.offset_right = -28
+	lib_btn.offset_bottom = -38
+	root.add_child(lib_btn)
+
 	_numeric = NumericSheet.new()
-	hud.layer.add_child(_numeric)
+	root.add_child(_numeric)
 	_ruler = RulerSheet.new()
 	_ruler.changed.connect(_sync_dims_from_prefs)
-	hud.layer.add_child(_ruler)
-	var coach := CoachMarks.new()
-	hud.layer.add_child(coach)
-	if Session.screen == "photo":
-		coach.start([
-			{"id": "place_3d", "text": "长按底栏门窗，拖到立体墙面上松手。尺寸仍然只来自命令。"},
-		])
-	_mount_3d_library(hud.layer)
+	root.add_child(_ruler)
+	_library = LibrarySheet.new()
+	_library.visible = false
+	_library.dropped.connect(_on_library_drop)
+	_library.tapped.connect(_on_library_tap)
+	_library.previewed.connect(_on_library_preview)
+	root.add_child(_library)
+
 	_dim_overlay = Control.new()
 	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim_overlay.visible = false
 	_dim_overlay.draw.connect(_draw_dim_overlay)
-	hud.layer.add_child(_dim_overlay)
+	root.add_child(_dim_overlay)
+
+	var snack := Snackbar.new()
+	snack.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	snack.offset_left = 80
+	snack.offset_right = -16
+	snack.offset_top = -120
+	snack.offset_bottom = -80
+	root.add_child(snack)
+	Session.log_line.connect(func(text: String): snack.show_message(text))
+	_status = Studio.label("", 1, Color(0, 0, 0, 0))
+	_sel_label = Studio.label("", 1, Color(0, 0, 0, 0))
+	_lwh = _readout
+	_lwh_row = HBoxContainer.new()
+	_lwh_row.visible = false
+	root.add_child(_lwh_row)
+	_ctx = Control.new()
+	root.add_child(_ctx)
+
+
+func _snack(text: String) -> void:
+	Session._log(text)
+
+
+func _toggle_library() -> void:
+	if _library:
+		_library.visible = not _library.visible
 
 
 func _tween_extrude(t: float) -> void:
@@ -169,23 +198,8 @@ func _tween_extrude(t: float) -> void:
 	_orbit()
 
 
-func _mount_3d_library(layer: CanvasLayer) -> void:
-	var dock := MarginContainer.new()
-	dock.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	dock.anchor_top = 1.0
-	dock.offset_left = 12
-	dock.offset_right = -88
-	dock.offset_top = -168
-	dock.offset_bottom = -16
-	dock.theme = Studio.theme
-	var sheet := Studio.sheet()
-	var lib := OpeningLibrary.new()
-	lib.dropped.connect(_on_library_drop)
-	lib.tapped.connect(_on_library_tap)
-	lib.previewed.connect(_on_library_preview)
-	sheet.add_child(lib)
-	dock.add_child(sheet)
-	layer.add_child(dock)
+func _mount_3d_library(_layer: CanvasLayer) -> void:
+	pass
 
 
 func _on_library_preview(_kind: String, global_pos: Vector2) -> void:
@@ -261,39 +275,32 @@ func _draw_dim_overlay() -> void:
 	if not _show_dims or _camera == null or _dim_overlay == null:
 		return
 	var fnt: Font = Studio.font if Studio and Studio.font else ThemeDB.fallback_font
+	var ink := Tokens.PAGE_DIM
 	for w in _walls():
 		if typeof(w) != TYPE_DICTIONARY:
 			continue
 		var fr := _frame(w)
-		var mid := Vector3((fr.x0 + fr.x1) * 0.0005, float(fr.height) * 0.0005 + 0.12, (fr.y0 + fr.y1) * 0.0005)
+		var mid := Vector3((fr.x0 + fr.x1) * 0.0005, float(fr.height) * 0.0005 + 0.08, (fr.y0 + fr.y1) * 0.0005)
 		if _camera.is_position_behind(mid):
 			continue
 		var p: Vector2 = _camera.unproject_position(mid)
 		var txt := "%d" % int(round(float(fr.length)))
-		var sz: Vector2 = fnt.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
-		var box := Rect2(p - Vector2(sz.x * 0.5 + 6, 10), Vector2(sz.x + 12, 20))
-		_dim_overlay.draw_rect(box, Color(1, 1, 1, 0.88), true)
-		_dim_overlay.draw_rect(box, Tokens.HAIRLINE, false, 1.0)
-		_dim_overlay.draw_string(fnt, p - Vector2(sz.x * 0.5, -5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.TEXT)
-	var pick := str(_selected.get("pick", ""))
-	if pick == KIND_OPENING:
-		var op := _opening_by_id(str(_selected.get("opening_id", "")))
-		var f2 := _wall_by_id(str(_selected.get("wall_id", "")))
-		if not f2.is_empty() and not op.is_empty():
+		_dim_overlay.draw_string(fnt, p - Vector2(18, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ink)
+		for op in fr.openings:
+			if typeof(op) != TYPE_DICTIONARY:
+				continue
 			var t := float(op.get("offsetMm", 0)) + float(op.get("widthMm", 0)) * 0.5
-			var y := (float(op.get("sillHeightMm", 0)) + float(op.get("heightMm", 0))) / 1000.0 + 0.08
-			var pos := _along(f2, t, y)
-			if not _camera.is_position_behind(pos):
-				var p2: Vector2 = _camera.unproject_position(pos)
-				var t2 := "W %d  H %d" % [int(round(float(op.get("widthMm", 0)))), int(round(float(op.get("heightMm", 0))))]
-				_dim_overlay.draw_string(fnt, p2 + Vector2(-36, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Tokens.PRIMARY)
+			var y := (float(op.get("sillHeightMm", 0)) + float(op.get("heightMm", 0))) / 1000.0 + 0.06
+			var pos := _along(fr, t, y)
+			if _camera.is_position_behind(pos):
+				continue
+			var p2: Vector2 = _camera.unproject_position(pos)
+			var t2 := "%d" % int(round(float(op.get("widthMm", 0))))
+			_dim_overlay.draw_string(fnt, p2 + Vector2(-16, -8), t2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
 
 
 func _go_2d() -> void:
-	if Session.screen == "photo":
-		get_tree().change_scene_to_file("res://app/photo_stub.tscn")
-		return
-	get_tree().change_scene_to_file("res://app/main.tscn")
+	FlowRouter.edit_2d(self)
 
 
 func _on_document_changed() -> void:
@@ -667,6 +674,12 @@ func _orbit() -> void:
 		_distance * cos(_pitch) * cos(_yaw)
 	)
 	_camera.look_at_from_position(_target + offset, _target)
+	if _minimap:
+		_minimap.walls_json = Session.sceneir_json()
+		_minimap.yaw = _yaw
+		_minimap.pitch = _pitch
+		_minimap.target = _target
+		_minimap.queue_redraw()
 	if _dim_overlay and _show_dims:
 		_dim_overlay.queue_redraw()
 
@@ -897,61 +910,18 @@ func _intersect(pos: Vector2, mask: int) -> Dictionary:
 
 
 func _update_hud() -> void:
-	var walls: Array = _walls()
-	var light: String = _lighting.preset_label() if _lighting else "—"
-	var gate := Session.last_rebuild
-	var gate_s := str(gate.get("status", "—"))
-	if Session.keep_preview:
-		_status.text = "灯光 %s · 重建未通过，预览保持上一版实体\n%s" % [light, Session.last_error]
-	elif walls.is_empty():
-		_status.text = "灯光 %s · 还没有墙。请返回户型图绘制，或加载夹具样例。" % light
-	else:
-		_status.text = "灯光 %s · 闸门 %s · 尺寸只来自命令" % [light, gate_s]
-	var sel := "点选墙或门窗洞，拖动手柄调整。"
-	var pick := str(_selected.get("pick", ""))
-	if pick == KIND_OPENING:
-		var op := _opening_by_id(str(_selected.get("opening_id", "")))
-		var kind := str(op.get("kind", _selected.get("kind", "")))
-		var label: String = Tokens.opening_label(kind)
-		sel = "选中 %s %s  偏移 %dmm  宽 %dmm  高 %dmm" % [
-			label,
-			str(_selected.get("opening_id", "")),
-			int(float(op.get("offsetMm", _drag.get("offset_mm", 0)))),
-			int(float(op.get("widthMm", _drag.get("width_mm", 0)))),
-			int(float(op.get("heightMm", 0))),
-		]
-	elif pick == KIND_WALL:
-		sel = "选中墙 %s（拖两端点 / 顶面层高手柄）" % str(_selected.get("wall_id", ""))
-	elif pick == KIND_HOSTED:
-		sel = "选中宿主构件 %s（命令编辑；非三角网）" % str(_selected.get("hosted_id", ""))
-	if not _drag.is_empty():
-		sel += "  · 拖动中，松开后经 C API 提交"
-	_sel_label.text = sel
-	if _lwh:
-		_rebuild_lwh()
+	if _status:
+		_status.text = ""
+	if _sel_label:
+		_sel_label.text = ""
+	if _readout:
+		_readout.text = _lwh_text()
 	_rebuild_ctx()
 
 
 func _rebuild_lwh() -> void:
-	if _lwh_row == null:
-		if _lwh:
-			_lwh.text = _lwh_text()
-		return
-	for c in _lwh_row.get_children():
-		_lwh_row.remove_child(c)
-		c.queue_free()
-	var pick := str(_selected.get("pick", ""))
-	if pick != KIND_OPENING and pick != KIND_WALL:
-		_lwh.visible = true
-		_lwh.text = "点选墙或门窗，点 L/W/H 改尺寸"
-		_lwh_row.visible = false
-		return
-	_lwh.visible = false
-	_lwh_row.visible = true
-	var dims := _lwh_dims()
-	_lwh_chip("L %d" % int(round(float(dims.get("l", 0)))), func(): _edit_dim("l"))
-	_lwh_chip("W %d" % int(round(float(dims.get("w", 0)))), func(): _edit_dim("w"))
-	_lwh_chip("H %d" % int(round(float(dims.get("h", 0)))), func(): _edit_dim("h"))
+	if _readout:
+		_readout.text = _lwh_text()
 
 
 func _lwh_chip(text: String, cb: Callable) -> void:
@@ -1056,28 +1026,29 @@ func _rebuild_ctx() -> void:
 	if _ctx == null:
 		return
 	for c in _ctx.get_children():
-		_ctx.remove_child(c)
 		c.queue_free()
 	var pick := str(_selected.get("pick", ""))
+	var actions: Array = []
 	if pick == KIND_OPENING:
-		_ctx.visible = true
 		var oid := str(_selected.get("opening_id", ""))
-		_ctx_chip("翻转", func(): Session.flip_opening(oid))
-		_ctx_chip("旋转", func(): Session.rotate_opening(oid))
-		_ctx_chip("复制", func(): Session.duplicate_opening(oid))
-		_ctx_chip("删除", func(): Session.delete_opening(oid))
-		return
-	if pick != KIND_WALL:
+		actions = [
+			["设置", func(): _edit_dim("l")],
+			["翻转", func(): Session.flip_opening(oid)],
+			["复制", func(): Session.duplicate_opening(oid)],
+			["删除", func(): Session.delete_opening(oid)],
+		]
+	elif pick == KIND_WALL:
+		actions = [
+			["设置", func(): _edit_dim("l")],
+			["删除", func(): Session.demolish_wall(str(_selected.get("wall_id", "")), true)],
+		]
+	else:
 		_ctx.visible = false
 		return
 	_ctx.visible = true
-	var wid := str(_selected.get("wall_id", ""))
-	var shear := Studio.chip("承重", func(): Session.set_wall_kind(wid, "shearWall"), true)
-	var mason := Studio.chip("隔墙", func(): Session.set_wall_kind(wid, "masonry"))
-	shear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_ctx.add_child(shear)
-	_ctx.add_child(mason)
+	var pill := FlowIslands.ctx_pill(actions)
+	pill.position = Vector2(16, 118)
+	_ctx.add_child(pill)
 
 
 func _ctx_chip(text: String, cb: Callable) -> void:

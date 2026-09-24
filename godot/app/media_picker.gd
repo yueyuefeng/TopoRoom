@@ -16,7 +16,7 @@ var _busy := false
 func _ready() -> void:
 	if OS.get_name() == "Android" and Engine.has_singleton(PLUGIN_NAME):
 		_plugin = Engine.get_singleton(PLUGIN_NAME)
-		if not _plugin.is_connected("image_picked", _on_plugin_image):
+		if _plugin and not _plugin.is_connected("image_picked", _on_plugin_image):
 			_plugin.connect("image_picked", _on_plugin_image)
 			_plugin.connect("pick_cancelled", _on_plugin_cancel)
 			_plugin.connect("pick_error", _on_plugin_error)
@@ -28,8 +28,8 @@ func _ready() -> void:
 	_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_dialog.filters = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp ; 户型图"])
-	_dialog.title = "选择户型图"
-	_dialog.use_native_dialog = false
+	_dialog.title = "从相册导入户型图"
+	_dialog.use_native_dialog = true
 	_dialog.file_selected.connect(_on_file)
 	_dialog.canceled.connect(func(): cancelled.emit())
 	add_child(_dialog)
@@ -41,7 +41,10 @@ func available_on_android() -> bool:
 
 func capture_photo() -> void:
 	_pending = "camera"
-	if _plugin:
+	if OS.get_name() == "Android":
+		if _plugin == null:
+			failed.emit("缺少相机插件，请用示例户型")
+			return
 		if not _has_camera_permission():
 			_busy = true
 			OS.request_permission("android.permission.CAMERA")
@@ -55,7 +58,10 @@ func capture_photo() -> void:
 
 func pick_gallery() -> void:
 	_pending = "gallery"
-	if _plugin:
+	if OS.get_name() == "Android":
+		if _plugin == null:
+			failed.emit("缺少相册插件，请用示例户型")
+			return
 		_busy = true
 		_plugin.pick_gallery()
 		return
@@ -90,6 +96,12 @@ func _on_plugin_image(path: String) -> void:
 	if path.is_empty():
 		failed.emit("没有收到照片")
 		return
+	if not FileAccess.file_exists(path):
+		var fh := FileAccess.open(path, FileAccess.READ)
+		if fh == null:
+			failed.emit("没有收到照片")
+			return
+		fh.close()
 	image_ready.emit(path)
 
 

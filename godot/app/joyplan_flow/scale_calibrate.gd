@@ -1,0 +1,594 @@
+extends Control
+## S2 — Scale calibration: fullscreen photo, blue handles, circular loupe, dark sheet.
+
+signal calibrated(mm_per_px: float, pixel_len: float, real_mm: float)
+signal cancelled
+
+const TITLE := "1/2 临摹图比例"
+const LOUPE_SRC := 36
+const LOUPE_DST := 120
+const LOUPE_ZOOM := 3.1
+const JoyplanChrome := preload("res://app/joyplan_flow/joyplan_chrome.gd")
+
+var _img: Image
+var _photo: TextureRect
+var _mm: LineEdit
+var _hint: Label
+var _loupe: Control
+var _loupe_tex: TextureRect
+var _loupe_cross: Control
+var _a := Vector2(80, 200)
+var _b := Vector2(280, 200)
+var _drag := 0
+var _drag_pos := Vector2.ZERO
+var _handle_r := 18.0
+const HANDLE_HIT := 48.0
+const BAR_HIT := 32.0
+var _snack: PanelContainer
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	Studio.apply_to(self)
+	Session.screen = FlowRouter.SCREEN_SCALE
+
+	_photo = TextureRect.new()
+	_photo.set_anchors_preset(PRESET_FULL_RECT)
+	_photo.offset_top = 56
+	_photo.offset_bottom = -328
+	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_photo)
+
+	var overlay := Control.new()
+	overlay.set_anchors_preset(PRESET_FULL_RECT)
+	overlay.offset_top = 56
+	overlay.offset_bottom = -328
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.gui_input.connect(_on_overlay_input)
+	overlay.draw.connect(_draw_scale)
+	overlay.name = "ScaleOverlay"
+	add_child(overlay)
+
+	add_child(JoyplanChrome.step_bar(
+		"1/2 临摹图比例",
+		"下一步",
+		func(): cancelled.emit(); FlowRouter.new_plan(self),
+		func(): _commit()
+	))
+
+	_build_keypad()
+	_build_loupe()
+	_build_reset()
+
+	_snack = preload("res://app/ui/snackbar.gd").new()
+	_snack.set_anchors_preset(PRESET_TOP_WIDE)
+	_snack.offset_left = 24
+	_snack.offset_right = -24
+	_snack.offset_top = 64
+	_snack.offset_bottom = 112
+	add_child(_snack)
+
+	var path := Session.last_import_path
+	if path.is_empty():
+		path = Session.last_import_uri
+	if path.is_empty():
+		path = ProjectSettings.globalize_path("res://fixtures/apt-plan-user-01.png")
+	if not load_image(path):
+		_make_demo()
+
+
+func _build_keypad() -> void:
+	var sheet := ColorRect.new()
+	sheet.color = Color.WHITE
+	sheet.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	sheet.anchor_top = 1.0
+	sheet.offset_top = -328
+	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(sheet)
+	var pad := MarginContainer.new()
+	pad.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 8)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	sheet.add_child(pad)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	pad.add_child(col)
+	_hint = Studio.label("请输入标注线的实际长度(mm)", Tokens.FONT_CAPTION, Tokens.TEXT_SECONDARY)
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_hint)
+	_mm = LineEdit.new()
+	_mm.text = str(int(round(Session.last_scale_mm))) if Session.last_scale_mm >= 10.0 else "900"
+	_mm.placeholder_text = "900"
+	_mm.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mm.custom_minimum_size = Vector2(0, 40)
+	_mm.virtual_keyboard_enabled = false
+	_mm.add_theme_font_override("font", Studio.font)
+	_mm.add_theme_font_size_override("font_size", 22)
+	var mm_sb := StyleBoxFlat.new()
+	mm_sb.bg_color = Color("F3F3F3")
+	mm_sb.set_corner_radius_all(10)
+	_mm.add_theme_stylebox_override("normal", mm_sb)
+	col.add_child(_mm)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for key in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "C"]:
+		grid.add_child(_key(key))
+	col.add_child(grid)
+
+
+func _key(label: String) -> Button:
+	var b := Button.new()
+	b.text = label
+	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 44)
+	b.add_theme_font_override("font", Studio.font)
+	b.add_theme_font_size_override("font_size", 20)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("F2F2F2")
+	sb.set_corner_radius_all(10)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("pressed", sb)
+	b.pressed.connect(func(): _type_key(label))
+	return b
+
+
+func _type_key(label: String) -> void:
+	if label == "⌫":
+		if _mm.text.length() > 0:
+			_mm.text = _mm.text.substr(0, _mm.text.length() - 1)
+		return
+	if label == "C":
+		_mm.text = ""
+		return
+	if _mm.text.length() >= 6:
+		return
+	_mm.text += label
+
+
+func _build_reset() -> void:
+	var reset := FlowIslands.circle_btn("↻", func():
+		if _img == null:
+			return
+		_a = Vector2(_img.get_width() * 0.28, _img.get_height() * 0.52)
+		_b = Vector2(_img.get_width() * 0.72, _img.get_height() * 0.52)
+		_queue_scale()
+	, 44, Color.WHITE, Tokens.TEXT_SECONDARY)
+	reset.set_anchors_preset(PRESET_CENTER)
+	reset.anchor_left = 0.5
+	reset.anchor_right = 0.5
+	reset.anchor_top = 0.5
+	reset.anchor_bottom = 0.5
+	reset.offset_left = -22
+	reset.offset_right = 22
+	reset.offset_top = 8
+	reset.offset_bottom = 52
+	add_child(reset)
+
+
+func _tip_bubble() -> void:
+	var tip := PanelContainer.new()
+	var sb := FlowIslands.frost(Color(0.18, 0.48, 0.98, 1), 10)
+	sb.shadow_size = 8
+	tip.add_theme_stylebox_override("panel", sb)
+	var lab := Studio.label("Place the scale on a known measurement", Tokens.FONT_CAPTION, Color.WHITE)
+	lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lab.custom_minimum_size = Vector2(160, 0)
+	tip.add_child(lab)
+	tip.set_anchors_preset(PRESET_CENTER_BOTTOM)
+	tip.anchor_left = 0.5
+	tip.anchor_right = 0.5
+	tip.offset_left = -90
+	tip.offset_right = 90
+	tip.offset_top = -186
+	tip.offset_bottom = -132
+	add_child(tip)
+
+
+func _build_loupe() -> void:
+	_loupe = Control.new()
+	_loupe.visible = false
+	_loupe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe.custom_minimum_size = Vector2(LOUPE_DST + 16, LOUPE_DST + 16)
+	_loupe.size = Vector2(LOUPE_DST + 16, LOUPE_DST + 16)
+	_loupe.draw.connect(_draw_loupe_ring)
+	var clip := Control.new()
+	clip.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	clip.offset_left = 8
+	clip.offset_top = 8
+	clip.offset_right = -8
+	clip.offset_bottom = -8
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe_tex = TextureRect.new()
+	_loupe_tex.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_loupe_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_loupe_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_loupe_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+void fragment() {
+	vec2 p = UV - vec2(0.5);
+	if (dot(p, p) > 0.25) discard;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	_loupe_tex.material = mat
+	clip.add_child(_loupe_tex)
+	_loupe.add_child(clip)
+	_loupe_cross = Control.new()
+	_loupe_cross.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_loupe_cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loupe_cross.draw.connect(_draw_loupe_cross)
+	_loupe.add_child(_loupe_cross)
+	add_child(_loupe)
+
+
+func load_image(path: String) -> bool:
+	var img := _decode_image(path)
+	if img == null or img.get_width() < 8:
+		return false
+	_img = img
+	_photo.texture = ImageTexture.create_from_image(_img)
+	_a = Vector2(_img.get_width() * 0.28, _img.get_height() * 0.52)
+	_b = Vector2(_img.get_width() * 0.72, _img.get_height() * 0.52)
+	queue_redraw()
+	_queue_scale()
+	return true
+
+
+func _decode_image(path: String) -> Image:
+	var candidates: Array[String] = [path]
+	if path.begins_with("user://") or path.begins_with("res://"):
+		candidates.append(ProjectSettings.globalize_path(path))
+	for p in candidates:
+		if p.is_empty():
+			continue
+		var buf := FileAccess.get_file_as_bytes(p)
+		if buf.size() >= 32:
+			var img := Image.new()
+			var ext := p.get_extension().to_lower()
+			var err := ERR_FILE_UNRECOGNIZED
+			if ext == "png":
+				err = img.load_png_from_buffer(buf)
+			elif ext == "jpg" or ext == "jpeg":
+				err = img.load_jpg_from_buffer(buf)
+			elif ext == "webp":
+				err = img.load_webp_from_buffer(buf)
+			if err != OK:
+				err = img.load(p)
+			if err == OK:
+				return img
+	if path.begins_with("res://"):
+		var tex = load(path)
+		if tex is Texture2D:
+			return (tex as Texture2D).get_image()
+	return null
+
+
+func _make_demo() -> void:
+	if load_image("res://fixtures/apt-plan-user-01.png"):
+		return
+	_img = Image.create(720, 960, false, Image.FORMAT_RGB8)
+	_img.fill(Color("EDE8E2"))
+	for y in range(80, 880):
+		for x in range(60, 66):
+			_img.set_pixel(x, y, Color("3A3A3A"))
+			_img.set_pixel(654, y, Color("3A3A3A"))
+	for x in range(60, 660):
+		for y in range(80, 86):
+			_img.set_pixel(x, y, Color("3A3A3A"))
+			_img.set_pixel(x, 874, Color("3A3A3A"))
+	_photo.texture = ImageTexture.create_from_image(_img)
+	_a = Vector2(120, 480)
+	_b = Vector2(520, 480)
+	queue_redraw()
+	_queue_scale()
+
+
+func _overlay() -> Control:
+	return get_node_or_null("ScaleOverlay") as Control
+
+
+func _cover_rect() -> Rect2:
+	## KEEP_ASPECT_COVERED of the photo, in ScaleOverlay local pixels.
+	var ov := _overlay()
+	var into := Rect2(Vector2.ZERO, ov.size if ov else size)
+	if into.size.x < 8.0 or into.size.y < 8.0:
+		into.size = Vector2(size.x, maxf(size.y - 384.0, 8.0))
+	if _img == null:
+		return into
+	var iw := float(_img.get_width())
+	var ih := float(_img.get_height())
+	var s := maxf(into.size.x / iw, into.size.y / ih)
+	var d := Vector2(iw, ih) * s
+	return Rect2(into.position + (into.size - d) * 0.5, d)
+
+
+func _img_to_overlay(p: Vector2) -> Vector2:
+	var r := _cover_rect()
+	if r.size.x < 1.0 or _img == null:
+		return p
+	return r.position + Vector2(
+		p.x / float(_img.get_width()) * r.size.x,
+		p.y / float(_img.get_height()) * r.size.y
+	)
+
+
+func _overlay_to_img(p: Vector2) -> Vector2:
+	var r := _cover_rect()
+	if r.size.x < 1.0 or _img == null:
+		return p
+	var q: Vector2 = (p - r.position) / r.size
+	return Vector2(
+		clampf(q.x, 0.0, 1.0) * float(_img.get_width()),
+		clampf(q.y, 0.0, 1.0) * float(_img.get_height())
+	)
+
+
+func _overlay_to_parent(p: Vector2) -> Vector2:
+	var ov := _overlay()
+	if ov == null:
+		return p
+	return get_global_transform().affine_inverse() * (ov.get_global_transform() * p)
+
+
+func _draw_scale() -> void:
+	var overlay := get_node_or_null("ScaleOverlay") as Control
+	if overlay == null or _img == null:
+		return
+	var pa := _img_to_overlay(_a)
+	var pb := _img_to_overlay(_b)
+	overlay.draw_line(pa, pb, Color(0.22, 0.55, 1.0, 1), 3.0)
+	var dir: Vector2 = pb - pa
+	var len := dir.length()
+	if len > 8.0:
+		var u: Vector2 = dir / len
+		var n := Vector2(-u.y, u.x)
+		var t := 10.0
+		while t < len - 10.0:
+			var p: Vector2 = pa + u * t
+			var tick := 7.0 if int(t / 10.0) % 4 == 0 else 4.0
+			overlay.draw_line(p - n * tick, p + n * tick, Color(0.22, 0.55, 1.0, 1), 2.0)
+			t += 10.0
+	_draw_handle_on(overlay, pa)
+	_draw_handle_on(overlay, pb)
+
+
+func _draw_handle_on(overlay: Control, p: Vector2) -> void:
+	overlay.draw_circle(p, _handle_r + 3.0, Color.WHITE)
+	overlay.draw_circle(p, _handle_r, Color(0.22, 0.55, 1.0, 1))
+	overlay.draw_circle(p, 4.0, Color.WHITE)
+
+
+func _queue_scale() -> void:
+	var overlay := get_node_or_null("ScaleOverlay") as Control
+	if overlay:
+		overlay.queue_redraw()
+	queue_redraw()
+
+
+func _draw_loupe_ring() -> void:
+	if _loupe == null:
+		return
+	var s: Vector2 = _loupe.size
+	var c := s * 0.5
+	var r := mini(s.x, s.y) * 0.5 - 2.0
+	_loupe.draw_circle(c, r, Color(0, 0, 0, 0.18))
+	_loupe.draw_arc(c, r - 1.0, 0.0, TAU, 48, Color.WHITE, 6.0)
+
+
+func _draw_loupe_cross() -> void:
+	if _loupe_cross == null:
+		return
+	var s: Vector2 = _loupe_cross.size
+	if s.x < 8.0:
+		s = Vector2(LOUPE_DST + 16, LOUPE_DST + 16)
+	var c := s * 0.5
+	var ink := Color(0.15, 0.15, 0.18)
+	_loupe_cross.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), Color.WHITE, 3.0)
+	_loupe_cross.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), Color.WHITE, 3.0)
+	_loupe_cross.draw_line(Vector2(c.x, 18), Vector2(c.x, s.y - 18), ink, 1.2)
+	_loupe_cross.draw_line(Vector2(18, c.y), Vector2(s.x - 18, c.y), ink, 1.2)
+	_loupe_cross.draw_arc(c, 10.0, 0.0, TAU, 32, ink, 1.4)
+
+
+func _to_overlay_local(viewport_pos: Vector2) -> Vector2:
+	var ov := _overlay()
+	if ov == null:
+		return viewport_pos
+	return ov.get_global_transform_with_canvas().affine_inverse() * viewport_pos
+
+
+func _event_pos(event: InputEvent) -> Vector2:
+	## Overlay.gui_input mouse events are overlay-local (also what capture synthesizes).
+	## ScreenTouch/ScreenDrag stay in viewport space on Android.
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		return (event as InputEventMouse).position
+	if event is InputEventScreenTouch:
+		return _to_overlay_local((event as InputEventScreenTouch).position)
+	if event is InputEventScreenDrag:
+		return _to_overlay_local((event as InputEventScreenDrag).position)
+	return Vector2.INF
+
+
+func _input(event: InputEvent) -> void:
+	## Phone taps can miss Control.gui_input; keep handle/bar drags alive via viewport events.
+	if _img == null:
+		return
+	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		return
+	var ov := _overlay()
+	if ov == null:
+		return
+	var pos := _event_pos(event)
+	if not is_finite(pos.x) or not is_finite(pos.y):
+		return
+	if not Rect2(Vector2(-HANDLE_HIT, -HANDLE_HIT), ov.size + Vector2(HANDLE_HIT * 2.0, HANDLE_HIT * 2.0)).has_point(pos):
+		return
+	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed and _hit(pos) == 0 and _drag == 0:
+		return
+	if event is InputEventScreenDrag and _drag == 0:
+		return
+	_on_overlay_input(event)
+	get_viewport().set_input_as_handled()
+
+
+func _on_overlay_input(event: InputEvent) -> void:
+	if _img == null:
+		return
+	var pos := _event_pos(event)
+	if not is_finite(pos.x) or not is_finite(pos.y):
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mb.pressed:
+			_begin_drag(pos)
+			if _drag != 0:
+				get_viewport().set_input_as_handled()
+		else:
+			_end_drag()
+		return
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			_begin_drag(pos)
+			if _drag != 0:
+				get_viewport().set_input_as_handled()
+		else:
+			_end_drag()
+		return
+	if _drag == 0:
+		return
+	if event is InputEventMouseMotion or event is InputEventScreenDrag:
+		_move_drag(pos)
+		get_viewport().set_input_as_handled()
+
+
+func _begin_drag(pos: Vector2) -> void:
+	_drag = _hit(pos)
+	_drag_pos = pos
+	if _drag != 0:
+		_show_loupe(_overlay_to_img(pos))
+
+
+func _move_drag(pos: Vector2) -> void:
+	if _drag == 3:
+		var delta: Vector2 = pos - _drag_pos
+		_a = _overlay_to_img(_img_to_overlay(_a) + delta)
+		_b = _overlay_to_img(_img_to_overlay(_b) + delta)
+		_drag_pos = pos
+	else:
+		_set_handle(_drag, _overlay_to_img(pos))
+		_drag_pos = pos
+	_show_loupe(_overlay_to_img(pos))
+	_queue_scale()
+
+
+func _end_drag() -> void:
+	_drag = 0
+	if _loupe:
+		_loupe.visible = false
+	_queue_scale()
+
+
+func _hit(pos: Vector2) -> int:
+	var pa := _img_to_overlay(_a)
+	var pb := _img_to_overlay(_b)
+	if pa.distance_to(pos) <= HANDLE_HIT:
+		return 1
+	if pb.distance_to(pos) <= HANDLE_HIT:
+		return 2
+	if _dist_to_seg(pos, pa, pb) <= BAR_HIT:
+		return 3
+	return 0
+
+
+func _dist_to_seg(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab: Vector2 = b - a
+	var denom := ab.length_squared()
+	if denom < 1.0:
+		return p.distance_to(a)
+	var t := clampf((p - a).dot(ab) / denom, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
+
+
+func _set_handle(which: int, img_pt: Vector2) -> void:
+	if which == 1:
+		_a = img_pt
+	elif which == 2:
+		_b = img_pt
+	queue_redraw()
+	_queue_scale()
+
+
+func _show_loupe(img_pt: Vector2) -> void:
+	if _img == null:
+		return
+	var src := LOUPE_SRC
+	var x := int(clampf(img_pt.x - src * 0.5, 0.0, float(_img.get_width() - src)))
+	var y := int(clampf(img_pt.y - src * 0.5, 0.0, float(_img.get_height() - src)))
+	var w := mini(src, _img.get_width() - x)
+	var h := mini(src, _img.get_height() - y)
+	if w < 4 or h < 4:
+		return
+	var crop := _img.get_region(Rect2i(x, y, w, h))
+	crop.resize(LOUPE_DST, LOUPE_DST, Image.INTERPOLATE_NEAREST)
+	_loupe_tex.texture = ImageTexture.create_from_image(crop)
+	_loupe.queue_redraw()
+	if _loupe_cross:
+		_loupe_cross.queue_redraw()
+	var ctrl := _overlay_to_parent(_img_to_overlay(img_pt))
+	var lw := float(LOUPE_DST + 16)
+	var above := ctrl.y - lw - 24.0
+	_loupe.position = Vector2(
+		clampf(ctrl.x - lw * 0.5, 8.0, maxf(size.x - lw - 8.0, 8.0)),
+		clampf(above if above > 8.0 else ctrl.y + 28.0, 8.0, maxf(size.y - lw - 8.0, 8.0))
+	)
+	_loupe.visible = true
+	_loupe.move_to_front()
+
+
+func _commit() -> void:
+	if _img == null:
+		_run_vision(0.0)
+		return
+	var px := _a.distance_to(_b)
+	var real_mm := _mm.text.strip_edges().to_float()
+	if px < 4.0 or real_mm < 10.0:
+		_hint.text = "请拉开标注线并输入至少 10 mm"
+		return
+	var mm_per_px := real_mm / px
+	Session.last_scale_mm = real_mm
+	Session.last_scale_mm_per_px = mm_per_px
+	calibrated.emit(mm_per_px, px, real_mm)
+	_run_vision(mm_per_px)
+
+
+func _run_vision(mm_per_px: float) -> void:
+	var uri := Session.last_import_uri
+	if uri.is_empty():
+		uri = Session.last_import_path
+	if uri.is_empty():
+		uri = "fixture:photo"
+	var err := Session.import_photo_vision(uri, mm_per_px)
+	if err != "":
+		if _snack:
+			_snack.show_message(err)
+		if Session.has_core():
+			Session.import_photo_fake(uri if not uri.is_empty() else "fixture:photo")
+	FlowRouter.generate(self)

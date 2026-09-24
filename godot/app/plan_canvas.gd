@@ -6,6 +6,7 @@ signal opening_clicked(opening_id, wall_id)
 
 var snapshot: Dictionary = {}
 var show_chrome: bool = true
+var joyplan_look: bool = false
 var interactive: bool = false
 var selected_id: String = ""
 var selected_opening_id: String = ""
@@ -16,8 +17,14 @@ var _map_min_y := 0.0
 var _map_ox := 0.0
 var _map_oy := 0.0
 var _map_scale := 1.0
+var _reg_active := false
+var _reg_mm := 0.0
+var _reg_origin := Vector2.ZERO
+var _reg_img := Vector2.ZERO
 var _segments: Array = []
 var _openings: Array = []
+var _photo: Texture2D
+var _photo_img: Image
 
 
 func set_sceneir_json(text: String) -> void:
@@ -27,6 +34,96 @@ func set_sceneir_json(text: String) -> void:
 		if typeof(parsed) == TYPE_DICTIONARY:
 			snapshot = parsed
 	queue_redraw()
+
+
+func load_photo(path: String) -> void:
+	var img := Image.new()
+	var candidates: Array[String] = [path]
+	if path.begins_with("user://") or path.begins_with("res://"):
+		candidates.append(ProjectSettings.globalize_path(path))
+	var ok := false
+	for p in candidates:
+		if p.is_empty():
+			continue
+		var buf := FileAccess.get_file_as_bytes(p)
+		if buf.size() >= 32:
+			var ext := p.get_extension().to_lower()
+			if ext == "png" and img.load_png_from_buffer(buf) == OK:
+				ok = true
+				break
+			if (ext == "jpg" or ext == "jpeg") and img.load_jpg_from_buffer(buf) == OK:
+				ok = true
+				break
+		if img.load(p) == OK:
+			ok = true
+			break
+	if not ok:
+		return
+	_photo_img = img
+	_photo = ImageTexture.create_from_image(img)
+	queue_redraw()
+
+
+func _photo_ink_ratio(p0: Vector2, p1: Vector2) -> float:
+	if _photo_img == null:
+		return 1.0
+	var cover := _photo_cover_rect()
+	if cover.size.x < 1.0 or cover.size.y < 1.0:
+		return 1.0
+	var iw := _photo_img.get_width()
+	var ih := _photo_img.get_height()
+	var n := maxi(6, int(p0.distance_to(p1) / 3.0))
+	var hits := 0
+	var tot := 0
+	for i in n + 1:
+		var p: Vector2 = p0.lerp(p1, float(i) / float(n))
+		var q: Vector2 = (p - cover.position) / cover.size * Vector2(iw, ih)
+		var x := int(floor(q.x))
+		var y := int(floor(q.y))
+		if x < 0 or y < 0 or x >= iw or y >= ih:
+			continue
+		tot += 1
+		var c: Color = _photo_img.get_pixel(x, y)
+		var lu := 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+		# Black shear + grey envelope strokes on the gold plan.
+		if lu < 0.62:
+			hits += 1
+	if tot < 4:
+		return 0.0
+	return float(hits) / float(tot)
+
+
+func _photo_cover_rect() -> Rect2:
+	if _photo == null:
+		return Rect2(Vector2.ZERO, size)
+	var tex: Vector2 = _photo.get_size()
+	if tex.x < 1.0 or tex.y < 1.0:
+		return Rect2(Vector2.ZERO, size)
+	var s := maxf(size.x / tex.x, size.y / tex.y)
+	var d := tex * s
+	return Rect2((size - d) * 0.5, d)
+
+
+func _vision_registration() -> Dictionary:
+	var vis: Dictionary = Session.last_vision if typeof(Session.last_vision) == TYPE_DICTIONARY else {}
+	var mm := float(vis.get("mm_per_px", 0))
+	if mm < 0.05:
+		mm = Session.last_scale_mm_per_px
+	var origin := Vector2(float(vis.get("origin_x_px", 0)), float(vis.get("origin_y_px", 0)))
+	var img_w := float(vis.get("image_width", 0))
+	var img_h := float(vis.get("image_height", 0))
+	if _photo:
+		if img_w < 8.0:
+			img_w = _photo.get_width()
+		if img_h < 8.0:
+			img_h = _photo.get_height()
+	if not vis.has("origin_x_px") or not vis.has("origin_y_px") or int(vis.get("image_width", 0)) < 8:
+		return {}
+	if not joyplan_look or _photo == null or mm < 0.05 or img_w < 8.0 or img_h < 8.0:
+		return {}
+	if str(vis.get("adapter", "")) == "fake":
+		return {}
+	return {"mm": mm, "origin": origin, "img": Vector2(img_w, img_h)}
 
 
 func _draw() -> void:
@@ -64,14 +161,31 @@ func _draw() -> void:
 	var ox: float = pad + ((size.x - 2.0 * pad) - dx * scale) * 0.5
 	var oy: float = pad + ((size.y - 2.0 * pad) - dy * scale) * 0.5
 
+	var reg := _vision_registration()
+	_reg_active = not reg.is_empty()
+	if _reg_active:
+		_reg_mm = float(reg.get("mm", 0))
+		_reg_origin = reg.get("origin", Vector2.ZERO)
+		_reg_img = reg.get("img", Vector2.ZERO)
+		var cover := _photo_cover_rect()
+		var s := cover.size.x / maxf(_reg_img.x, 1.0)
+		_map_scale = s / maxf(_reg_mm, 0.05)
+		_map_ox = cover.position.x
+		_map_oy = cover.position.y
+	else:
+		_reg_mm = 0.0
+		_reg_origin = Vector2.ZERO
+		_reg_img = Vector2.ZERO
+
 	var opening_count := 0
 	_segments.clear()
 	_openings.clear()
 	_map_min_x = min_x
 	_map_min_y = min_y
-	_map_ox = ox
-	_map_oy = oy
-	_map_scale = scale
+	if not _reg_active:
+		_map_ox = ox
+		_map_oy = oy
+		_map_scale = scale
 	_draw_room_fills(rooms, walls, min_x, min_y, max_x, max_y, ox, oy, scale)
 	for w in walls:
 		if typeof(w) != TYPE_DICTIONARY:
@@ -84,8 +198,20 @@ func _draw() -> void:
 
 
 func _draw_paper() -> void:
+	if joyplan_look:
+		if _photo:
+			var tex_size: Vector2 = _photo.get_size()
+			if tex_size.x > 1.0 and tex_size.y > 1.0:
+				var s := maxf(size.x / tex_size.x, size.y / tex_size.y)
+				var d := tex_size * s
+				var o := (size - d) * 0.5
+				draw_texture_rect(_photo, Rect2(o, d), false)
+			draw_rect(Rect2(Vector2.ZERO, size), Color(1, 0.78, 0.86, 0.12))
+		else:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0.98, 0.94, 0.95, 1))
+		return
 	draw_rect(Rect2(Vector2.ZERO, size), Tokens.PAPER)
-	if Session.ruler_on("grid"):
+	if Session.ruler_on("grid") and not joyplan_look:
 		var step := 24.0
 		var x := 0.0
 		while x < size.x:
@@ -95,7 +221,8 @@ func _draw_paper() -> void:
 		while y < size.y:
 			draw_line(Vector2(0, y), Vector2(size.x, y), Tokens.GRID, 1.0)
 			y += step
-	draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
+	if not joyplan_look:
+		draw_rect(Rect2(Vector2(8, 8), size - Vector2(16, 16)), Tokens.HAIRLINE, false, 1.0)
 
 
 func _draw_empty() -> void:
@@ -116,9 +243,15 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 	var p0 := _map(x0, y0, min_x, min_y, ox, oy, scale)
 	var p1 := _map(x1, y1, min_x, min_y, ox, oy, scale)
 	var kind := str(w.get("kind", "exterior"))
-	var stroke := Tokens.wall_stroke(kind)
+	var stroke := Tokens.WALL_JOY if joyplan_look else Tokens.wall_stroke(kind)
 	var thickness_mm := float(w.get("thicknessMm", 200))
 	var width: float = clampf(6.0 + thickness_mm / 80.0, 7.0, 14.0)
+	if joyplan_look:
+		width = clampf(8.0 + thickness_mm / 70.0, 8.0, 16.0)
+		if _reg_active and _photo:
+			var cover := _photo_cover_rect()
+			var px_per_mm := (cover.size.x / maxf(_reg_img.x, 1.0)) / maxf(_reg_mm, 0.05)
+			width = clampf(thickness_mm * px_per_mm, 5.0, 18.0)
 	var wid := str(w.get("id", ""))
 	var length: float = max(Vector2(x1 - x0, y1 - y0).length(), 1.0)
 	_segments.append({
@@ -128,11 +261,25 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 		"height_mm": float(w.get("heightMm", 2800)),
 	})
 	if selected_id == wid and selected_opening_id.is_empty():
-		draw_line(p0, p1, Tokens.PRIMARY_SOFT, width + 10.0)
-	draw_line(p0, p1, stroke, width)
-	if Tokens.is_load_bearing_kind(kind):
+		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 12.0)
+		draw_line(p0, p1, Tokens.PAGE_SELECT, width + 2.0)
+		if joyplan_look:
+			var mid: Vector2 = p0.lerp(p1, 0.55)
+			draw_circle(mid, 13.0, Tokens.PAGE_SELECT)
+			draw_circle(mid, 13.0, Color.WHITE, false, 1.2)
+			var fnt := _font()
+			draw_string(fnt, mid + Vector2(-5, 5), "L", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+	elif joyplan_look and _photo:
+		var ink := _photo_ink_ratio(p0, p1)
+		if ink >= 0.48:
+			var alpha := clampf(0.50 + ink * 0.42, 0.50, 0.92)
+			draw_line(p0, p1, Color(0.07, 0.07, 0.09, alpha), width)
+	else:
+		draw_line(p0, p1, stroke, width)
+	if Tokens.is_load_bearing_kind(kind) and not joyplan_look:
 		_draw_shear_hatch(p0, p1, width, stroke)
-	_draw_dim(p0, p1, length)
+	if not joyplan_look:
+		_draw_dim(p0, p1, length)
 
 	var ux := (x1 - x0) / length
 	var uy := (y1 - y0) / length
@@ -160,19 +307,23 @@ func _draw_wall(w: Dictionary, min_x: float, min_y: float, ox: float, oy: float,
 			"offset_mm": offset, "sill_mm": float(op.get("sillHeightMm", 0)),
 		})
 		if selected_opening_id == oid:
-			draw_line(qa, qb, Tokens.PRIMARY_SOFT, width + 8.0)
-		draw_line(qa, qb, Tokens.PAPER, width + 2.0)
-		draw_line(qa, qb, color, width - 1.0)
-		var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()
-		if okind == "door":
-			if Session.ruler_on("opening"):
-				var swing := Session.swing_for(oid)
-				var hinge: Vector2 = qa if swing > 0 else qb
-				var nn := n * (10.0 * float(swing))
-				draw_line(hinge, hinge + nn, color, 1.5)
-		elif okind == "window":
-			if Session.ruler_on("opening"):
-				draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
+			draw_line(qa, qb, Tokens.PAGE_SELECT, width + 8.0)
+		if joyplan_look and _photo:
+			if _photo_ink_ratio(p0, p1) >= 0.48:
+				draw_line(qa, qb, Color(1, 1, 1, 0.45), maxf(width - 2.0, 3.0))
+		else:
+			draw_line(qa, qb, Tokens.PAPER, width + 2.0)
+			draw_line(qa, qb, color, width - 1.0)
+			var n := Vector2(-(qb - qa).y, (qb - qa).x).normalized()
+			if okind == "door":
+				if Session.ruler_on("opening"):
+					var swing := Session.swing_for(oid)
+					var hinge: Vector2 = qa if swing > 0 else qb
+					var nn := n * (10.0 * float(swing))
+					draw_line(hinge, hinge + nn, color, 1.5)
+			elif okind == "window":
+				if Session.ruler_on("opening"):
+					draw_line(qa + n * 4.0, qb + n * 4.0, color, 1.5)
 	return count
 
 
@@ -210,14 +361,25 @@ func _draw_dim(p0: Vector2, p1: Vector2, length_mm: float) -> void:
 
 
 func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, max_x: float, max_y: float, ox: float, oy: float, scale: float) -> void:
+	if joyplan_look and _photo:
+		return
 	var palette: Array[Color] = [
-		Color(0.98, 0.90, 0.70, 0.38),
-		Color(0.86, 0.91, 0.97, 0.38),
-		Color(0.91, 0.86, 0.80, 0.38),
-		Color(0.88, 0.93, 0.86, 0.40),
-		Color(0.94, 0.88, 0.92, 0.38),
-		Color(0.90, 0.90, 0.86, 0.36),
+		Color(0.93, 0.93, 0.94, 0.50),
+		Color(0.96, 0.90, 0.82, 0.42),
+		Color(0.90, 0.92, 0.95, 0.42),
+		Color(0.92, 0.94, 0.90, 0.42),
+		Color(0.94, 0.90, 0.92, 0.40),
+		Color(0.91, 0.91, 0.88, 0.40),
 	]
+	if not joyplan_look:
+		palette = [
+			Color(0.98, 0.90, 0.70, 0.38),
+			Color(0.86, 0.91, 0.97, 0.38),
+			Color(0.91, 0.86, 0.80, 0.38),
+			Color(0.88, 0.93, 0.86, 0.40),
+			Color(0.94, 0.88, 0.92, 0.38),
+			Color(0.90, 0.90, 0.86, 0.36),
+		]
 	var named: Array = []
 	for room in rooms:
 		if typeof(room) == TYPE_DICTIONARY:
@@ -232,6 +394,8 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		if poly.size() < 3:
 			continue
 		var fill: Color = palette[i % palette.size()]
+		if joyplan_look and not selected_id.is_empty() and _pocket_touches_selected(poly):
+			fill = Tokens.PAGE_ORANGE
 		draw_colored_polygon(poly, fill)
 		var c: Vector2 = pk.get("centroid", Vector2.ZERO)
 		var area: float = float(pk.get("area_m2", 0))
@@ -249,14 +413,51 @@ func _draw_room_fills(rooms: Array, walls: Array, min_x: float, min_y: float, ma
 		var sub_size := 13
 		var tw := f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
 		var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x if show_area else 0.0
-		var bw := maxf(tw, sw) + 20.0
-		var bh := 38.0 if show_area else 26.0
-		var box := Rect2(c - Vector2(bw * 0.5, 22.0 if show_area else 14.0), Vector2(bw, bh))
-		draw_rect(box, Color(1, 1, 1, 0.82), true)
-		draw_rect(box, Tokens.HAIRLINE, false, 1.0)
-		draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
-		if show_area:
-			draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+		if joyplan_look:
+			draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+			if show_area:
+				draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+		else:
+			var bw := maxf(tw, sw) + 20.0
+			var bh := 38.0 if show_area else 26.0
+			var box := Rect2(c - Vector2(bw * 0.5, 22.0 if show_area else 14.0), Vector2(bw, bh))
+			draw_rect(box, Color(1, 1, 1, 0.82), true)
+			draw_rect(box, Tokens.HAIRLINE, false, 1.0)
+			draw_string(f, Vector2(c.x - tw * 0.5, c.y - (4 if show_area else -2)), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Tokens.TEXT)
+			if show_area:
+				draw_string(f, Vector2(c.x - sw * 0.5, c.y + 14), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Tokens.TEXT_SECONDARY)
+
+
+func _pocket_touches_selected(poly: PackedVector2Array) -> bool:
+	for seg in _segments:
+		if typeof(seg) != TYPE_DICTIONARY:
+			continue
+		if str(seg.get("id", "")) != selected_id:
+			continue
+		var mid: Vector2 = (seg.a + seg.b) * 0.5
+		if Geometry2D.is_point_in_polygon(mid, poly):
+			return true
+		if mid.distance_to(_poly_centroid(poly)) < 80.0:
+			return true
+	return false
+
+
+func _poly_centroid(poly: PackedVector2Array) -> Vector2:
+	var acc := Vector2.ZERO
+	for p in poly:
+		acc += p
+	return acc / float(maxi(poly.size(), 1))
+
+
+func selected_anchor() -> Vector2:
+	if not selected_opening_id.is_empty():
+		for op in _openings:
+			if typeof(op) == TYPE_DICTIONARY and str(op.get("id", "")) == selected_opening_id:
+				return (op.a + op.b) * 0.5
+	for seg in _segments:
+		if typeof(seg) == TYPE_DICTIONARY and str(seg.get("id", "")) == selected_id:
+			return (seg.a + seg.b) * 0.5
+	return size * 0.5
 
 
 func _format_area_m2(area: float) -> String:
@@ -460,6 +661,18 @@ func _swatch(pos: Vector2, color: Color) -> void:
 
 
 func _map(x: float, y: float, min_x: float, min_y: float, ox: float, oy: float, scale: float) -> Vector2:
+	if _reg_active and _reg_mm >= 0.05 and _photo:
+		var cover := _photo_cover_rect()
+		var tex: Vector2 = _photo.get_size()
+		var vis_img: Vector2 = _reg_img if _reg_img.x >= 8.0 else tex
+		# Vision origin + mm_per_px are in the analyzed SOURCE image. Scale that
+		# into the displayed texture, then into KEEP_ASPECT COVER of this canvas.
+		var px := _reg_origin.x + x / _reg_mm
+		var py := _reg_origin.y - y / _reg_mm
+		px *= tex.x / maxf(vis_img.x, 1.0)
+		py *= tex.y / maxf(vis_img.y, 1.0)
+		var s := cover.size.x / maxf(tex.x, 1.0)
+		return cover.position + Vector2(px, py) * s
 	# SceneIR Y up → canvas Y down.
 	return Vector2(ox + (x - min_x) * scale, size.y - (oy + (y - min_y) * scale))
 
@@ -576,8 +789,24 @@ func _draw_drop_preview() -> void:
 	draw_line(qa, qb, color, 6.0)
 	draw_circle(qa, 5.0, color)
 	draw_circle(qb, 5.0, color)
+	var n := Vector2(-(b - a).y, (b - a).x).normalized()
+	_draw_drag_dim(a, qa, n, Color(0.12, 0.12, 0.14), float(drop_preview.get("offset_mm", 0)))
+	var rest := float(drop_preview.get("length_mm", 1)) - float(drop_preview.get("offset_mm", 0)) - float(drop_preview.get("width_mm", 900))
+	_draw_drag_dim(qb, b, n, Tokens.DANGER, rest)
 	var label := Tokens.opening_label(kind)
 	draw_string(_font(), (qa + qb) * 0.5 + Vector2(-18, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+func _draw_drag_dim(p0: Vector2, p1: Vector2, n: Vector2, ink: Color, mm: float) -> void:
+	if p0.distance_to(p1) < 10.0:
+		return
+	var a: Vector2 = p0 + n * 12.0
+	var b: Vector2 = p1 + n * 12.0
+	draw_line(p0, a, ink, 1.0)
+	draw_line(p1, b, ink, 1.0)
+	draw_line(a, b, ink, 1.4)
+	var txt := "%d" % int(round(mm))
+	draw_string(_font(), (a + b) * 0.5 + Vector2(-14, -4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ink)
 
 
 func _gui_input(event: InputEvent) -> void:
