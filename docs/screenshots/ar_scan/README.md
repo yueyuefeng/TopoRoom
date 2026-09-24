@@ -13,3 +13,16 @@ TopoRoom P0 is **not** LiDAR-only. No depth accessory is required. Emulator / no
 | [05_edit_3d.png](./05_edit_3d.png) | 3D toggle still works |
 
 Walls are SceneIR commands (`add_wall` via `Session.add_ar_wall` / `commit_ar_polyline`). Kernel helper: `toporoom_document_add_polyline_walls`.
+
+## Debug APK 0.1.9 (`versionCode` 10)
+
+**每次构建升版本；签名固定.** Same debug cert as 0.1.0–0.1.8. Install over the previous build.
+
+| | |
+|---|---|
+| Package | `com.toporoom.godot` **0.1.9** (`versionCode` 10) arm64-v8a Debug |
+| File | `toporoom-android-debug.apk` (75 MB) |
+| SHA-256 | `26f7e07ad611dc6fd478560cf36dad3404c5c456e1171088f6c6cb6f67c89286` |
+| Cert SHA-256 | `d265124cfe5c728db2c9de55303750dcde10adb76d6c66c6b37763721a7492f3` |
+| Direct | https://litter.catbox.moe/83ozjj.apk |
+| Mirror | https://gofile.io/d/VtaKK0Su |
